@@ -94,9 +94,9 @@ export default function Home() {
         {/* Dashboard Preview Section */}
         <section className="container mx-auto px-4 sm:px-6 lg:px-8 mt-16 pb-16">
            <div className="relative">
-            <div className="absolute top-0 -left-12 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob"></div>
-            <div className="absolute top-0 -right-12 w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-2000"></div>
-            <div className="absolute -bottom-16 left-20 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-4000"></div>
+            <div className="absolute top-0 -left-12 w-72 h-72 bg-blue-500/20 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob"></div>
+            <div className="absolute top-0 -right-12 w-72 h-72 bg-indigo-500/20 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-2000"></div>
+            <div className="absolute -bottom-16 left-20 w-72 h-72 bg-purple-500/20 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-4000"></div>
              <div className="relative bg-card p-2 rounded-xl shadow-2xl transition-all hover:shadow-primary/20 border">
                 <Image
                   src="https://picsum.photos/seed/dashboard-preview/1200/675"
@@ -183,8 +183,8 @@ export default function Home() {
               </p>
             </div>
             <div className="mt-12 grid gap-8 md:grid-cols-3">
-              {testimonials.map((testimonial, index) => (
-                <Card key={index} className="flex flex-col justify-between bg-card">
+              {testimonials.map((testimonial) => (
+                <Card key={testimonial.name} className="flex flex-col justify-between bg-card">
                   <CardContent className="pt-6">
                     <div className="flex text-yellow-400 gap-0.5 mb-4">
                       {[...Array(5)].map((_, i) => <Star key={i} className="w-5 h-5 fill-current" />)}
