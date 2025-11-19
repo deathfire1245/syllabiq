@@ -1,3 +1,64 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "math-cover",
+      "description": "Abstract geometric shapes for mathematics",
+      "imageUrl": "https://images.unsplash.com/photo-1747654804688-896b1044f17e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8bWF0aGVtYXRpY3MlMjBnZW9tZXRyeXxlbnwwfHx8fDE3NjM0OTcyMTB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "mathematics geometry"
+    },
+    {
+      "id": "science-cover",
+      "description": "A microscope and beakers for science",
+      "imageUrl": "https://images.unsplash.com/photo-1618053238059-cc7761222f2a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxzY2llbmNlJTIwbGFib3JhdG9yeXxlbnwwfHx8fDE3NjM1MDU1NDR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "science laboratory"
+    },
+    {
+      "id": "history-cover",
+      "description": "Ancient scrolls and artifacts for history",
+      "imageUrl": "https://images.unsplash.com/photo-1748187318527-b257c0de6aaa?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxoaXN0b3J5JTIwYW5jaWVudHxlbnwwfHx8fDE3NjM0NzQ0MjZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "history ancient"
+    },
+    {
+      "id": "literature-cover",
+      "description": "A stack of classic books for literature",
+      "imageUrl": "https://images.unsplash.com/photo-1728734704184-00b0e1344ec0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Ym9va3MlMjBsaWJyYXJ5fGVufDB8fHx8MTc2MzU2MTE3M3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "books library"
+    },
+    {
+      "id": "algebra-topic",
+      "description": "A chalkboard with algebraic equations",
+      "imageUrl": "https://images.unsplash.com/photo-1758685845891-64736626610f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxhbGdlYnJhJTIwZXF1YXRpb258ZW58MHx8fHwxNzYzNTY0MjAwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "algebra equation"
+    },
+    {
+      "id": "geometry-topic",
+      "description": "Geometric shapes and compass on a desk",
+      "imageUrl": "https://images.unsplash.com/photo-1649182785115-eb5bd1c4cd45?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxnZW9tZXRyeSUyMHNoYXBlc3xlbnwwfHx8fDE3NjM1NjQyMDF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "geometry shapes"
+    },
+    {
+      "id": "physics-topic",
+      "description": "An apple falling from a tree, illustrating gravity",
+      "imageUrl": "https://images.unsplash.com/photo-1739287189738-3d9716316001?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwaHlzaWNzJTIwZ3Jhdml0eXxlbnwwfHx8fDE3NjM1NjQyMDF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "physics gravity"
+    },
+    {
+      "id": "chemistry-topic",
+      "description": "Colorful chemicals in test tubes",
+      "imageUrl": "https://images.unsplash.com/photo-1554475900-0a0350e3fc7b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxjaGVtaXN0cnklMjBsYWJ8ZW58MHx8fHwxNzYzNDczMDgwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "chemistry lab"
+    },
+    {
+      "id": "renaissance-topic",
+      "description": "Painting of the Mona Lisa",
+      "imageUrl": "https://images.unsplash.com/photo-1578926375605-eaf7559b1458?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxyZW5haXNzYW5jZSUyMGFydHxlbnwwfHx8fDE3NjM1MjQ0NDV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "renaissance art"
+    },
+    {
+      "id": "shakespeare-topic",
+      "description": "A quill and ink on a parchment with a skull",
+      "imageUrl": "https://images.unsplash.com/photo-1710980201869-13a1174deaed?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxzaGFrZXNwZWFyZSUyMHBsYXl8ZW58MHx8fHwxNzYzNTY0MjAxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "shakespeare play"
+    }
+  ]
 }
