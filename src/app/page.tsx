@@ -19,8 +19,8 @@ const features = [
     icon: Video,
     title: "Video Lessons",
     description: "Visual learners rejoice! Watch engaging video lessons that explain complex concepts simply.",
-    bgColor: "bg-accent/10",
-    iconColor: "text-accent",
+    bgColor: "bg-blue-100",
+    iconColor: "text-blue-600",
   },
   {
     icon: HelpCircle,
@@ -94,10 +94,10 @@ export default function Home() {
         {/* Dashboard Preview Section */}
         <section className="container mx-auto px-4 sm:px-6 lg:px-8 mt-16 pb-16">
            <div className="relative">
-            <div className="absolute top-0 -left-12 w-72 h-72 bg-blue-500/30 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob"></div>
-            <div className="absolute top-0 -right-12 w-72 h-72 bg-indigo-500/30 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-2000"></div>
-            <div className="absolute -bottom-16 left-20 w-72 h-72 bg-purple-500/30 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-4000"></div>
-             <div className="relative bg-card p-2 rounded-xl shadow-2xl transition-all hover:shadow-primary/20">
+            <div className="absolute top-0 -left-12 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob"></div>
+            <div className="absolute top-0 -right-12 w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-2000"></div>
+            <div className="absolute -bottom-16 left-20 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-4000"></div>
+             <div className="relative bg-card p-2 rounded-xl shadow-2xl transition-all hover:shadow-primary/20 border">
                 <Image
                   src="https://picsum.photos/seed/dashboard-preview/1200/675"
                   alt="SyllabiQ dashboard preview"
@@ -112,7 +112,7 @@ export default function Home() {
         </section>
 
         {/* Features Section */}
-        <section id="features" className="py-16 sm:py-24 bg-secondary">
+        <section id="features" className="py-16 sm:py-24 bg-secondary/50">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto">
               <h2 className="text-3xl md:text-4xl font-bold">Everything You Need to Succeed</h2>
@@ -122,7 +122,7 @@ export default function Home() {
             </div>
             <div className="mt-12 grid gap-8 md:grid-cols-3">
               {features.map((feature, index) => (
-                <Card key={index} className="text-center transition-transform hover:-translate-y-2 hover:shadow-xl">
+                <Card key={index} className="text-center transition-transform hover:-translate-y-2 hover:shadow-xl bg-card">
                   <CardHeader>
                     <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${feature.bgColor}`}>
                       <feature.icon className={`w-8 h-8 ${feature.iconColor}`} />
@@ -174,7 +174,7 @@ export default function Home() {
         </section>
 
         {/* Testimonials Section */}
-        <section id="testimonials" className="py-16 sm:py-24 bg-secondary">
+        <section id="testimonials" className="py-16 sm:py-24 bg-secondary/50">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto">
               <h2 className="text-3xl md:text-4xl font-bold">Loved by Students and Teachers</h2>
@@ -184,7 +184,7 @@ export default function Home() {
             </div>
             <div className="mt-12 grid gap-8 md:grid-cols-3">
               {testimonials.map((testimonial, index) => (
-                <Card key={index} className="flex flex-col justify-between">
+                <Card key={index} className="flex flex-col justify-between bg-card">
                   <CardContent className="pt-6">
                     <div className="flex text-yellow-400 gap-0.5 mb-4">
                       {[...Array(5)].map((_, i) => <Star key={i} className="w-5 h-5 fill-current" />)}

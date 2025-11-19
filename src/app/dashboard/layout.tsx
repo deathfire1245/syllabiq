@@ -55,7 +55,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <SidebarProvider>
       <div className="min-h-screen w-full">
-        <Sidebar collapsible="icon" className="border-r bg-card">
+        <Sidebar collapsible="icon" className="border-r bg-sidebar text-sidebar-foreground">
           <SidebarHeader className="p-4">
             <Logo size="md" className="group-data-[collapsible=icon]:hidden"/>
             <Logo size="sm" className="hidden group-data-[collapsible=icon]:flex justify-center"/>
