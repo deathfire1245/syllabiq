@@ -1,5 +1,5 @@
 import { getSubjects } from '@/lib/data';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 import Image from 'next/image';
 import { icons } from 'lucide-react';
@@ -21,7 +21,7 @@ export default function AllSubjectsPage() {
         <p className="text-muted-foreground">Explore all the subjects available on SyllabiQ.</p>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {subjects.map(subject => (
           <Link key={subject.id} href={`/dashboard/subjects/${subject.id}`} className="group block">
             <Card className="overflow-hidden h-full flex flex-col transition-all duration-300 ease-in-out group-hover:shadow-xl group-hover:-translate-y-1">
@@ -29,14 +29,14 @@ export default function AllSubjectsPage() {
                 <Image src={subject.coverImage.src} alt={subject.name} fill className="object-cover" data-ai-hint={subject.coverImage.hint} />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                 <Badge variant="secondary" className="absolute top-2 right-2">{subject.grade}</Badge>
-                <CardHeader className="absolute bottom-0 left-0 text-white">
-                  <CardTitle className="flex items-center gap-2">
-                    <Icon name={subject.icon} className="w-6 h-6 text-white" />
+              </div>
+              <CardContent className="p-4 flex-grow flex flex-col">
+                 <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                    <Icon name={subject.icon} className="w-5 h-5 text-primary" />
                     {subject.name}
                   </CardTitle>
-                  <CardDescription className="text-white/80">{subject.topics.length} topics</CardDescription>
-                </CardHeader>
-              </div>
+                  <CardDescription className="mt-2 text-sm text-muted-foreground flex-grow">{subject.topics.length} topics to explore</CardDescription>
+              </CardContent>
             </Card>
           </Link>
         ))}
