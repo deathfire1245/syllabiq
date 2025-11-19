@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { ArrowRight, BookOpenCheck, ChevronRight, Video, FileText, HelpCircle, User, Star } from "lucide-react";
 import Image from "next/image";
@@ -186,7 +187,7 @@ export default function Home() {
                 <Card key={index} className="flex flex-col justify-between">
                   <CardContent className="pt-6">
                     <div className="flex text-yellow-400 gap-0.5 mb-4">
-                      {[...Array(5)].map(i => <Star key={i} className="w-5 h-5 fill-current" />)}
+                      {[...Array(5)].map((_, i) => <Star key={i} className="w-5 h-5 fill-current" />)}
                     </div>
                     <p className="text-muted-foreground italic">"{testimonial.quote}"</p>
                   </CardContent>
