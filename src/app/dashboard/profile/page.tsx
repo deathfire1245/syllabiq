@@ -38,7 +38,7 @@ export default function ProfilePage() {
               <Label htmlFor="grade">Current Grade</Label>
               <Input id="grade" defaultValue="Grade 10" />
             </div>
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90">Update Profile</Button>
+          <Button>Update Profile</Button>
         </CardContent>
       </Card>
 
@@ -62,7 +62,7 @@ export default function ProfilePage() {
               <Input id="confirm-password" type="password" />
             </div>
           </div>
-           <Button className="bg-primary text-primary-foreground hover:bg-primary/90">Change Password</Button>
+           <Button>Change Password</Button>
         </CardContent>
       </Card>
     </div>

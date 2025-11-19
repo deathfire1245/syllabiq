@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -7,23 +8,13 @@ import {
   Book,
   Bookmark,
   Home,
-  MessageSquare,
+  Menu,
   Search,
   User,
+  X,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarTrigger,
-  SidebarInset,
-} from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -35,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/Logo";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const navItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
@@ -47,53 +39,98 @@ const mobileNavItems = [
   { href: "/dashboard/subjects", icon: Book, label: "Subjects" },
   { href: "/dashboard/bookmarks", icon: Bookmark, label: "Saved" },
   { href: "/dashboard/profile", icon: User, label: "Profile" },
-]
+];
+
+function SidebarNav({ isMobile = false }: { isMobile?: boolean }) {
+  const pathname = usePathname();
+  const items = isMobile ? mobileNavItems : navItems;
+  return (
+    <nav className={cn("flex flex-col gap-2", isMobile ? "p-4" : "")}>
+      {items.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted",
+            (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) &&
+              "bg-muted text-primary",
+             isMobile ? "text-base" : "text-sm"
+          )}
+        >
+          <item.icon className="h-5 w-5" />
+          {item.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = React.useState(false);
   const pathname = usePathname();
+  
+  React.useEffect(() => {
+    setIsMobileSheetOpen(false);
+  }, [pathname]);
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen w-full">
-        <Sidebar collapsible="icon" className="border-r bg-sidebar text-sidebar-foreground">
-          <SidebarHeader className="p-4">
-            <Logo size="md" className="group-data-[collapsible=icon]:hidden"/>
-            <Logo size="sm" className="hidden group-data-[collapsible=icon]:flex justify-center"/>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <Link href={item.href} passHref legacyBehavior>
-                    <SidebarMenuButton
-                      isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
-                      tooltip={{ children: item.label }}
-                    >
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarContent>
-        </Sidebar>
+    <div className="grid min-h-screen w-full md:grid-cols-[240px_1fr]">
+      {/* Desktop Sidebar */}
+      <aside className="hidden border-r bg-card md:block fixed top-0 left-0 h-full w-[240px]">
+        <div className="flex h-full max-h-screen flex-col gap-2">
+          <div className="flex h-16 items-center border-b px-6">
+            <Logo size="md" />
+          </div>
+          <div className="flex-1 overflow-y-auto py-2">
+            <SidebarNav />
+          </div>
+        </div>
+      </aside>
 
-        <SidebarInset>
-          <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6">
-            <SidebarTrigger className="md:hidden"/>
-            <div className="relative ml-auto flex-1 md:grow-0">
-              <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col md:pl-[240px]">
+         {/* Mobile and Right-side Header */}
+        <header className="flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30">
+          {/* Mobile Sidebar Trigger */}
+           <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0 md:hidden"
+              >
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle navigation menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="flex flex-col p-0 w-3/4">
+               <div className="flex h-16 items-center border-b px-6">
+                 <Logo size="md" />
+               </div>
+               <SidebarNav isMobile={true} />
+            </SheetContent>
+          </Sheet>
+
+          <div className="w-full flex-1">
+             {/* Can be used for breadcrumbs or page titles */}
+          </div>
+
+          <div className="flex items-center gap-4">
+             <div className="relative hidden md:block">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search topics..."
-                className="w-full rounded-lg bg-secondary pl-8 md:w-[200px] lg:w-[336px]"
+                placeholder="Search..."
+                className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px] bg-secondary"
               />
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="overflow-hidden rounded-full">
-                  <User />
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <Avatar>
+                    <AvatarImage src="https://picsum.photos/seed/user-avatar/100" alt="@syllabiq-user" />
+                    <AvatarFallback>U</AvatarFallback>
+                  </Avatar>
+                  <span className="sr-only">Toggle user menu</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -105,13 +142,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <DropdownMenuItem asChild><Link href="/">Logout</Link></DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </header>
-          <main className="flex-1 p-4 sm:p-6">{children}</main>
-        </SidebarInset>
+          </div>
+        </header>
         
-        <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t z-40 flex justify-around items-center">
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-background">
+          {children}
+        </main>
+
+        {/* Mobile Bottom Navigation */}
+        <footer className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t z-40 flex justify-around items-center">
           {mobileNavItems.map(item => (
-            <Link key={item.href} href={item.href} className={cn(
+             <Link key={item.href} href={item.href} className={cn(
               "flex flex-col items-center justify-center text-muted-foreground transition-colors w-1/4 pt-1",
               (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) && "text-primary"
             )}>
@@ -119,9 +160,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className="text-xs font-medium">{item.label}</span>
             </Link>
           ))}
-        </div>
-        <div className="md:hidden h-16" />
+        </footer>
+         {/* Spacer for bottom nav */}
+        <div className="h-16 md:hidden"></div>
       </div>
-    </SidebarProvider>
+    </div>
   );
 }
+
+// Add Avatar components here to avoid import issues in layout
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
