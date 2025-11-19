@@ -3,22 +3,13 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import Link from 'next/link';
 import Image from 'next/image';
 import { icons, Book, Bookmark, Activity } from 'lucide-react';
-import { useBookmarks } from '@/contexts/BookmarkContext';
+import { BookmarkCounter } from '@/components/BookmarkCounter';
 
 const Icon = ({ name, ...props }: { name: string; [key: string]: any }) => {
   const LucideIcon = icons[name as keyof typeof icons];
   if (!LucideIcon) return null;
   return <LucideIcon {...props} />;
 };
-
-// This is a server component, so we can't use hooks directly.
-// We'll create a client component to fetch bookmark count.
-const BookmarkCounter = () => {
-    'use client';
-    const { bookmarkedTopics } = useBookmarks();
-    return <span className="text-4xl font-bold">{bookmarkedTopics.length}</span>;
-}
-
 
 export default function DashboardPage() {
   const grades = getGrades();
@@ -46,7 +37,7 @@ export default function DashboardPage() {
               <card.icon className={`h-5 w-5 ${card.color}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-4xl font-bold">{card.value}</div>
+              <div className="text-4xl font-bold">{card.value === totalSubjects || card.value === totalTopics ? card.value : <BookmarkCounter />}</div>
             </CardContent>
           </Card>
         ))}
