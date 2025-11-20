@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ChevronRight, FileText, Video, HelpCircle, Star } from "lucide-react";
+import { ArrowRight, ChevronRight, FileText, Video, HelpCircle, Star, UserPlus, BookOpen, GraduationCap } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
@@ -50,6 +50,24 @@ const testimonials = [
     quote: "The important questions section helped me focus on what really matters. I scored 15% higher than I expected!",
     avatar: "https://picsum.photos/seed/sam/100"
   },
+];
+
+const timelineSteps = [
+    {
+        icon: UserPlus,
+        title: 'Sign Up',
+        description: 'Create your account and select your grade to get started.',
+    },
+    {
+        icon: BookOpen,
+        title: 'Choose a Subject',
+        description: 'Browse your subjects and pick a topic you want to master.',
+    },
+    {
+        icon: GraduationCap,
+        title: 'Start Learning',
+        description: 'Dive into notes, watch videos, and test your knowledge.',
+    },
 ];
 
 
@@ -147,28 +165,34 @@ export default function Home() {
                 Learning with SyllabiQ is as easy as one, two, three.
               </p>
             </div>
-            <div className="mt-12 grid md:grid-cols-3 gap-8 md:gap-4 items-start relative">
-                <div className="hidden md:block absolute top-1/2 left-0 w-full h-px bg-border -translate-y-1/2"></div>
-                <div className="hidden md:block absolute top-1/2 left-0 w-full h-1">
-                  <svg width="100%" height="100%" className="text-border">
-                    <line x1="0" y1="0" x2="100%" y2="0" stroke="currentColor" strokeWidth="2" strokeDasharray="8 8" />
-                  </svg>
-                </div>
-              <div className="relative flex flex-col items-center text-center">
-                <div className="h-16 w-16 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center text-primary font-bold text-2xl z-10 bg-background">1</div>
-                <h3 className="mt-6 text-xl font-semibold">Sign Up</h3>
-                <p className="mt-2 text-muted-foreground">Create your account and select your grade to get started.</p>
-              </div>
-              <div className="relative flex flex-col items-center text-center">
-                <div className="h-16 w-16 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center text-primary font-bold text-2xl z-10 bg-background">2</div>
-                <h3 className="mt-6 text-xl font-semibold">Choose a Subject</h3>
-                <p className="mt-2 text-muted-foreground">Browse your subjects and pick a topic you want to master.</p>
-              </div>
-              <div className="relative flex flex-col items-center text-center">
-                <div className="h-16 w-16 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center text-primary font-bold text-2xl z-10 bg-background">3</div>
-                <h3 className="mt-6 text-xl font-semibold">Start Learning</h3>
-                <p className="mt-2 text-muted-foreground">Dive into notes, watch videos, and test your knowledge.</p>
-              </div>
+            <div className="relative mt-16 max-w-2xl mx-auto">
+                <div className="absolute left-1/2 -translate-x-1/2 h-full w-0.5 bg-border -z-10" aria-hidden="true"></div>
+                
+                {timelineSteps.map((step, index) => {
+                  const Icon = step.icon;
+                  return (
+                    <div key={index} className="relative group mb-12 last:mb-0">
+                        <div className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-4 h-4 bg-primary rounded-full border-4 border-background transition-transform group-hover:scale-125"></div>
+                        
+                        <div className={`flex items-center gap-8 ${index % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
+                            <div className="flex-1">
+                                <Card className="p-6 transition-all duration-300 transform group-hover:scale-105 group-hover:shadow-primary/20 animate-pop-in">
+                                    <div className="flex items-center gap-4 mb-3">
+                                        <div className="bg-primary/10 text-primary p-3 rounded-full flex-shrink-0">
+                                            <Icon className="w-6 h-6" />
+                                        </div>
+                                        <h3 className="text-xl font-bold">{step.title}</h3>
+                                    </div>
+                                    <p className="text-muted-foreground">{step.description}</p>
+                                </Card>
+                            </div>
+                            <div className="hidden sm:flex flex-1 items-center justify-center text-5xl font-extrabold text-primary/20">
+                                0{index + 1}
+                            </div>
+                        </div>
+                    </div>
+                  );
+                })}
             </div>
           </div>
         </section>
@@ -187,7 +211,7 @@ export default function Home() {
                 <Card key={testimonial.name} className="flex flex-col justify-between bg-card">
                   <CardContent className="pt-6">
                     <div className="flex text-yellow-400 gap-0.5 mb-4">
-                      {[...Array(5)].map((_, i) => <Star key={`star-${i}`} className="w-5 h-5 fill-current" />)}
+                      {[...Array(5)].map((_, i) => <Star key={`star-${testimonial.name}-${i}`} className="w-5 h-5 fill-current" />)}
                     </div>
                     <p className="text-muted-foreground italic">"{testimonial.quote}"</p>
                   </CardContent>
