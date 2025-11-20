@@ -93,7 +93,7 @@ export default function Home() {
       </header>
       <main className="flex-grow">
         {/* Hero Section */}
-        <section className="relative h-[60vh] min-h-[500px] flex items-center justify-center text-center text-white">
+        <section className="relative h-[60vh] min-h-[500px] flex items-center justify-center text-center text-white animate-fade-in">
           <Image
             src="https://picsum.photos/seed/dashboard-preview/1920/1080"
             alt="Students learning"
@@ -124,7 +124,7 @@ export default function Home() {
         {/* Features Section */}
         <section id="features" className="py-16 sm:py-24 bg-secondary/50">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto">
+            <div className="text-center max-w-3xl mx-auto animate-fade-in">
               <h2 className="text-3xl md:text-4xl font-bold">Everything You Need to Succeed</h2>
               <p className="text-muted-foreground mt-4 text-lg">
                 We've packed SyllabiQ with features to help you study smarter, not harder.
@@ -132,7 +132,7 @@ export default function Home() {
             </div>
             <div className="mt-12 grid gap-8 md:grid-cols-3">
               {features.map((feature, index) => (
-                <Card key={index} className="text-center transition-transform hover:-translate-y-2 hover:shadow-xl bg-card">
+                <Card key={index} className="text-center transition-transform hover:-translate-y-2 hover:shadow-xl bg-card animate-pop-in" style={{ animationDelay: `${index * 150}ms` }}>
                   <CardHeader>
                     <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${feature.bgColor}`}>
                       <feature.icon className={`w-8 h-8 ${feature.iconColor}`} />
@@ -151,7 +151,7 @@ export default function Home() {
         {/* How It Works Section */}
         <section id="how-it-works" className="py-16 sm:py-24">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto">
+            <div className="text-center max-w-3xl mx-auto animate-fade-in">
               <h2 className="text-3xl md:text-4xl font-bold">Get Started in 3 Simple Steps</h2>
               <p className="text-muted-foreground mt-4 text-lg">
                 Learning with SyllabiQ is as easy as one, two, three.
@@ -168,7 +168,7 @@ export default function Home() {
                         
                         <div className={`flex items-center gap-8 ${index % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
                             <div className="flex-1">
-                                <Card className="p-6 transition-all duration-300 transform group-hover:scale-105 group-hover:shadow-primary/20 animate-pop-in">
+                                <Card className="p-6 transition-all duration-300 transform group-hover:scale-105 group-hover:shadow-primary/20 animate-pop-in" style={{ animationDelay: `${index * 200}ms` }}>
                                     <div className="flex items-center gap-4 mb-3">
                                         <div className="bg-primary/10 text-primary p-3 rounded-full flex-shrink-0">
                                             <Icon className="w-6 h-6" />
@@ -192,15 +192,15 @@ export default function Home() {
         {/* Testimonials Section */}
         <section id="testimonials" className="py-16 sm:py-24 bg-secondary/50">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto">
+            <div className="text-center max-w-3xl mx-auto animate-fade-in">
               <h2 className="text-3xl md:text-4xl font-bold">Loved by Students and Teachers</h2>
               <p className="text-muted-foreground mt-4 text-lg">
                 Don't just take our word for it. Here's what people are saying about SyllabiQ.
               </p>
             </div>
             <div className="mt-12 grid gap-8 md:grid-cols-3">
-              {testimonials.map((testimonial) => (
-                <Card key={testimonial.name} className="flex flex-col justify-between bg-card">
+              {testimonials.map((testimonial, index) => (
+                <Card key={testimonial.name} className="flex flex-col justify-between bg-card animate-pop-in" style={{ animationDelay: `${index * 150}ms` }}>
                   <CardContent className="pt-6">
                     <div className="flex text-yellow-400 gap-0.5 mb-4">
                       {[...Array(5)].map((_, i) => <Star key={`star-${testimonial.name}-${i}`} className="w-5 h-5 fill-current" />)}
@@ -221,7 +221,7 @@ export default function Home() {
         </section>
 
         {/* CTA Section */}
-        <section className="py-16 sm:py-24">
+        <section className="py-16 sm:py-24 animate-fade-in">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-3xl md:text-4xl font-bold">Ready to Simplify Your Studies?</h2>
             <p className="text-lg text-muted-foreground mt-4 max-w-2xl mx-auto">
