@@ -1,4 +1,5 @@
 
+
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ChevronRight, FileText, Video, HelpCircle, Star, UserPlus, BookOpen, GraduationCap } from "lucide-react";
 import Image from "next/image";
@@ -7,6 +8,13 @@ import { Logo } from "@/components/Logo";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel"
 
 const features = [
   {
@@ -136,22 +144,56 @@ export default function Home() {
                 We've packed SyllabiQ with features to help you study smarter, not harder.
               </p>
             </ScrollReveal>
-            <div className="mt-12 grid gap-8 md:grid-cols-3">
-              {features.map((feature, index) => (
-                <ScrollReveal key={index} delay={index * 0.1}>
-                  <Card className="text-center transition-transform hover:-translate-y-2 hover:shadow-xl bg-card h-full">
-                    <CardHeader>
-                      <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${feature.bgColor}`}>
-                        <feature.icon className={`w-8 h-8 ${feature.iconColor}`} />
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <CardTitle className="text-xl font-semibold">{feature.title}</CardTitle>
-                      <CardDescription className="mt-2 text-base">{feature.description}</CardDescription>
-                    </CardContent>
-                  </Card>
-                </ScrollReveal>
-              ))}
+            <div className="mt-12">
+              <div className="md:hidden">
+                <Carousel
+                  opts={{
+                    align: "start",
+                  }}
+                  className="w-full"
+                >
+                  <CarouselContent>
+                    {features.map((feature, index) => (
+                      <CarouselItem key={index} className="basis-full sm:basis-1/2">
+                         <div className="p-1 h-full">
+                          <ScrollReveal delay={index * 0.1} className="h-full">
+                            <Card className="text-center transition-transform hover:-translate-y-2 hover:shadow-xl bg-card h-full">
+                              <CardHeader>
+                                <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${feature.bgColor}`}>
+                                  <feature.icon className={`w-8 h-8 ${feature.iconColor}`} />
+                                </div>
+                              </CardHeader>
+                              <CardContent>
+                                <CardTitle className="text-xl font-semibold">{feature.title}</CardTitle>
+                                <CardDescription className="mt-2 text-base">{feature.description}</CardDescription>
+                              </CardContent>
+                            </Card>
+                          </ScrollReveal>
+                         </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious />
+                  <CarouselNext />
+                </Carousel>
+              </div>
+              <div className="hidden md:grid grid-cols-3 gap-8">
+                {features.map((feature, index) => (
+                  <ScrollReveal key={index} delay={index * 0.1}>
+                    <Card className="text-center transition-transform hover:-translate-y-2 hover:shadow-xl bg-card h-full">
+                      <CardHeader>
+                        <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center ${feature.bgColor}`}>
+                          <feature.icon className={`w-8 h-8 ${feature.iconColor}`} />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <CardTitle className="text-xl font-semibold">{feature.title}</CardTitle>
+                        <CardDescription className="mt-2 text-base">{feature.description}</CardDescription>
+                      </CardContent>
+                    </Card>
+                  </ScrollReveal>
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -211,26 +253,64 @@ export default function Home() {
                 Don't just take our word for it. Here's what people are saying about SyllabiQ.
               </p>
             </ScrollReveal>
-            <div className="mt-12 grid gap-8 md:grid-cols-3">
-              {testimonials.map((testimonial, index) => (
-                <ScrollReveal key={testimonial.name} delay={index * 0.1}>
-                  <Card className="flex flex-col justify-between bg-card h-full transition-transform hover:-translate-y-2 hover:shadow-xl">
-                    <CardContent className="pt-6">
-                      <div className="flex text-yellow-400 gap-0.5 mb-4">
-                        {[...Array(5)].map((_, i) => <Star key={`star-${testimonial.name}-${i}`} className="w-5 h-5 fill-current" />)}
-                      </div>
-                      <p className="text-muted-foreground italic">"{testimonial.quote}"</p>
-                    </CardContent>
-                    <CardHeader className="flex-row items-center gap-4">
-                      <Image src={testimonial.avatar} alt={testimonial.name} width={48} height={48} className="rounded-full" data-ai-hint="person avatar" />
-                      <div>
-                        <CardTitle className="text-base font-semibold">{testimonial.name}</CardTitle>
-                        <CardDescription>{testimonial.role}</CardDescription>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                </ScrollReveal>
-              ))}
+            <div className="mt-12">
+               <div className="md:hidden">
+                <Carousel
+                  opts={{
+                    align: "start",
+                  }}
+                  className="w-full"
+                >
+                  <CarouselContent>
+                    {testimonials.map((testimonial, index) => (
+                      <CarouselItem key={index} className="basis-full sm:basis-1/2">
+                        <div className="p-1 h-full">
+                          <ScrollReveal delay={index * 0.1} className="h-full">
+                            <Card className="flex flex-col justify-between bg-card h-full transition-transform hover:-translate-y-2 hover:shadow-xl">
+                              <CardContent className="pt-6">
+                                <div className="flex text-yellow-400 gap-0.5 mb-4">
+                                  {[...Array(5)].map((_, i) => <Star key={`star-${testimonial.name}-${i}`} className="w-5 h-5 fill-current" />)}
+                                </div>
+                                <p className="text-muted-foreground italic">"{testimonial.quote}"</p>
+                              </CardContent>
+                              <CardHeader className="flex-row items-center gap-4">
+                                <Image src={testimonial.avatar} alt={testimonial.name} width={48} height={48} className="rounded-full" data-ai-hint="person avatar" />
+                                <div>
+                                  <CardTitle className="text-base font-semibold">{testimonial.name}</CardTitle>
+                                  <CardDescription>{testimonial.role}</CardDescription>
+                                </div>
+                              </CardHeader>
+                            </Card>
+                          </ScrollReveal>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious />
+                  <CarouselNext />
+                </Carousel>
+              </div>
+              <div className="hidden md:grid grid-cols-3 gap-8">
+                {testimonials.map((testimonial, index) => (
+                  <ScrollReveal key={testimonial.name} delay={index * 0.1}>
+                    <Card className="flex flex-col justify-between bg-card h-full transition-transform hover:-translate-y-2 hover:shadow-xl">
+                      <CardContent className="pt-6">
+                        <div className="flex text-yellow-400 gap-0.5 mb-4">
+                          {[...Array(5)].map((_, i) => <Star key={`star-${testimonial.name}-${i}`} className="w-5 h-5 fill-current" />)}
+                        </div>
+                        <p className="text-muted-foreground italic">"{testimonial.quote}"</p>
+                      </CardContent>
+                      <CardHeader className="flex-row items-center gap-4">
+                        <Image src={testimonial.avatar} alt={testimonial.name} width={48} height={48} className="rounded-full" data-ai-hint="person avatar" />
+                        <div>
+                          <CardTitle className="text-base font-semibold">{testimonial.name}</CardTitle>
+                          <CardDescription>{testimonial.role}</CardDescription>
+                        </div>
+                      </CardHeader>
+                    </Card>
+                  </ScrollReveal>
+                ))}
+              </div>
             </div>
           </div>
         </section>
