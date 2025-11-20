@@ -85,7 +85,7 @@ export default function Home() {
             your learning efficiently. Master your subjects with ease.
           </p>
           <Button size="lg" asChild className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">
-            <Link href="/dashboard">
+            <Link href="/login">
               Start Learning Now <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
