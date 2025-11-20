@@ -82,7 +82,7 @@ const timelineSteps = [
 
 export default function Home() {
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
+    <div className="flex flex-col min-h-screen bg-background text-foreground overflow-x-hidden">
       <header className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center sticky top-0 z-50 bg-background/80 backdrop-blur-sm">
         <Logo />
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
@@ -145,7 +145,7 @@ export default function Home() {
               </p>
             </ScrollReveal>
             <div className="mt-12">
-              <div className="md:hidden">
+              <div className="md:hidden px-10">
                 <Carousel
                   opts={{
                     align: "start",
@@ -254,7 +254,7 @@ export default function Home() {
               </p>
             </ScrollReveal>
             <div className="mt-12">
-               <div className="md:hidden">
+               <div className="md:hidden px-10">
                 <Carousel
                   opts={{
                     align: "start",
