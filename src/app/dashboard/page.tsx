@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -8,40 +9,54 @@ import {
   GraduationCap,
   MessageSquare,
   Scroll,
+  BookOpen,
+  TrendingUp,
+  Clock,
+  Target,
+  History
 } from "lucide-react";
-import { getSubjects, getTopics } from "@/lib/data";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getSubjects } from "@/lib/data";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { AIChat } from "./_components/ai-chat";
 
 const iconMap: { [key: string]: React.ElementType } = {
   Calculator,
   FlaskConical,
   Scroll,
-  BookMarked,
-  GraduationCap,
+  BookOpen,
 };
 
 export default function DashboardPage() {
   const [isChatOpen, setIsChatOpen] = React.useState(false);
 
-  const subjects = getSubjects();
-  const bookmarkedTopics = getTopics().slice(0, 4); // Placeholder
+  const subjects = getSubjects().slice(0, 3); // Placeholder for "Your Subjects"
+  const recentTopics = getSubjects().flatMap(s => s.topics).slice(0,3);
+
+  const userStats = {
+    topicsCompleted: 18,
+    totalTopics: 50,
+    studyHours: 42,
+    quizzesTaken: 12,
+    avgScore: 88,
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* All Subjects Section */}
+      {/* Your Subjects Section */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight mb-4">All Subjects</h2>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <h2 className="text-2xl font-bold tracking-tight mb-4">Your Subjects</h2>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {subjects.map((subject, index) => {
-            const Icon = iconMap[subject.icon];
+            const Icon = iconMap[subject.icon] || BookOpen;
+            const progress = Math.floor(Math.random() * 50) + 25; // Random progress
             return (
               <Card
                 key={subject.id}
-                className="group relative overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-primary/20 animate-pop-in"
+                className="group relative overflow-hidden transform transition-all duration-300 hover:scale-[1.03] hover:shadow-primary/20 animate-pop-in"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-black/60 to-transparent transition-opacity duration-300 opacity-0 group-hover:opacity-100" />
@@ -51,6 +66,7 @@ export default function DashboardPage() {
                   width={600}
                   height={400}
                   className="object-cover w-full h-40 transition-transform duration-300 group-hover:scale-110"
+                  data-ai-hint={subject.coverImage.hint}
                 />
                 <CardHeader className="relative z-10 p-4 bg-card/80 backdrop-blur-sm">
                   <div className="flex items-center gap-3">
@@ -67,49 +83,75 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </CardHeader>
+                <CardContent className="p-4 pt-0">
+                   <div className="space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                           <p className="text-muted-foreground">Progress</p>
+                           <p className="font-medium text-primary">{progress}%</p>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                    </div>
+                </CardContent>
               </Card>
             );
           })}
         </div>
       </div>
 
-      {/* Bookmarks Section */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight mb-4">
-          Your Bookmarks
-        </h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          {bookmarkedTopics.map((topic, index) => (
-            <Card
-              key={topic.id}
-              className="group flex items-center gap-4 p-4 transform transition-all duration-300 hover:bg-secondary/50 hover:shadow-md animate-pop-in"
-               style={{ animationDelay: `${(subjects.length + index) * 100}ms` }}
-            >
-              <Image
-                src={topic.coverImage.src}
-                alt={topic.name}
-                width={80}
-                height={80}
-                className="rounded-lg object-cover w-16 h-16 sm:w-20 sm:h-20"
-              />
-              <div className="flex-grow">
-                <Badge
-                  variant="outline"
-                  className="mb-1 border-primary/50 text-primary"
-                >
-                  {topic.chapter}
-                </Badge>
-                <h3 className="font-semibold text-base line-clamp-1">
-                  {topic.name}
-                </h3>
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {topic.summary}
-                </p>
-              </div>
+      {/* User Stats Section */}
+       <div>
+        <h2 className="text-2xl font-bold tracking-tight mb-4">Your Progress</h2>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="animate-pop-in" style={{animationDelay: '300ms'}}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Topics Completed</CardTitle>
+                    <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{userStats.topicsCompleted} / {userStats.totalTopics}</div>
+                    <p className="text-xs text-muted-foreground mt-1">+5 from last week</p>
+                </CardContent>
             </Card>
-          ))}
+             <Card className="animate-pop-in" style={{animationDelay: '400ms'}}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Study Hours</CardTitle>
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{userStats.studyHours}</div>
+                    <p className="text-xs text-muted-foreground mt-1">Total time spent learning</p>
+                </CardContent>
+            </Card>
+             <Card className="animate-pop-in" style={{animationDelay: '500ms'}}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Average Score</CardTitle>
+                    <Target className="w-4 h-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{userStats.avgScore}%</div>
+                    <p className="text-xs text-muted-foreground mt-1">Across {userStats.quizzesTaken} quizzes</p>
+                </CardContent>
+            </Card>
+             <Card className="sm:col-span-2 lg:col-span-1 animate-pop-in" style={{animationDelay: '600ms'}}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Recently Accessed</CardTitle>
+                    <History className="w-4 h-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {recentTopics.map(topic => (
+                     <div key={topic.id} className="flex items-center gap-3 group">
+                        <Image src={topic.coverImage.src} alt={topic.name} width={40} height={40} className="rounded-md object-cover"/>
+                        <div>
+                          <p className="text-sm font-medium line-clamp-1 group-hover:text-primary transition-colors">{topic.name}</p>
+                          <p className="text-xs text-muted-foreground">{topic.chapter}</p>
+                        </div>
+                     </div>
+                  ))}
+                </CardContent>
+            </Card>
         </div>
       </div>
+
 
       {/* AI Chat Floating Button */}
       <div className="fixed bottom-6 right-6 z-50">
