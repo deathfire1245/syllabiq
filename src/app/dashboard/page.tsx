@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -27,7 +28,6 @@ const SubjectProgress = ({ subject, delay = 0 }: { subject: ReturnType<typeof ge
   const Icon = iconMap[subject.icon] || TrendingUp;
 
   React.useEffect(() => {
-    // Generate progress on client to avoid hydration mismatch
     const timer = setTimeout(() => {
         setProgress(Math.floor(Math.random() * 50) + 25);
     }, 100);

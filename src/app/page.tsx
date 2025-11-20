@@ -107,7 +107,7 @@ export default function Home() {
           <div className="container relative z-20 mx-auto px-4 sm:px-6 lg:px-8">
             <ScrollReveal>
               <Badge variant="secondary" className="mb-4 text-sm font-medium py-1 px-3">Your Personal Learning Assistant</Badge>
-              <h1 className="font-headline text-4xl md:text-6xl font-bold tracking-tight mb-6">
+              <h1 className="font-headline text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6">
                 Your Syllabus, Simplified.
               </h1>
             </ScrollReveal>
