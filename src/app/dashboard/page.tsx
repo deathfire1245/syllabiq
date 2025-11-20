@@ -15,13 +15,14 @@ import {
   Target,
   History
 } from "lucide-react";
-import { getSubjects } from "@/lib/data";
+import { getSubjects, getTopics } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { AIChat } from "./_components/ai-chat";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const iconMap: { [key: string]: React.ElementType } = {
   Calculator,
@@ -29,6 +30,70 @@ const iconMap: { [key: string]: React.ElementType } = {
   Scroll,
   BookOpen,
 };
+
+const SubjectProgress = ({ subject }: { subject: ReturnType<typeof getSubjects>[0] }) => {
+  const [progress, setProgress] = React.useState(0);
+  const Icon = iconMap[subject.icon] || BookOpen;
+
+  React.useEffect(() => {
+    // Generate progress on client to avoid hydration mismatch
+    setProgress(Math.floor(Math.random() * 50) + 25);
+  }, []);
+
+  return (
+    <Card
+      key={subject.id}
+      className="group relative overflow-hidden transform transition-all duration-300 hover:scale-[1.03] hover:shadow-primary/20 animate-pop-in"
+    >
+      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-black/60 to-transparent transition-opacity duration-300 opacity-0 group-hover:opacity-100" />
+      <Image
+        src={subject.coverImage.src}
+        alt={subject.name}
+        width={600}
+        height={400}
+        className="object-cover w-full h-40 transition-transform duration-300 group-hover:scale-110"
+        data-ai-hint={subject.coverImage.hint}
+      />
+      <CardHeader className="relative z-10 p-4 bg-card/80 backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          {Icon && (
+            <div className="bg-primary/10 text-primary p-2 rounded-lg">
+              <Icon className="w-6 h-6" />
+            </div>
+          )}
+          <div>
+            <CardTitle className="text-lg font-bold">
+              {subject.name}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">{`${subject.topics.length} topics`}</p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 pt-0">
+         <div className="space-y-2">
+            {progress > 0 ? (
+              <>
+                <div className="flex justify-between items-center text-sm">
+                   <p className="text-muted-foreground">Progress</p>
+                   <p className="font-medium text-primary">{progress}%</p>
+                </div>
+                <Progress value={progress} className="h-2" />
+              </>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-8" />
+                </div>
+                <Skeleton className="h-2 w-full" />
+              </div>
+            )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 
 export default function DashboardPage() {
   const [isChatOpen, setIsChatOpen] = React.useState(false);
@@ -50,51 +115,9 @@ export default function DashboardPage() {
       <div>
         <h2 className="text-2xl font-bold tracking-tight mb-4">Your Subjects</h2>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {subjects.map((subject, index) => {
-            const Icon = iconMap[subject.icon] || BookOpen;
-            const progress = Math.floor(Math.random() * 50) + 25; // Random progress
-            return (
-              <Card
-                key={subject.id}
-                className="group relative overflow-hidden transform transition-all duration-300 hover:scale-[1.03] hover:shadow-primary/20 animate-pop-in"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-black/60 to-transparent transition-opacity duration-300 opacity-0 group-hover:opacity-100" />
-                <Image
-                  src={subject.coverImage.src}
-                  alt={subject.name}
-                  width={600}
-                  height={400}
-                  className="object-cover w-full h-40 transition-transform duration-300 group-hover:scale-110"
-                  data-ai-hint={subject.coverImage.hint}
-                />
-                <CardHeader className="relative z-10 p-4 bg-card/80 backdrop-blur-sm">
-                  <div className="flex items-center gap-3">
-                    {Icon && (
-                      <div className="bg-primary/10 text-primary p-2 rounded-lg">
-                        <Icon className="w-6 h-6" />
-                      </div>
-                    )}
-                    <div>
-                      <CardTitle className="text-lg font-bold">
-                        {subject.name}
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground">{`${subject.topics.length} topics`}</p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                   <div className="space-y-2">
-                        <div className="flex justify-between items-center text-sm">
-                           <p className="text-muted-foreground">Progress</p>
-                           <p className="font-medium text-primary">{progress}%</p>
-                        </div>
-                        <Progress value={progress} className="h-2" />
-                    </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {subjects.map((subject, index) => (
+             <SubjectProgress key={subject.id} subject={subject} />
+          ))}
         </div>
       </div>
 
