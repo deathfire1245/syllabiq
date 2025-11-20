@@ -5,13 +5,12 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Book,
-  Bookmark,
+  MessageCircle,
   Home,
   Menu,
   Search,
   User,
-  X,
+  Star,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -27,17 +26,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/Logo";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const navItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
-  { href: "/dashboard/subjects", icon: Book, label: "All Subjects" },
-  { href: "/dashboard/bookmarks", icon: Bookmark, label: "Bookmarks" },
+  { href: "/dashboard/ai-chat", icon: MessageCircle, label: "AI Chat" },
 ];
 
 const mobileNavItems = [
   { href: "/dashboard", icon: Home, label: "Home" },
-  { href: "/dashboard/subjects", icon: Book, label: "Subjects" },
-  { href: "/dashboard/bookmarks", icon: Bookmark, label: "Saved" },
+  { href: "/dashboard/ai-chat", icon: MessageCircle, label: "AI Chat" },
+  { href: "/dashboard#bookmarks", icon: Star, label: "Saved" },
   { href: "/dashboard/profile", icon: User, label: "Profile" },
 ];
 
@@ -76,7 +75,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[240px_1fr]">
       {/* Desktop Sidebar */}
-      <aside className="hidden border-r bg-card md:block fixed top-0 left-0 h-full w-[240px]">
+      <aside className="hidden border-r bg-card md:block fixed top-0 left-0 h-full w-[240px] z-40">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-16 items-center border-b px-6">
             <Logo size="md" />
@@ -119,7 +118,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search..."
+                placeholder="Search topics..."
                 className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px] bg-secondary"
               />
             </div>
@@ -167,6 +166,3 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
-
-// Add Avatar components here to avoid import issues in layout
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
