@@ -93,40 +93,32 @@ export default function Home() {
       </header>
       <main className="flex-grow">
         {/* Hero Section */}
-        <section className="container mx-auto px-4 sm:px-6 lg:px-8 text-center pt-16 md:pt-24 pb-12">
-          <Badge variant="outline" className="mb-4 text-sm font-medium py-1 px-3">Your Personal Learning Assistant</Badge>
-          <h1 className="font-headline text-4xl md:text-6xl font-bold tracking-tight mb-6">
-            Your Syllabus, Simplified.
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-10">
-            SyllabiQ helps you access syllabus-based study material and organize
-            your learning efficiently. Master your subjects with ease.
-          </p>
-          <Button size="lg" asChild className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">
-            <Link href="/dashboard">
-              Start Learning Now <ArrowRight className="ml-2 h-5 w-5" />
-            </Link>
-          </Button>
-        </section>
-
-        {/* Dashboard Preview Section */}
-        <section className="container mx-auto px-4 sm:px-6 lg:px-8 mt-16 pb-16">
-           <div className="relative">
-            <div className="absolute top-0 -left-12 w-72 h-72 bg-blue-500/20 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob"></div>
-            <div className="absolute top-0 -right-12 w-72 h-72 bg-indigo-500/20 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-2000"></div>
-            <div className="absolute -bottom-16 left-20 w-72 h-72 bg-purple-500/20 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-4000"></div>
-             <div className="relative bg-card p-2 rounded-xl shadow-2xl transition-all hover:shadow-primary/20 border">
-                <Image
-                  src="https://picsum.photos/seed/dashboard-preview/1200/675"
-                  alt="SyllabiQ dashboard preview"
-                  width={1200}
-                  height={675}
-                  className="rounded-lg"
-                  data-ai-hint="education dashboard"
-                  priority
-                />
-             </div>
-           </div>
+        <section className="relative h-[60vh] min-h-[500px] flex items-center justify-center text-center text-white">
+          <Image
+            src="https://picsum.photos/seed/dashboard-preview/1920/1080"
+            alt="Students learning"
+            layout="fill"
+            objectFit="cover"
+            className="absolute inset-0 z-0"
+            data-ai-hint="education students"
+            priority
+          />
+          <div className="absolute inset-0 bg-black/50 z-10" />
+          <div className="container relative z-20 mx-auto px-4 sm:px-6 lg:px-8">
+            <Badge variant="secondary" className="mb-4 text-sm font-medium py-1 px-3">Your Personal Learning Assistant</Badge>
+            <h1 className="font-headline text-4xl md:text-6xl font-bold tracking-tight mb-6">
+              Your Syllabus, Simplified.
+            </h1>
+            <p className="text-lg md:text-xl text-white/90 max-w-3xl mx-auto mb-10">
+              SyllabiQ helps you access syllabus-based study material and organize
+              your learning efficiently. Master your subjects with ease.
+            </p>
+            <Button size="lg" asChild className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">
+              <Link href="/dashboard">
+                Start Learning Now <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
+            </Button>
+          </div>
         </section>
 
         {/* Features Section */}
@@ -283,3 +275,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
