@@ -48,19 +48,29 @@ const iconMap: { [key: string]: React.ElementType } = {
 };
 
 const SubjectProgress = ({ subject, delay = 0 }: { subject: ReturnType<typeof getSubjects>[0], delay?: number }) => {
-  const [progress, setProgress] = React.useState(0);
+  const ref = React.useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
+  const [animatedProgress, setAnimatedProgress] = React.useState(0);
+  const [initialProgress] = React.useState(Math.floor(Math.random() * 50) + 25);
   const Icon = iconMap[subject.icon] || TrendingUp;
 
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-        setProgress(Math.floor(Math.random() * 50) + 25);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
+    if (isInView) {
+      const controls = animate(0, initialProgress, {
+        duration: 1.5,
+        ease: "easeOut",
+        onUpdate(value) {
+          setAnimatedProgress(value);
+        },
+      });
+      return () => controls.stop();
+    }
+  }, [isInView, initialProgress]);
 
   return (
      <ScrollReveal delay={delay}>
         <Card
+        ref={ref}
         key={subject.id}
         className="group relative overflow-hidden transform transition-all duration-300 hover:scale-[1.03] hover:shadow-primary/20"
         >
@@ -90,13 +100,13 @@ const SubjectProgress = ({ subject, delay = 0 }: { subject: ReturnType<typeof ge
         </CardHeader>
         <CardContent className="p-4 pt-0">
             <div className="space-y-2">
-                {progress > 0 ? (
+                {isInView ? (
                 <>
                     <div className="flex justify-between items-center text-sm">
                     <p className="text-muted-foreground">Progress</p>
-                    <p className="font-medium text-primary">{progress}%</p>
+                    <p className="font-medium text-primary">{Math.round(animatedProgress)}%</p>
                     </div>
-                    <Progress value={progress} className="h-2" />
+                    <Progress value={animatedProgress} className="h-2" />
                 </>
                 ) : (
                 <div className="space-y-2">
