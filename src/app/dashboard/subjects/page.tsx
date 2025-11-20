@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import Image from "next/image";
 import { BookOpen, Calculator, FlaskConical, Scroll, Globe, Dna, Beaker, Atom, Landmark, Paintbrush, Music, Code, Sigma, BarChart3, Globe2, Scale, BrainCircuit, Users, Leaf, Bike, HeartPulse, Theater, Pen, Languages } from "lucide-react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { ScrollReveal } from "@/components/ScrollReveal";
 
 const iconMap: { [key: string]: React.ElementType } = {
   Calculator,
@@ -39,17 +39,18 @@ export default function SubjectsPage() {
   const subjects = getSubjects();
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div>
+    <div className="space-y-8">
+      <ScrollReveal>
         <h1 className="text-3xl font-bold tracking-tight mb-4">All Subjects</h1>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {subjects.map((subject, index) => {
-            const Icon = iconMap[subject.icon] || BookOpen;
-            return (
-              <Link href={`/dashboard/subjects/${subject.id}`} key={subject.id}>
+      </ScrollReveal>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {subjects.map((subject, index) => {
+          const Icon = iconMap[subject.icon] || BookOpen;
+          return (
+            <ScrollReveal key={subject.id} delay={index * 0.05}>
+              <Link href={`/dashboard/subjects/${subject.id}`}>
                 <Card
-                  className="group relative overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-primary/20 animate-pop-in"
-                  style={{ animationDelay: `${index * 100}ms` }}
+                  className="group relative overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-primary/20 h-full"
                 >
                   <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-black/60 to-transparent transition-opacity duration-300 opacity-0 group-hover:opacity-100" />
                   <Image
@@ -75,9 +76,9 @@ export default function SubjectsPage() {
                   </CardHeader>
                 </Card>
               </Link>
-            );
-          })}
-        </div>
+            </ScrollReveal>
+          );
+        })}
       </div>
     </div>
   );
