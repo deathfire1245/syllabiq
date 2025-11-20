@@ -1,3 +1,4 @@
+
 import type { Grade, Subject, Topic } from "./types";
 import { PlaceHolderImages } from "./placeholder-images";
 
@@ -118,7 +119,176 @@ const subjects: Subject[] = [
     coverImage: getImage('literature-cover'),
     topics: [],
   },
+  {
+    id: 'geography-10',
+    grade: 'Grade 10',
+    name: 'Geography',
+    icon: 'Globe',
+    coverImage: getImage('geography-cover'),
+    topics: [],
+  },
+  {
+    id: 'biology-11',
+    grade: 'Grade 11',
+    name: 'Biology',
+    icon: 'Dna',
+    coverImage: getImage('biology-cover'),
+    topics: [],
+  },
+  {
+    id: 'chemistry-11',
+    grade: 'Grade 11',
+    name: 'Chemistry',
+    icon: 'Beaker',
+    coverImage: getImage('chemistry-topic'),
+    topics: [],
+  },
+  {
+    id: 'physics-12',
+    grade: 'Grade 12',
+    name: 'Physics',
+    icon: 'Atom',
+    coverImage: getImage('physics-topic'),
+    topics: [],
+  },
+  {
+    id: 'economics-12',
+    grade: 'Grade 12',
+    name: 'Economics',
+    icon: 'Landmark',
+    coverImage: getImage('economics-cover'),
+    topics: [],
+  },
+  {
+    id: 'art-10',
+    grade: 'Grade 10',
+    name: 'Art History',
+    icon: 'Paintbrush',
+    coverImage: getImage('art-cover'),
+    topics: [],
+  },
+  {
+    id: 'music-11',
+    grade: 'Grade 11',
+    name: 'Music Theory',
+    icon: 'Music',
+    coverImage: getImage('music-cover'),
+    topics: [],
+  },
+  {
+    id: 'computer-science-12',
+    grade: 'Grade 12',
+    name: 'Computer Science',
+    icon: 'Code',
+    coverImage: getImage('cs-cover'),
+    topics: [],
+  },
+  {
+    id: 'calculus-12',
+    grade: 'Grade 12',
+    name: 'Calculus',
+    icon: 'Sigma',
+    coverImage: getImage('calculus-cover'),
+    topics: [],
+  },
+  {
+    id: 'statistics-11',
+    grade: 'Grade 11',
+    name: 'Statistics',
+    icon: 'BarChart3',
+    coverImage: getImage('statistics-cover'),
+    topics: [],
+  },
+  {
+    id: 'world-history-11',
+    grade: 'Grade 11',
+    name: 'World History',
+    icon: 'Globe2',
+    coverImage: getImage('world-history-cover'),
+    topics: [],
+  },
+  {
+    id: 'civics-10',
+    grade: 'Grade 10',
+    name: 'Civics',
+    icon: 'Scale',
+    coverImage: getImage('civics-cover'),
+    topics: [],
+  },
+  {
+    id: 'psychology-12',
+    grade: 'Grade 12',
+    name: 'Psychology',
+    icon: 'BrainCircuit',
+    coverImage: getImage('psychology-cover'),
+    topics: [],
+  },
+  {
+    id: 'sociology-12',
+    grade: 'Grade 12',
+    name: 'Sociology',
+    icon: 'Users',
+    coverImage: getImage('sociology-cover'),
+    topics: [],
+  },
+  {
+    id: 'environmental-science-11',
+    grade: 'Grade 11',
+    name: 'Environmental Science',
+    icon: 'Leaf',
+    coverImage: getImage('env-science-cover'),
+    topics: [],
+  },
+  {
+    id: 'physical-education-10',
+    grade: 'Grade 10',
+    name: 'Physical Education',
+    icon: 'Bike',
+    coverImage: getImage('pe-cover'),
+    topics: [],
+  },
+  {
+    id: 'health-10',
+    grade: 'Grade 10',
+    name: 'Health',
+    icon: 'HeartPulse',
+    coverImage: getImage('health-cover'),
+    topics: [],
+  },
+  {
+    id: 'drama-11',
+    grade: 'Grade 11',
+    name: 'Drama',
+    icon: 'Theater',
+    coverImage: getImage('drama-cover'),
+    topics: [],
+  },
+  {
+    id: 'creative-writing-12',
+    grade: 'Grade 12',
+    name: 'Creative Writing',
+    icon: 'Pen',
+    coverImage: getImage('writing-cover'),
+    topics: [],
+  },
+  {
+    id: 'philosophy-12',
+    grade: 'Grade 12',
+    name: 'Philosophy',
+    icon: 'BookOpen',
+    coverImage: getImage('philosophy-cover'),
+    topics: [],
+  },
+  {
+    id: 'foreign-language-10',
+    grade: 'Grade 10',
+    name: 'Foreign Language',
+    icon: 'Languages',
+    coverImage: getImage('language-cover'),
+    topics: [],
+  }
 ];
+
 
 const grades: Grade[] = [
   {
@@ -130,6 +300,11 @@ const grades: Grade[] = [
     id: 'grade-11',
     name: 'Grade 11',
     subjects: subjects.filter(s => s.grade === 'Grade 11'),
+  },
+  {
+    id: 'grade-12',
+    name: 'Grade 12',
+    subjects: subjects.filter(s => s.grade === 'Grade 12'),
   }
 ];
 
@@ -141,3 +316,4 @@ export const getTopics = () => topics;
 export const getSubjectById = (id: string) => subjects.find(s => s.id === id);
 export const getTopicsBySubjectId = (subjectId: string) => topics.filter(t => t.subjectId === subjectId);
 export const getTopicById = (id: string) => topics.find(t => t.id === id);
+

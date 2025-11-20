@@ -4,7 +4,7 @@
 import { getSubjects } from "@/lib/data";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Image from "next/image";
-import { BookOpen, Calculator, FlaskConical, Scroll } from "lucide-react";
+import { BookOpen, Calculator, FlaskConical, Scroll, Globe, Dna, Beaker, Atom, Landmark, Paintbrush, Music, Code, Sigma, BarChart3, Globe2, Scale, BrainCircuit, Users, Leaf, Bike, HeartPulse, Theater, Pen, Languages } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
@@ -13,6 +13,26 @@ const iconMap: { [key: string]: React.ElementType } = {
   FlaskConical,
   Scroll,
   BookOpen,
+  Globe,
+  Dna,
+  Beaker,
+  Atom,
+  Landmark,
+  Paintbrush,
+  Music,
+  Code,
+  Sigma,
+  BarChart3,
+  Globe2,
+  Scale,
+  BrainCircuit,
+  Users,
+  Leaf,
+  Bike,
+  HeartPulse,
+  Theater,
+  Pen,
+  Languages,
 };
 
 export default function SubjectsPage() {

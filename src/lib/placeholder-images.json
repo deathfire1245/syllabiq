@@ -59,6 +59,120 @@
       "description": "A quill and ink on a parchment with a skull",
       "imageUrl": "https://images.unsplash.com/photo-1710980201869-13a1174deaed?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxzaGFrZXNwZWFyZSUyMHBsYXl8ZW58MHx8fHwxNzYzNTY0MjAxfDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "shakespeare play"
+    },
+    {
+      "id": "geography-cover",
+      "description": "A world map",
+      "imageUrl": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHx3b3JsZCUyMG1hcHxlbnwwfHx8fDE3NjM1NjkxNzJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "world map"
+    },
+    {
+      "id": "biology-cover",
+      "description": "A DNA helix",
+      "imageUrl": "https://images.unsplash.com/photo-1738944910367-1544d7c1184a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8ZG5hJTIwaGVsaXh8ZW58MHx8fHwxNzYzNjI4NDMxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "dna helix"
+    },
+    {
+      "id": "economics-cover",
+      "description": "Stock market chart",
+      "imageUrl": "https://images.unsplash.com/photo-1439434768192-c60615c1b3c8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxzdG9jayUyMG1hcmtldHxlbnwwfHx8fDE3NjM1OTMwMzB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "stock market"
+    },
+    {
+      "id": "art-cover",
+      "description": "Paint brushes and palettes",
+      "imageUrl": "https://images.unsplash.com/photo-1613746203812-717e6e5db3da?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxwYWludCUyMGJydXNoZXN8ZW58MHx8fHwxNzYzNTcwMzEyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "paint brushes"
+    },
+    {
+      "id": "music-cover",
+      "description": "Musical notes on a sheet",
+      "imageUrl": "https://images.unsplash.com/photo-1642744901911-89c13f549c9c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxtdXNpY2FsJTIwbm90ZXN8ZW58MHx8fHwxNzYzNTMzNzk0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "musical notes"
+    },
+    {
+      "id": "cs-cover",
+      "description": "Code on a screen",
+      "imageUrl": "https://images.unsplash.com/photo-1658274474851-fda40d4c309d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjb2RlJTIwc2NyZWVufGVufDB8fHx8MTc2MzU2MzUzOXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "code screen"
+    },
+    {
+      "id": "calculus-cover",
+      "description": "A graph of a function",
+      "imageUrl": "https://images.unsplash.com/photo-1758685848061-3080d0780285?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjYWxjdWx1cyUyMGdyYXBofGVufDB8fHx8MTc2MzYyMDQ3M3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "calculus graph"
+    },
+    {
+      "id": "statistics-cover",
+      "description": "A bell curve",
+      "imageUrl": "https://images.unsplash.com/photo-1521067842-8d1618327b7f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxiZWxsJTIwY3VydmV8ZW58MHx8fHwxNzYzNjUxODU1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "bell curve"
+    },
+    {
+      "id": "world-history-cover",
+      "description": "Ancient ruins",
+      "imageUrl": "https://images.unsplash.com/photo-1580102488613-fa55ab5de62a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxhbmNpZW50JTIwcnVpbnN8ZW58MHx8fHwxNzYzNTkxNjk3fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "ancient ruins"
+    },
+    {
+      "id": "civics-cover",
+      "description": "A government building",
+      "imageUrl": "https://images.unsplash.com/photo-1625516581237-3d9d0a31538c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxnb3Zlcm5tZW50JTIwYnVpbGRpbmd8ZW58MHx8fHwxNzYzNjE1NjIxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "government building"
+    },
+    {
+      "id": "psychology-cover",
+      "description": "An illustration of a brain",
+      "imageUrl": "https://images.unsplash.com/photo-1714925240690-4b6966173363?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxicmFpbiUyMGlsbHVzdHJhdGlvbnxlbnwwfHx8fDE3NjM2NTE4NTZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "brain illustration"
+    },
+    {
+      "id": "sociology-cover",
+      "description": "A crowd of diverse people",
+      "imageUrl": "https://images.unsplash.com/photo-1651346844421-ffa7768a3074?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjcm93ZCUyMHBlb3BsZXxlbnwwfHx8fDE3NjM2NTE3Mjd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "crowd people"
+    },
+    {
+      "id": "env-science-cover",
+      "description": "A lush green forest",
+      "imageUrl": "https://images.unsplash.com/photo-1599220144359-d4b723bd476d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxncmVlbiUyMGZvcmVzdHxlbnwwfHx8fDE3NjM2MjM2NjF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "green forest"
+    },
+    {
+      "id": "pe-cover",
+      "description": "Various sports equipment",
+      "imageUrl": "https://images.unsplash.com/photo-1595827432953-7161e19e303e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8c3BvcnRzJTIwZXF1aXBtZW50fGVufDB8fHx8MTc2MzY1MTg1Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "sports equipment"
+    },
+    {
+      "id": "health-cover",
+      "description": "A stethoscope and an apple",
+      "imageUrl": "https://images.unsplash.com/photo-1731321967800-0ff62f80a535?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxoZWFsdGglMjBhcHBsZXxlbnwwfHx8fDE3NjM1Nzc4OTR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "health apple"
+    },
+    {
+      "id": "drama-cover",
+      "description": "Comedy and tragedy masks",
+      "imageUrl": "https://images.unsplash.com/photo-1643946323948-27efe56458bb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxkcmFtYSUyMG1hc2tzfGVufDB8fHx8MTc2MzY1MTg1NXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "drama masks"
+    },
+    {
+      "id": "writing-cover",
+      "description": "A fountain pen on a notebook",
+      "imageUrl": "https://images.unsplash.com/photo-1580127645995-d43fe9598711?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxmb3VudGFpbiUyMHBlbnxlbnwwfHx8fDE3NjM2MjI2Njh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "fountain pen"
+    },
+    {
+      "id": "philosophy-cover",
+      "description": "A bust of a Greek philosopher",
+      "imageUrl": "https://images.unsplash.com/photo-1580916001969-64a10e968bc9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8cGhpbG9zb3BoZXIlMjBidXN0fGVufDB8fHx8MTc2MzY1MTg1NXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "philosopher bust"
+    },
+    {
+      "id": "language-cover",
+      "description": "Flags of different countries",
+      "imageUrl": "https://images.unsplash.com/photo-1563711246253-b4af863acbd4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjb3VudHJ5JTIwZmxhZ3N8ZW58MHx8fHwxNzYzNjUwMzUyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "country flags"
     }
   ]
 }
