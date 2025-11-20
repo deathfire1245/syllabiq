@@ -10,6 +10,7 @@ interface ScrollRevealProps {
   delay?: number;
   duration?: number;
   yOffset?: number;
+  xOffset?: number;
 }
 
 export function ScrollReveal({
@@ -18,13 +19,14 @@ export function ScrollReveal({
   delay = 0,
   duration = 0.5,
   yOffset = 24,
+  xOffset = 0,
 }: ScrollRevealProps) {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-50px' });
 
   const variants = {
-    hidden: { opacity: 0, y: yOffset },
-    visible: { opacity: 1, y: 0 },
+    hidden: { opacity: 0, y: yOffset, x: xOffset },
+    visible: { opacity: 1, y: 0, x: 0 },
   };
 
   return (

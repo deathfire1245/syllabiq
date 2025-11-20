@@ -170,10 +170,16 @@ export default function Home() {
                 
                 {timelineSteps.map((step, index) => {
                   const Icon = step.icon;
+                  const isEven = index % 2 === 0;
                   return (
-                    <ScrollReveal key={index} className="relative group mb-12 last:mb-0">
+                    <ScrollReveal 
+                      key={index} 
+                      className="relative group mb-12 last:mb-0"
+                      xOffset={isEven ? -50 : 50}
+                      yOffset={0}
+                    >
                       <div className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-4 h-4 bg-primary rounded-full border-4 border-background transition-transform group-hover:scale-125"></div>
-                      <div className={`flex items-center gap-8 ${index % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
+                      <div className={`flex items-center gap-8 ${isEven ? 'flex-row' : 'flex-row-reverse'}`}>
                           <div className="flex-1">
                               <Card className="p-6 transition-all duration-300 transform group-hover:scale-105 group-hover:shadow-primary/20">
                                   <div className="flex items-center gap-4 mb-3">
