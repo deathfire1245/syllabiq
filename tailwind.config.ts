@@ -17,7 +17,7 @@ export default {
     },
     extend: {
       backgroundImage: {
-        'radial-gradient-spotlight': 'radial-gradient(circle at var(--mouse-x) var(--mouse-y), hsl(var(--primary) / 0.2), hsl(var(--primary) / 0) 25%)',
+        'radial-gradient-spotlight': 'radial-gradient(circle at var(--mouse-x) var(--mouse-y), hsl(var(--primary) / 0.4), hsl(var(--primary) / 0) 20%)',
       },
       fontFamily: {
         body: ['"PT Sans"', 'sans-serif'],
