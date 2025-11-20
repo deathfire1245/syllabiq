@@ -18,6 +18,30 @@ import { Progress } from "@/components/ui/progress";
 import { AIChat } from "./_components/ai-chat";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { useInView, motion, animate } from "framer-motion";
+
+const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?: string, suffix?: string }) => {
+  const ref = React.useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
+
+  React.useEffect(() => {
+    if (isInView && ref.current) {
+      const controls = animate(0, to, {
+        duration: 1.5,
+        ease: "easeOut",
+        onUpdate(value) {
+          if (ref.current) {
+            ref.current.textContent = prefix + Math.round(value).toLocaleString() + suffix;
+          }
+        },
+      });
+      return () => controls.stop();
+    }
+  }, [isInView, to, prefix, suffix]);
+
+  return <span ref={ref}>0</span>;
+};
+
 
 const iconMap: { [key: string]: React.ElementType } = {
   // Your existing icon map
@@ -109,20 +133,20 @@ export default function DashboardPage() {
       {
           title: "Topics Completed",
           icon: TrendingUp,
-          value: `${userStats.topicsCompleted} / ${userStats.totalTopics}`,
+          value: <><AnimatedCounter to={userStats.topicsCompleted} /> / {userStats.totalTopics}</>,
           footer: "+5 from last week",
       },
       {
           title: "Study Hours",
           icon: Clock,
-          value: `${userStats.studyHours}`,
+          value: <AnimatedCounter to={userStats.studyHours} />,
           footer: "Total time spent learning",
       },
       {
           title: "Average Score",
           icon: Target,
-          value: `${userStats.avgScore}%`,
-          footer: `Across ${userStats.quizzesTaken} quizzes`,
+          value: <AnimatedCounter to={userStats.avgScore} suffix="%" />,
+          footer: <>Across <AnimatedCounter to={userStats.quizzesTaken} /> quizzes</>,
       }
   ]
 
