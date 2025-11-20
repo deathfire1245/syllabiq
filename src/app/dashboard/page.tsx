@@ -114,7 +114,7 @@ export default function DashboardPage() {
       {/* AI Chat Floating Button */}
       <div className="fixed bottom-6 right-6 z-50">
         <Button
-          isIconOnly
+          size="icon"
           className="rounded-full h-16 w-16 bg-primary shadow-lg text-primary-foreground transform transition-transform hover:scale-110"
           onClick={() => setIsChatOpen(true)}
           aria-label="Open AI Chat"
