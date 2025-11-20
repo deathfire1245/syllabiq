@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { ArrowRight, BookOpenCheck, ChevronRight, Video, FileText, HelpCircle, User, Star } from "lucide-react";
+import { ArrowRight, ChevronRight, FileText, Video, HelpCircle, Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
@@ -85,7 +85,7 @@ export default function Home() {
             your learning efficiently. Master your subjects with ease.
           </p>
           <Button size="lg" asChild className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">
-            <Link href="/login">
+            <Link href="/dashboard">
               Start Learning Now <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
           </Button>
@@ -187,7 +187,7 @@ export default function Home() {
                 <Card key={testimonial.name} className="flex flex-col justify-between bg-card">
                   <CardContent className="pt-6">
                     <div className="flex text-yellow-400 gap-0.5 mb-4">
-                      {[...Array(5)].map((_, i) => <Star key={i} className="w-5 h-5 fill-current" />)}
+                      {[...Array(5)].map((_, i) => <Star key={`star-${i}`} className="w-5 h-5 fill-current" />)}
                     </div>
                     <p className="text-muted-foreground italic">"{testimonial.quote}"</p>
                   </CardContent>
