@@ -116,7 +116,11 @@ export default {
         'pop-in': {
           '0%': { opacity: '0', transform: 'scale(0.95)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
-        }
+        },
+        tilt: {
+          '0%, 100%': { transform: 'rotate(0deg)' },
+          '50%': { transform: 'rotate(2deg)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -124,6 +128,7 @@ export default {
         'blob': "blob 7s infinite",
         'fade-in': 'fade-in 0.5s ease-in-out',
         'pop-in': 'pop-in 0.5s ease-out forwards',
+        'tilt': 'tilt 10s infinite linear',
       },
     },
   },
