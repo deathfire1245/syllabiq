@@ -10,20 +10,29 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarCheck, Download, Save, Share2, Sparkles } from "lucide-react";
+import { CalendarCheck, Download, RefreshCw, Save, Share2, Sparkles } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 type Day = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
 
+interface TimeSlot {
+    subject: string;
+    duration: string;
+}
+
+interface Timetable {
+    [key: string]: TimeSlot[];
+}
+
 export default function TimetableGeneratorPage() {
     const subjects = getSubjects().slice(0, 8); // Using placeholder subjects
+    const { toast } = useToast();
     const [selectedSubjects, setSelectedSubjects] = React.useState<string[]>([]);
     const [studyHours, setStudyHours] = React.useState([3]);
     const [selectedDays, setSelectedDays] = React.useState<Day[]>([]);
-    const [timeRanges, setTimeRanges] = React.useState<string[]>([]);
-
-    const [generatedTimetable, setGeneratedTimetable] = React.useState<any>(null);
+    
+    const [generatedTimetable, setGeneratedTimetable] = React.useState<Timetable | null>(null);
 
     const handleSubjectToggle = (subjectId: string) => {
         setSelectedSubjects(prev =>
@@ -42,26 +51,47 @@ export default function TimetableGeneratorPage() {
     };
 
     const handleGenerate = () => {
-        // Placeholder logic
         if (selectedSubjects.length === 0 || selectedDays.length === 0) {
-            // Add some user feedback later
+            toast({
+                variant: "destructive",
+                title: "Missing Information",
+                description: "Please select at least one subject and one day to generate a timetable.",
+            });
             return;
         }
 
-        const timetable: { [key in Day]?: any[] } = {};
-        const hoursPerSlot = studyHours[0] / selectedSubjects.length;
+        const timetable: Timetable = {};
+        const dailyHours = studyHours[0];
+        const totalSlots = selectedDays.length * selectedSubjects.length;
+        // Simple distribution: allocate subjects sequentially across the selected days.
+        let subjectIndex = 0;
+
+        // Shuffle subjects for variety
+        const shuffledSubjects = [...selectedSubjects].sort(() => Math.random() - 0.5);
 
         selectedDays.forEach(day => {
-            timetable[day] = selectedSubjects.map(subjectId => {
+            timetable[day] = [];
+            // Assign subjects to slots for the day
+            for (let i = 0; i < shuffledSubjects.length; i++) {
+                const subjectId = shuffledSubjects[subjectIndex % shuffledSubjects.length];
                 const subject = subjects.find(s => s.id === subjectId);
-                return {
-                    subject: subject?.name || 'Study',
-                    duration: `${Math.max(0.5, hoursPerSlot).toFixed(1)} hrs`,
-                };
-            });
+                
+                if (subject) {
+                     timetable[day].push({
+                        subject: subject.name,
+                        duration: `${(dailyHours / shuffledSubjects.length).toFixed(1)} hrs`,
+                    });
+                }
+                subjectIndex++;
+            }
+            // Shuffle the daily slots for more randomness
+            timetable[day].sort(() => Math.random() - 0.5);
         });
+
         setGeneratedTimetable(timetable);
     };
+
+    const daysOrder: Day[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
     return (
         <div className="space-y-8">
@@ -89,6 +119,7 @@ export default function TimetableGeneratorPage() {
                                     id={`subject-${subject.id}`}
                                     checked={selectedSubjects.includes(subject.id)}
                                     className="h-5 w-5"
+                                    onCheckedChange={() => handleSubjectToggle(subject.id)}
                                 />
                                 <Label htmlFor={`subject-${subject.id}`} className="font-medium text-sm cursor-pointer">{subject.name}</Label>
                             </div>
@@ -108,7 +139,7 @@ export default function TimetableGeneratorPage() {
                         <div className="space-y-4">
                             <h4 className="font-semibold">Days of the Week</h4>
                             <div className="flex flex-wrap gap-2">
-                                {(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as Day[]).map(day => (
+                                {(daysOrder).map(day => (
                                     <Button
                                         key={day}
                                         variant={selectedDays.includes(day) ? "default" : "outline"}
@@ -138,16 +169,18 @@ export default function TimetableGeneratorPage() {
             </ScrollReveal>
 
             {/* Step 3: Generate */}
-            <ScrollReveal delay={0.3} className="text-center">
-                <Button
-                    size="lg"
-                    onClick={handleGenerate}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow transform hover:scale-105"
-                >
-                    <Sparkles className="mr-2 h-5 w-5" />
-                    Generate Timetable
-                </Button>
-            </ScrollReveal>
+            {!generatedTimetable && (
+                <ScrollReveal delay={0.3} className="text-center">
+                    <Button
+                        size="lg"
+                        onClick={handleGenerate}
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow transform hover:scale-105"
+                    >
+                        <Sparkles className="mr-2 h-5 w-5" />
+                        Generate Timetable
+                    </Button>
+                </ScrollReveal>
+            )}
 
             {/* Output */}
             <AnimatePresence>
@@ -168,10 +201,10 @@ export default function TimetableGeneratorPage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="overflow-x-auto">
-                                <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
-                                    {Object.keys(generatedTimetable).map((day, dayIndex) => (
+                                <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-${selectedDays.length > 4 ? 4 : selectedDays.length}`}>
+                                    {daysOrder.filter(day => generatedTimetable[day]).map((day, dayIndex) => (
                                         <ScrollReveal key={day} delay={dayIndex * 0.1}>
-                                            <div className="bg-card rounded-lg border p-4 min-w-[200px] sm:min-w-0">
+                                            <div className="bg-card rounded-lg border p-4 min-w-[200px] sm:min-w-0 h-full">
                                                 <h3 className="font-bold text-center mb-4">{day}</h3>
                                                 <div className="space-y-3">
                                                     {generatedTimetable[day].map((slot: any, slotIndex: number) => (
@@ -194,10 +227,20 @@ export default function TimetableGeneratorPage() {
                                 </div>
                                 </div>
 
-                                <div className="flex flex-wrap gap-3 mt-6 justify-center">
-                                    <Button variant="outline" disabled><Download className="mr-2 h-4 w-4"/>Download PDF</Button>
-                                    <Button variant="outline" disabled><Save className="mr-2 h-4 w-4"/>Save to Profile</Button>
-                                    <Button variant="outline" disabled><Share2 className="mr-2 h-4 w-4"/>Share</Button>
+                                <div className="flex flex-wrap gap-4 mt-8 justify-center items-center">
+                                    <Button
+                                      size="lg"
+                                      onClick={handleGenerate}
+                                      className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow transform hover:scale-105"
+                                    >
+                                      <RefreshCw className="mr-2 h-5 w-5" />
+                                      Generate New Timetable
+                                    </Button>
+                                    <div className="flex flex-wrap gap-3">
+                                      <Button variant="outline" disabled><Download className="mr-2 h-4 w-4"/>Download PDF</Button>
+                                      <Button variant="outline" disabled><Save className="mr-2 h-4 w-4"/>Save to Profile</Button>
+                                      <Button variant="outline" disabled><Share2 className="mr-2 h-4 w-4"/>Share</Button>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -207,4 +250,3 @@ export default function TimetableGeneratorPage() {
         </div>
     );
 }
-
