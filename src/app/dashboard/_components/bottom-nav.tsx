@@ -2,12 +2,13 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { BookMarked, Home, Compass } from "lucide-react";
+import { BookMarked, Home, Compass, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/subjects", icon: Compass, label: "Subjects" },
+  { href: "/dashboard/timetable", icon: CalendarClock, label: "Timetable" },
   { href: "/dashboard/bookmarks", icon: BookMarked, label: "Bookmarks" },
 ];
 
