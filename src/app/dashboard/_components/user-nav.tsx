@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +14,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 
 export function UserNav() {
+  const [userRole, setUserRole] = React.useState("Student");
+  
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedRole = localStorage.getItem("userRole");
+      if (storedRole) {
+        setUserRole(storedRole);
+      }
+    }
+  }, []);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -26,7 +38,7 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">Student</p>
+            <p className="text-sm font-medium leading-none">{userRole}</p>
             <p className="text-xs leading-none text-muted-foreground">
               student@example.com
             </p>

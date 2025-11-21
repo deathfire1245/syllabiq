@@ -1,16 +1,24 @@
 "use client";
 
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { GlassForm, GlassInput } from "@/components/ui/glass-form";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export default function SignupPage() {
   const router = useRouter();
+  const [role, setRole] = React.useState("Student");
 
   const handleSignup = (e: React.FormEvent) => {
     e.preventDefault();
+    // In a real app, you'd save the role to Firebase here.
+    // For this demo, we'll use localStorage.
+    if (typeof window !== "undefined") {
+      localStorage.setItem("userRole", role);
+    }
     router.push('/dashboard');
   };
 
@@ -46,6 +54,21 @@ export default function SignupPage() {
             required 
           />
         </div>
+
+        <div className="space-y-3">
+          <Label className="text-gray-300">Sign up as a</Label>
+          <RadioGroup defaultValue="Student" value={role} onValueChange={setRole} className="flex gap-4">
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="Student" id="role-student" className="text-white border-white/50" />
+              <Label htmlFor="role-student" className="text-white">Student</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="Teacher" id="role-teacher" className="text-white border-white/50" />
+              <Label htmlFor="role-teacher" className="text-white">Teacher</Label>
+            </div>
+          </RadioGroup>
+        </div>
+
         <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11 text-base font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">
           Create Account
         </Button>
