@@ -93,10 +93,10 @@ export default function Home() {
         </nav>
         <div className="flex items-center gap-2 sm:gap-4">
           <Button variant="ghost" asChild>
-            <Link href="/login">Log In</Link>
+            <Link href="/dashboard/subjects">Explore</Link>
           </Button>
           <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
-            <Link href="/signup">Sign Up</Link>
+            <Link href="/signup">Get Started</Link>
           </Button>
         </div>
       </header>
