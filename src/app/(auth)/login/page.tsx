@@ -11,6 +11,9 @@ export default function LoginPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    // In a real app, you'd have authentication logic here.
+    // For this demo, we'll just navigate to the dashboard.
+    localStorage.setItem("userRole", "Student"); // Default to student for demo
     router.push('/dashboard');
   };
 
@@ -27,7 +30,6 @@ export default function LoginPage() {
             id="email" 
             type="email" 
             placeholder="student@example.com" 
-            required 
             defaultValue="student@example.com"
           />
         </div>
@@ -41,7 +43,6 @@ export default function LoginPage() {
           <GlassInput 
             id="password" 
             type="password" 
-            required 
             defaultValue="password"
           />
         </div>

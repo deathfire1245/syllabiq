@@ -34,7 +34,6 @@ export default function SignupPage() {
           <GlassInput 
             id="name" 
             placeholder="John Doe" 
-            required 
           />
         </div>
         <div className="space-y-2">
@@ -43,7 +42,6 @@ export default function SignupPage() {
             id="email" 
             type="email" 
             placeholder="m@example.com" 
-            required 
           />
         </div>
         <div className="space-y-2">
@@ -51,7 +49,6 @@ export default function SignupPage() {
           <GlassInput 
             id="password" 
             type="password" 
-            required 
           />
         </div>
 
