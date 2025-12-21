@@ -115,15 +115,9 @@ export default function Home() {
           <div className="container relative z-20 mx-auto px-4 sm:px-6 lg:px-8">
             <ScrollReveal>
               <Badge variant="secondary" className="mb-4 text-sm font-medium py-1 px-3">Your Personal Learning Assistant</Badge>
-              <h1 className="font-headline text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6">
+              <h1 className="font-headline text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-10">
                 SyllabiQ - smart syllabus, notes,& exam prep in one place!
               </h1>
-            </ScrollReveal>
-            <ScrollReveal delay={0.1}>
-              <p className="text-lg md:text-xl text-white/90 max-w-3xl mx-auto mb-10">
-                SyllabiQ helps you access syllabus-based study material and organize
-                your learning efficiently. Master your subjects with ease.
-              </p>
             </ScrollReveal>
             <ScrollReveal delay={0.2}>
               <Button size="lg" asChild className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">
@@ -322,7 +316,7 @@ export default function Home() {
             <p className="text-lg text-muted-foreground mt-4 max-w-2xl mx-auto">
               Join thousands of students who are learning smarter with SyllabiQ.
             </p>
-            <Button size="lg" asChild className="mt-8 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">
+            <Button size="lg" asChild className="mt-8 bg-primary text-primary-foreground hover:bg-primary/_90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">
               <Link href="/signup">
                 Sign Up for Free <ChevronRight className="ml-2 h-5 w-5" />
               </Link>
