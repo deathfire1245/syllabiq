@@ -86,10 +86,11 @@ export default function Home() {
       <header className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center sticky top-0 z-50 bg-background/80 backdrop-blur-sm">
         <Logo />
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-          <Link href="#features" className="text-muted-foreground hover:text-primary transition-colors">Features</Link>
-          <Link href="#how-it-works" className="text-muted-foreground hover:text-primary transition-colors">How It Works</Link>
-          <Link href="/pricing" className="text-muted-foreground hover:text-primary transition-colors">Pricing</Link>
-          <Link href="/contact" className="text-muted-foreground hover:text-primary transition-colors">Contact</Link>
+          <Link href="/" className="text-muted-foreground hover:text-primary transition-colors">Home</Link>
+          <Link href="/dashboard/subjects" className="text-muted-foreground hover:text-primary transition-colors">Syllabus</Link>
+          <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">Notes</Link>
+          <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">Exams</Link>
+          <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">About</Link>
         </nav>
         <div className="flex items-center gap-2 sm:gap-4">
           <Button variant="ghost" asChild>
