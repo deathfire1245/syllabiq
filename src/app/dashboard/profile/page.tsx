@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit, BookOpen, Bullseye, Star, Clock, GraduationCap, Briefcase, DollarSign, Calendar } from "lucide-react";
+import { Edit, BookOpen, Goal, Star, Clock, GraduationCap, Briefcase, DollarSign, Calendar } from "lucide-react";
 import { ScrollReveal } from "@/components/ScrollReveal";
 
 const InfoCard = ({ icon, title, children }: { icon: React.ElementType, title: string, children: React.ReactNode }) => {
@@ -69,7 +69,7 @@ export default function ProfilePage() {
                                 <p className="text-lg font-semibold">{data.grade || "Not set"}</p>
                                 <p className="text-muted-foreground">{data.school || "Not set"}</p>
                             </InfoCard>
-                             <InfoCard icon={Bullseye} title="Study Goals">
+                             <InfoCard icon={Goal} title="Study Goals">
                                 <div className="flex flex-wrap gap-2">
                                     {data.studyGoals?.length > 0 ? data.studyGoals.map((goal: string) => <Badge key={goal}>{goal}</Badge>) : <p className="text-muted-foreground text-sm">No goals set.</p>}
                                 </div>
