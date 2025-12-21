@@ -18,8 +18,9 @@ export default function SignupPage() {
     // For this demo, we'll use localStorage.
     if (typeof window !== "undefined") {
       localStorage.setItem("userRole", role);
+      localStorage.setItem("onboardingStatus", "pending");
     }
-    router.push('/dashboard');
+    router.push('/onboarding');
   };
 
   return (

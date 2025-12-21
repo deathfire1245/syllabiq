@@ -3,7 +3,7 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { BookMarked, Home, Compass, CalendarClock, PlusCircle } from "lucide-react";
+import { BookMarked, Home, Compass, CalendarClock, PlusCircle, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
 
@@ -14,6 +14,7 @@ const studentNavItems = [
   { href: "/dashboard/courses", icon: Compass, label: "Courses" },
   { href: "/dashboard/tutors", icon: Compass, label: "Tutors" },
   { href: "/dashboard/bookmarks", icon: BookMarked, label: "Bookmarks" },
+  { href: "/dashboard/profile", icon: User, label: "Profile" },
 ];
 
 const teacherNavItems = [
@@ -22,6 +23,7 @@ const teacherNavItems = [
   { href: "/dashboard/subjects", icon: Compass, label: "All Subjects" },
   { href: "/dashboard/timetable", icon: CalendarClock, label: "Timetable" },
   { href: "/dashboard/bookmarks", icon: BookMarked, label: "Bookmarks" },
+  { href: "/dashboard/profile", icon: User, label: "Profile" },
 ];
 
 export function SidebarNav({ isMobile = false }: { isMobile?: boolean }) {
