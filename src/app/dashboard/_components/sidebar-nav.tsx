@@ -1,13 +1,24 @@
 "use client";
 
+import * as React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { BookMarked, Home, Compass, CalendarClock } from "lucide-react";
+import { BookMarked, Home, Compass, CalendarClock, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
 
-const navItems = [
+const studentNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
+  { href: "/dashboard/subjects", icon: Compass, label: "All Subjects" },
+  { href: "/dashboard/timetable", icon: CalendarClock, label: "Timetable" },
+  { href: "/dashboard/courses", icon: Compass, label: "Courses" },
+  { href: "/dashboard/tutors", icon: Compass, label: "Tutors" },
+  { href: "/dashboard/bookmarks", icon: BookMarked, label: "Bookmarks" },
+];
+
+const teacherNavItems = [
+  { href: "/dashboard", icon: Home, label: "Dashboard" },
+  { href: "/dashboard/create", icon: PlusCircle, label: "Create" },
   { href: "/dashboard/subjects", icon: Compass, label: "All Subjects" },
   { href: "/dashboard/timetable", icon: CalendarClock, label: "Timetable" },
   { href: "/dashboard/bookmarks", icon: BookMarked, label: "Bookmarks" },
@@ -15,6 +26,18 @@ const navItems = [
 
 export function SidebarNav({ isMobile = false }: { isMobile?: boolean }) {
   const pathname = usePathname();
+  const [userRole, setUserRole] = React.useState("Student");
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedRole = localStorage.getItem("userRole");
+      if (storedRole) {
+        setUserRole(storedRole);
+      }
+    }
+  }, []);
+
+  const navItems = userRole === "Teacher" ? teacherNavItems : studentNavItems;
 
   const navClass = isMobile ? "flex flex-col gap-2 p-4" : "fixed top-0 left-0 h-full w-64 bg-card border-r z-50 hidden md:flex md:flex-col";
 
@@ -28,7 +51,7 @@ export function SidebarNav({ isMobile = false }: { isMobile?: boolean }) {
       <div className="flex-1 overflow-y-auto">
         <div className="flex flex-col gap-1 p-4">
           {navItems.map(({ href, icon: Icon, label }) => {
-            const isActive = pathname === href;
+            const isActive = pathname.startsWith(href) && (href !== '/dashboard' || pathname === '/dashboard');
             return (
               <Link
                 key={href}

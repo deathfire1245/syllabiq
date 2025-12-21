@@ -1,0 +1,251 @@
+
+"use client";
+
+import * as React from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, ArrowRight, Check, DollarSign, Book, Layers, PlusCircle, Trash2, Upload, FileText, Video, Image as ImageIcon } from "lucide-react";
+import { ScrollReveal } from "@/components/ScrollReveal";
+
+const steps = [
+  { id: 1, name: "Basic Info", icon: Book },
+  { id: 2, name: "Content", icon: Layers },
+  { id: 3, name: "Pricing", icon: DollarSign },
+  { id: 4, name: "Publish", icon: Check },
+];
+
+interface Lesson {
+  id: number;
+  title: string;
+  textContent: string;
+  videoUrl: string;
+  image: File | null;
+}
+
+export default function CreateCoursePage() {
+  const { toast } = useToast();
+  const [currentStep, setCurrentStep] = React.useState(1);
+  const [courseTitle, setCourseTitle] = React.useState("");
+  const [courseDescription, setCourseDescription] = React.useState("");
+  const [lessons, setLessons] = React.useState<Lesson[]>([{ id: 1, title: "", textContent: "", videoUrl: "", image: null }]);
+  const [price, setPrice] = React.useState("");
+
+  const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 4));
+  const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
+  
+  const handleAddLesson = () => {
+    setLessons([...lessons, { id: lessons.length + 1, title: "", textContent: "", videoUrl: "", image: null }]);
+  };
+  
+  const handleRemoveLesson = (id: number) => {
+    setLessons(lessons.filter(lesson => lesson.id !== id));
+  };
+  
+  const handleLessonChange = (id: number, field: keyof Lesson, value: string | File) => {
+    setLessons(lessons.map(lesson => lesson.id === id ? { ...lesson, [field]: value } : lesson));
+  };
+  
+  const handlePublish = () => {
+    toast({
+      title: "Course Published!",
+      description: `"${courseTitle}" is now live and available for students.`,
+    });
+    // Reset state or redirect
+  };
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <ScrollReveal>
+            <Card>
+              <CardHeader>
+                <CardTitle>Basic Course Information</CardTitle>
+                <CardDescription>Give your course a name and describe what it's about.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="course-title">Course Title</Label>
+                  <Input id="course-title" placeholder="e.g., Introduction to Calculus" value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="course-description">Short Description</Label>
+                  <Textarea id="course-description" placeholder="Briefly explain what students will learn." value={courseDescription} onChange={(e) => setCourseDescription(e.target.value)} />
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="category">Subject / Category</Label>
+                        <Select>
+                            <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="math">Mathematics</SelectItem>
+                                <SelectItem value="science">Science</SelectItem>
+                                <SelectItem value="history">History</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="difficulty">Difficulty Level</Label>
+                        <Select>
+                            <SelectTrigger><SelectValue placeholder="Select a level" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="beginner">Beginner</SelectItem>
+                                <SelectItem value="intermediate">Intermediate</SelectItem>
+                                <SelectItem value="advanced">Advanced</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+        );
+      case 2:
+        return (
+          <ScrollReveal>
+            <Card>
+              <CardHeader>
+                <CardTitle>Course Content</CardTitle>
+                <CardDescription>Add lessons to build out your course structure.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {lessons.map((lesson, index) => (
+                  <ScrollReveal key={lesson.id} delay={index * 0.1}>
+                    <div className="border rounded-lg p-4 space-y-4 relative bg-card">
+                       <div className="flex justify-between items-center">
+                         <h4 className="font-semibold text-lg">Lesson {index + 1}</h4>
+                         {lessons.length > 1 && (
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveLesson(lesson.id)} className="text-destructive hover:bg-destructive/10">
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
+                         )}
+                       </div>
+                       <div className="space-y-2">
+                          <Label htmlFor={`lesson-title-${lesson.id}`}>Lesson Title</Label>
+                          <Input id={`lesson-title-${lesson.id}`} placeholder="e.g., What are derivatives?" value={lesson.title} onChange={(e) => handleLessonChange(lesson.id, 'title', e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor={`lesson-content-${lesson.id}`}>Text Content</Label>
+                            <Textarea id={`lesson-content-${lesson.id}`} placeholder="Write your lesson here..." value={lesson.textContent} onChange={(e) => handleLessonChange(lesson.id, 'textContent', e.target.value)} className="min-h-[120px]"/>
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor={`lesson-video-${lesson.id}`}><Video className="w-4 h-4 inline-block mr-2"/>Video URL (Placeholder)</Label>
+                                <Input id={`lesson-video-${lesson.id}`} placeholder="https://example.com/video" value={lesson.videoUrl} onChange={(e) => handleLessonChange(lesson.id, 'videoUrl', e.target.value)}/>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor={`lesson-image-${lesson.id}`}><ImageIcon className="w-4 h-4 inline-block mr-2"/>Image/Notes (Placeholder)</Label>
+                                <div className="flex items-center gap-2">
+                                    <Input id={`lesson-image-${lesson.id}`} type="file" className="hidden"/>
+                                    <Label htmlFor={`lesson-image-${lesson.id}`} className="w-full">
+                                      <div className="flex items-center justify-center w-full border-2 border-dashed rounded-lg p-3 text-sm text-muted-foreground cursor-pointer hover:bg-accent">
+                                        <Upload className="w-4 h-4 mr-2"/>
+                                        <span>{lesson.image ? (lesson.image as File).name : 'Upload File'}</span>
+                                      </div>
+                                    </Label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                  </ScrollReveal>
+                ))}
+                 <Button variant="outline" onClick={handleAddLesson} className="w-full">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Another Lesson
+                </Button>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+        );
+      case 3:
+        return (
+          <ScrollReveal>
+            <Card>
+              <CardHeader>
+                <CardTitle>Set Your Price</CardTitle>
+                <CardDescription>Choose a one-time price for your course.</CardDescription>
+              </CardHeader>
+              <CardContent className="max-w-xs mx-auto">
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input type="number" placeholder="0.00" className="pl-10 text-xl h-12" value={price} onChange={(e) => setPrice(e.target.value)} />
+                </div>
+                 <p className="text-center text-sm text-muted-foreground mt-2">Currency is in USD.</p>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+        );
+      case 4:
+        return (
+          <ScrollReveal className="text-center">
+            <Card className="p-8">
+              <Check className="mx-auto h-16 w-16 text-green-500 bg-green-100 rounded-full p-3 mb-4" />
+              <CardTitle className="text-2xl">Ready to Publish?</CardTitle>
+              <CardDescription className="mt-2 mb-6">
+                Your course is ready to go live. Once published, students will be able to enroll.
+              </CardDescription>
+              <Button size="lg" onClick={handlePublish}>Publish Course</Button>
+            </Card>
+          </ScrollReveal>
+        );
+    }
+  };
+  
+  return (
+    <div className="space-y-8">
+      <ScrollReveal>
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Create a New Course</h1>
+        <p className="text-muted-foreground mt-2 text-lg">Follow the steps to build and launch your course.</p>
+      </ScrollReveal>
+
+      {/* Stepper */}
+      <div className="flex items-center justify-center space-x-2 md:space-x-4">
+        {steps.map((step, index) => (
+          <React.Fragment key={step.id}>
+            <div className="flex flex-col items-center">
+              <div
+                className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300
+                  ${currentStep > step.id ? 'bg-primary border-primary text-primary-foreground' : ''}
+                  ${currentStep === step.id ? 'border-primary scale-110' : ''}
+                  ${currentStep < step.id ? 'border-border bg-card' : ''}
+                `}
+              >
+                {currentStep > step.id ? <Check className="w-6 h-6" /> : <step.icon className="w-5 h-5 md:w-6 md:h-6" />}
+              </div>
+              <p className="text-xs md:text-sm mt-2 text-center">{step.name}</p>
+            </div>
+            {index < steps.length - 1 && <div className="flex-1 h-0.5 bg-border" />}
+          </React.Fragment>
+        ))}
+      </div>
+
+      <div className="py-8">
+        <AnimatePresence mode="wait">
+            <motion.div
+              key={currentStep}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {renderStepContent()}
+            </motion.div>
+        </AnimatePresence>
+      </div>
+
+      <div className="flex justify-between">
+        <Button variant="outline" onClick={prevStep} disabled={currentStep === 1}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Previous
+        </Button>
+        <Button onClick={nextStep} disabled={currentStep === 4}>
+          Next <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
