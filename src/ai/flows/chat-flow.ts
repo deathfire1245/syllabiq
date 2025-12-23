@@ -36,14 +36,8 @@ const ChatOutputSchema = z.string().describe("The AI's response.");
 export type ChatOutput = z.infer<typeof ChatOutputSchema>;
 
 export async function chat(input: ChatInput): Promise<ChatOutput> {
-  const result = await chatFlow(input);
-
-  // SAFE GUARD: Always return a string for Genkit output
-  const aiResponse = result ?? "";
-  
-  return typeof aiResponse === "string" && aiResponse.trim().length > 0
-    ? aiResponse
-    : "I'm here to help. Please ask your question again.";
+  // The flow now guarantees a valid string, so no extra checks are needed here.
+  return await chatFlow(input);
 }
 
 const prompt = ai.definePrompt({
@@ -103,6 +97,14 @@ const chatFlow = ai.defineFlow(
     };
 
     const { output } = await prompt(processedInput);
-    return output ?? ''; // Ensure we always return a string
+    
+    // PERMANENT FIX: This ensures the flow never returns null or an empty string.
+    const aiResponse = output ?? "";
+
+    if (typeof aiResponse === "string" && aiResponse.trim().length > 0) {
+      return aiResponse;
+    }
+    
+    return "I'm here to help. Please ask your question again.";
   }
 );
