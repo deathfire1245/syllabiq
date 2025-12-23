@@ -37,7 +37,13 @@ export type ChatOutput = z.infer<typeof ChatOutputSchema>;
 
 export async function chat(input: ChatInput): Promise<ChatOutput> {
   const result = await chatFlow(input);
-  return result ?? '';
+
+  // SAFE GUARD: Always return a string for Genkit output
+  const aiResponse = result ?? "";
+  
+  return typeof aiResponse === "string" && aiResponse.trim().length > 0
+    ? aiResponse
+    : "I'm here to help. Please ask your question again.";
 }
 
 const prompt = ai.definePrompt({
