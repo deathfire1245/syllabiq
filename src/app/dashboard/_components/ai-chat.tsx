@@ -5,7 +5,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, Sparkles, X } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { chat } from "@/ai/flows/chat-flow";
+import { getSubjects, getTopics } from "@/lib/data";
 
 interface Message {
   sender: "user" | "ai";
@@ -22,12 +24,26 @@ export function AIChat({
   const [messages, setMessages] = React.useState<Message[]>([
     {
       sender: "ai",
-      text: "Hello! I'm your SyllabiQ assistant. How can I help you with your studies today?",
+      text: "Hello! I'm your SyllabiQ assistant. How can I help you with your studies or the platform today?",
     },
   ]);
   const [inputValue, setInputValue] = React.useState("");
   const [isTyping, setIsTyping] = React.useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  const [userRole, setUserRole] = React.useState<string | null>(null);
+  const [userData, setUserData] = React.useState<any | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const role = localStorage.getItem("userRole");
+      const data = localStorage.getItem("onboardingData");
+      setUserRole(role);
+      if (data) {
+        setUserData(JSON.parse(data));
+      }
+    }
+  }, [isOpen]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -35,25 +51,37 @@ export function AIChat({
 
   React.useEffect(scrollToBottom, [messages]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputValue.trim() === "") return;
+    if (inputValue.trim() === "" || isTyping) return;
 
-    setMessages((prev) => [...prev, { sender: "user", text: inputValue }]);
+    const userMessage: Message = { sender: "user", text: inputValue };
+    setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const response = await chat({
+        message: inputValue,
+        userRole: userRole || "Student",
+        userData: userData || {},
+        subjects: getSubjects(),
+        topics: getTopics(),
+      });
+      
+      const aiMessage: Message = { sender: "ai", text: response };
+      setMessages((prev) => [...prev, aiMessage]);
+
+    } catch (error) {
+      console.error("AI chat error:", error);
+      const errorMessage: Message = {
+        sender: "ai",
+        text: "Sorry, I'm having a little trouble thinking right now. Please try again in a moment.",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: "ai",
-          text: `This is a placeholder response for: "${inputValue}". In a real scenario, I'd provide a helpful answer!`,
-        },
-      ]);
-    }, 1500);
+    }
   };
   
   return (
@@ -112,7 +140,7 @@ export function AIChat({
                         : 'bg-secondary rounded-bl-none'
                     }`}
                   >
-                    <p className="text-sm">{message.text}</p>
+                    <p className="text-sm whitespace-pre-wrap">{message.text}</p>
                   </div>
                 </div>
               ))}
@@ -133,7 +161,6 @@ export function AIChat({
                <div ref={messagesEndRef} />
             </div>
             
-
             {/* Input Form */}
             <footer className="p-4 border-t">
               <form onSubmit={handleSendMessage} className="flex items-center gap-3">
