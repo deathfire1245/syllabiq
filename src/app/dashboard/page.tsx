@@ -1,21 +1,16 @@
-
-
 "use client";
 
 import * as React from "react";
 import {
   Clock,
   History,
-  MessageSquare,
   Target,
   TrendingUp,
 } from "lucide-react";
 import { getSubjects } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { AIChat } from "./_components/ai-chat";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { useInView, motion, animate } from "framer-motion";
@@ -126,8 +121,6 @@ const SubjectProgress = ({ subject, delay = 0 }: { subject: ReturnType<typeof ge
 
 
 export default function DashboardPage() {
-  const [isChatOpen, setIsChatOpen] = React.useState(false);
-
   const subjects = getSubjects().slice(0, 3); // Placeholder for "Your Subjects"
   const recentTopics = getSubjects().flatMap(s => s.topics).slice(0,3);
 
@@ -216,21 +209,6 @@ export default function DashboardPage() {
             </ScrollReveal>
         </div>
       </div>
-
-
-      {/* AI Chat Floating Button */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <Button
-          size="icon"
-          className="rounded-full h-16 w-16 bg-primary shadow-lg text-primary-foreground transform transition-transform hover:scale-110"
-          onClick={() => setIsChatOpen(true)}
-          aria-label="Open AI Chat"
-        >
-          <MessageSquare className="w-8 h-8" />
-        </Button>
-      </div>
-
-      <AIChat isOpen={isChatOpen} onOpenChange={setIsChatOpen} />
     </div>
   );
 }
