@@ -24,15 +24,15 @@ const platformFeatures = `
 `;
 
 const ChatInputSchema = z.object({
-  message: z.string().describe('The user\'s message.'),
+  message: z.string().describe("The user's message."),
   userRole: z.string().describe('The role of the user (Student or Teacher).'),
-  userData: z.any().describe('The user\'s profile data from onboarding.'),
+  userData: z.any().describe("The user's profile data from onboarding."),
   subjects: z.any().describe('A list of all subjects available on the platform.'),
   topics: z.any().describe('A list of all topics available on the platform.'),
 });
 export type ChatInput = z.infer<typeof ChatInputSchema>;
 
-const ChatOutputSchema = z.string().describe('The AI\'s response.');
+const ChatOutputSchema = z.string().describe("The AI's response.");
 export type ChatOutput = z.infer<typeof ChatOutputSchema>;
 
 export async function chat(input: ChatInput): Promise<ChatOutput> {
@@ -53,11 +53,11 @@ You have been provided with the full context of the SyllabiQ platform and the cu
 
 ## Current User Context:
 - **User Role**: {{{userRole}}}
-- **User Profile Data**: {{{JSON.stringify userData}}}
+- **User Profile Data**: {{{JSONstringify userData}}}
 
 ## Platform Context:
-- **Subjects Available**: {{{JSON.stringify subjects}}}
-- **Topics Available**: {{{JSON.stringify topics}}}
+- **Subjects Available**: {{{JSONstringify subjects}}}
+- **Topics Available**: {{{JSONstringify topics}}}
 - **Platform Features**: ${platformFeatures}
 
 ## Your Instructions:
