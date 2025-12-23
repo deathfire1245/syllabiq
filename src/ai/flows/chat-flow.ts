@@ -36,7 +36,8 @@ const ChatOutputSchema = z.string().describe("The AI's response.");
 export type ChatOutput = z.infer<typeof ChatOutputSchema>;
 
 export async function chat(input: ChatInput): Promise<ChatOutput> {
-  return chatFlow(input);
+  const result = await chatFlow(input);
+  return result ?? '';
 }
 
 const prompt = ai.definePrompt({
@@ -96,6 +97,6 @@ const chatFlow = ai.defineFlow(
     };
 
     const { output } = await prompt(processedInput);
-    return output ?? '';
+    return output;
   }
 );
