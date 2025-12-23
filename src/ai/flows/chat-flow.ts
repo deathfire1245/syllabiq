@@ -59,7 +59,7 @@ You have been provided with the full context of the SyllabiQ platform and the cu
 - **Tone**: Friendly, clear, supportive, and encouraging. Use structured responses like bullet points when helpful.
 
 ## Current User Context:
-- **User Role**: {{{userRole}}}
+- **User Role**: {{{userData.userRole}}}
 - **User Profile Data**: {{{userData}}}
 
 ## Platform Context:
@@ -103,6 +103,6 @@ const chatFlow = ai.defineFlow(
     };
 
     const { output } = await prompt(processedInput);
-    return output;
+    return output ?? ''; // Ensure we always return a string
   }
 );
