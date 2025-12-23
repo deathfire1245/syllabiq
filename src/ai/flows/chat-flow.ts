@@ -96,6 +96,6 @@ const chatFlow = ai.defineFlow(
     };
 
     const { output } = await prompt(processedInput);
-    return output!;
+    return output ?? '';
   }
 );
