@@ -41,7 +41,7 @@ export async function chat(input: ChatInput): Promise<ChatOutput> {
 
 const prompt = ai.definePrompt({
   name: 'chatPrompt',
-  input: { schema: ChatInputSchema },
+  input: { schema: z.any() }, // Accept any object, as we pre-process it
   output: { schema: ChatOutputSchema },
   prompt: `You are SyllabiQ's friendly and context-aware AI assistant. Your goal is to help users learn better and use the platform effectively.
 
@@ -53,11 +53,11 @@ You have been provided with the full context of the SyllabiQ platform and the cu
 
 ## Current User Context:
 - **User Role**: {{{userRole}}}
-- **User Profile Data**: {{{JSONstringify userData}}}
+- **User Profile Data**: {{{userData}}}
 
 ## Platform Context:
-- **Subjects Available**: {{{JSONstringify subjects}}}
-- **Topics Available**: {{{JSONstringify topics}}}
+- **Subjects Available**: {{{subjects}}}
+- **Topics Available**: {{{topics}}}
 - **Platform Features**: ${platformFeatures}
 
 ## Your Instructions:
@@ -87,7 +87,15 @@ const chatFlow = ai.defineFlow(
     outputSchema: ChatOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input);
+    // Stringify complex objects before passing them to the prompt
+    const processedInput = {
+      ...input,
+      userData: JSON.stringify(input.userData, null, 2),
+      subjects: JSON.stringify(input.subjects, null, 2),
+      topics: JSON.stringify(input.topics, null, 2),
+    };
+
+    const { output } = await prompt(processedInput);
     return output!;
   }
 );
