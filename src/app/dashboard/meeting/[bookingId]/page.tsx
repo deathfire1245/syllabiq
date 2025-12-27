@@ -11,6 +11,7 @@ import { PhoneOff, VideoOff, MicOff, Users, Timer, ScreenShare, ScreenShareOff, 
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Booking {
   id: string;
@@ -73,6 +74,23 @@ const Whiteboard = React.forwardRef<
         context.lineCap = 'round';
         context.lineJoin = 'round';
         contextRef.current = context;
+
+        const handleResize = () => {
+             const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.scale(dpr, dpr);
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                contextRef.current = ctx;
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
     }, []);
 
     React.useEffect(() => {
@@ -227,6 +245,7 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
   const screenStreamRef = React.useRef<MediaStream | null>(null);
   
   const [isMicMuted, setIsMicMuted] = React.useState(false);
+  const [isCameraOff, setIsCameraOff] = React.useState(false);
 
 
   const [wbColor, setWbColor] = React.useState("#000000");
@@ -325,6 +344,15 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
       setIsMicMuted(prev => !prev);
     }
   };
+  
+  const handleToggleCamera = () => {
+    if (cameraStreamRef.current) {
+        cameraStreamRef.current.getVideoTracks().forEach(track => {
+            track.enabled = !track.enabled;
+        });
+        setIsCameraOff(prev => !prev);
+    }
+  };
 
   const handleToggleScreenShare = async () => {
     if (viewMode === 'screen') {
@@ -392,13 +420,26 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
 
       <main className="flex-grow grid grid-cols-1 md:grid-cols-4 gap-4 min-h-0">
         <div className="md:col-span-3 bg-black rounded-lg overflow-hidden relative flex items-center justify-center">
-            {viewMode !== 'whiteboard' && <video ref={videoRef} className="w-full h-full object-contain" autoPlay muted />}
+            {viewMode !== 'whiteboard' && (
+              <div className="w-full h-full">
+                <video ref={videoRef} className={cn("w-full h-full object-contain", isCameraOff && "hidden")} autoPlay muted />
+                {isCameraOff && (
+                   <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800">
+                        <Avatar className="w-32 h-32">
+                           <AvatarImage src="https://picsum.photos/seed/user-avatar/100" />
+                           <AvatarFallback>{isTeacher ? 'T' : 'S'}</AvatarFallback>
+                        </Avatar>
+                        <p className="mt-4 text-lg">Camera is off</p>
+                   </div>
+                )}
+              </div>
+            )}
             
             {viewMode === 'whiteboard' && (
                 <Whiteboard ref={whiteboardRef} isActive={isTeacher} color={wbColor} size={wbSize} isErasing={isErasing} onDraw={() => {}} />
             )}
 
-            {!hasPermission && viewMode !== 'whiteboard' && (
+            {!hasPermission && viewMode === 'camera' && !isCameraOff &&(
                  <Alert variant="destructive" className="max-w-md absolute">
                     <VideoOff className="h-4 w-4"/>
                     <AlertTitle>Camera Access Required</AlertTitle>
@@ -460,11 +501,16 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
                 >
                     {isMicMuted ? <MicOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Mic className="w-5 h-5 sm:w-6 sm:h-6" />}
                 </Button>
+                 <Button 
+                    variant="secondary"
+                    size="icon"
+                    className={cn("rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20", isCameraOff && "bg-red-500 hover:bg-red-600")}
+                    onClick={handleToggleCamera}
+                 >
+                     {isCameraOff ? <VideoOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Video className="w-5 h-5 sm:w-6 sm:h-6" />}
+                 </Button>
                  <Button variant="destructive" size="icon" className="rounded-full h-14 w-14 sm:h-16 sm:w-16" onClick={handleLeave}>
                     <PhoneOff className="w-6 h-6 sm:w-7 sm:h-7"/>
-                </Button>
-                <Button variant={viewMode === 'camera' ? 'default' : 'secondary'} size="icon" className="rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20" onClick={() => setViewMode('camera')}>
-                    <Video className="w-5 h-5 sm:w-6 sm:h-6" />
                 </Button>
                 {isTeacher && (
                   <>
@@ -473,6 +519,7 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
                       size="icon" 
                       className={cn("rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20", viewMode === 'screen' && "bg-blue-500 hover:bg-blue-600")}
                       onClick={handleToggleScreenShare}
+                      disabled={isCameraOff}
                     >
                       <Monitor className="w-5 h-5 sm:w-6 sm:h-6"/>
                     </Button>
@@ -515,3 +562,5 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
     </div>
   );
 }
+
+    
