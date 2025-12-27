@@ -31,9 +31,8 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
-    allowedDevOrigins: [
-      "https://6000-firebase-studio-1763563374944.cluster-aic6jbiihrhmyrqafasatvzbwe.cloudworkstations.dev"
-    ]
+    // Allow any origin for development purposes to enable multi-device testing.
+    allowedDevOrigins: ["**"]
   },
 };
 
