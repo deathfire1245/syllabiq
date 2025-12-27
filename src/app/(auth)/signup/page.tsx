@@ -8,21 +8,17 @@ import { useRouter } from 'next/navigation';
 import { GlassForm, GlassInput } from "@/components/ui/glass-form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { useFirebase } from "@/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
 
 export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { auth, firestore } = useFirebase();
 
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [role, setRole] = React.useState("Student");
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSignup = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !password) {
       toast({
@@ -32,32 +28,12 @@ export default function SignupPage() {
       });
       return;
     }
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      // Store user role and name in Firestore
-      const userDocRef = doc(firestore, "users", user.uid);
-      await setDoc(userDocRef, {
-        uid: user.uid,
-        email: user.email,
-        name: name,
-        role: role,
-      });
-
-      // Save role to localStorage for immediate UI updates, though Firestore is the source of truth
-      localStorage.setItem("userRole", role);
-      localStorage.setItem("onboardingStatus", "pending");
-      
-      router.push('/onboarding');
-
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Signup Failed",
-        description: error.message || "An unknown error occurred.",
-      });
-    }
+    
+    // Save role to localStorage for the onboarding flow
+    localStorage.setItem("userRole", role);
+    localStorage.setItem("onboardingStatus", "pending");
+    
+    router.push('/onboarding');
   };
 
   return (

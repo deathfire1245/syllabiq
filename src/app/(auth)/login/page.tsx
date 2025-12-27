@@ -6,32 +6,18 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { GlassForm, GlassInput } from "@/components/ui/glass-form";
-import { useToast } from "@/hooks/use-toast";
-import { useFirebase } from "@/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { toast } = useToast();
-  const { auth } = useFirebase();
   const [email, setEmail] = React.useState("student@example.com");
   const [password, setPassword] = React.useState("password");
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged in FirebaseProvider will handle the redirect
-      // For demo purposes, we can manually set a role if needed, but Firestore should be the source of truth
-      // For now, let's assume onAuthStateChanged handles the main logic
-      router.push('/dashboard');
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Login Failed",
-        description: error.message || "An unknown error occurred.",
-      });
-    }
+    // Determine role based on dummy email for demo purposes
+    const role = email.includes('teacher') ? 'Teacher' : 'Student';
+    localStorage.setItem('userRole', role);
+    router.push('/dashboard');
   };
 
   return (
