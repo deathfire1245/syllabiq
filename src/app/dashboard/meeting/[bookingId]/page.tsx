@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -228,8 +228,9 @@ const MicIndicator = ({ stream, isMuted }: { stream: MediaStream | null, isMuted
 };
 
 
-export default function MeetingPage({ params }: { params: { bookingId: string } }) {
+export default function MeetingPage() {
   const router = useRouter();
+  const params = useParams();
   const { toast } = useToast();
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [userRole, setUserRole] = React.useState<string | null>(null);
@@ -562,5 +563,3 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
     </div>
   );
 }
-
-    
