@@ -7,7 +7,19 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useRouter } from "next/navigation";
 
 // Mock data for available tutors
 const tutors = [
@@ -56,6 +68,33 @@ const tutors = [
 ];
 
 export default function TutorsPage() {
+  const { toast } = useToast();
+  const router = useRouter();
+
+  const handleBookSession = (tutor: (typeof tutors)[0], slot: { day: string, time: string }) => {
+    // In a real app, this would involve a payment flow.
+    // For this simulation, we'll store the booking in localStorage.
+    const booking = {
+      tutorId: tutor.id,
+      tutorName: tutor.name,
+      tutorAvatar: tutor.avatar,
+      slot,
+      cost: tutor.costPerHour,
+      bookedAt: new Date().toISOString(),
+    };
+
+    const existingBookings = JSON.parse(localStorage.getItem("userBookings") || "[]");
+    localStorage.setItem("userBookings", JSON.stringify([...existingBookings, booking]));
+
+    toast({
+      title: "Session Booked!",
+      description: `Your session with ${tutor.name} on ${slot.day} at ${slot.time} is confirmed.`,
+    });
+    
+    // Redirect to the bookings page to see the countdown
+    router.push('/dashboard/bookings');
+  };
+
   return (
     <div className="space-y-8">
       <ScrollReveal>
@@ -69,7 +108,7 @@ export default function TutorsPage() {
         {tutors.map((tutor, index) => (
           <ScrollReveal key={tutor.id} delay={index * 0.1}>
             <Card className="group relative overflow-hidden transform transition-all duration-300 hover:shadow-xl">
-              <CardHeader className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-6">
+              <CardHeader className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-6 p-6">
                 <div className="flex flex-col items-center text-center">
                   <Avatar className="w-24 h-24 mb-4 border-4 border-primary/20">
                     <AvatarImage src={tutor.avatar} alt={tutor.name} />
@@ -81,6 +120,7 @@ export default function TutorsPage() {
                     <span>&#9733;</span>
                     <p className="text-muted-foreground text-sm">({tutor.reviews} reviews)</p>
                   </div>
+                   <p className="text-2xl font-bold text-primary mt-4">${tutor.costPerHour}<span className="text-base font-normal text-muted-foreground">/hour</span></p>
                 </div>
 
                 <div>
@@ -91,25 +131,36 @@ export default function TutorsPage() {
                         ))}
                     </div>
 
-                     <CardDescription className="mb-3">Available Slots:</CardDescription>
+                     <CardDescription className="mb-3">Available Slots for this week:</CardDescription>
                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                         {tutor.availability.map(slot => (
-                             <div key={slot.day+slot.time} className="bg-secondary p-3 rounded-md text-center">
-                                 <p className="font-semibold text-sm">{slot.day}</p>
-                                 <p className="text-xs text-muted-foreground">{slot.time}</p>
-                             </div>
+                          <AlertDialog key={slot.day+slot.time}>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" className="h-auto flex-col py-2">
+                                <span className="font-semibold">{slot.day}</span>
+                                <span className="text-sm text-muted-foreground">{slot.time}</span>
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Confirm Booking</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to book a 1-hour session with {tutor.name} on {slot.day} at {slot.time} for ${tutor.costPerHour}?
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleBookSession(tutor, slot)}>
+                                  Book & Pay
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         ))}
                          {tutor.availability.length === 0 && <p className="text-sm text-muted-foreground col-span-full">No slots available this week.</p>}
                      </div>
                 </div>
-
               </CardHeader>
-              <CardContent className="flex flex-col md:flex-row justify-between items-center bg-secondary/50 p-4 rounded-b-lg">
-                <p className="text-2xl font-bold text-primary mb-4 md:mb-0">${tutor.costPerHour}<span className="text-base font-normal text-muted-foreground">/hour</span></p>
-                <Button>
-                    View Profile & Book
-                </Button>
-              </CardContent>
             </Card>
           </ScrollReveal>
         ))}

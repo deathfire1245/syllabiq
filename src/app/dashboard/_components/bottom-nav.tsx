@@ -3,14 +3,14 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { BookMarked, Home, Compass, CalendarClock, PlusCircle, User } from "lucide-react";
+import { BookMarked, Home, Compass, PlusCircle, User, Briefcase, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const studentNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/subjects", icon: Compass, label: "Subjects" },
-  { href: "/dashboard/timetable", icon: CalendarClock, label: "Timetable" },
-  { href: "/dashboard/bookmarks", icon: BookMarked, label: "Bookmarks" },
+  { href: "/dashboard/tutors", icon: Briefcase, label: "Tutors" },
+  { href: "/dashboard/bookings", icon: Video, label: "Bookings" },
   { href: "/dashboard/profile", icon: User, label: "Profile" },
 ];
 
