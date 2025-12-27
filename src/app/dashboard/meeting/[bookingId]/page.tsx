@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { PhoneOff, VideoOff, MicOff, Users, Timer, ScreenShare, ScreenShareOff, Pencil, Eraser, Trash2, Monitor, Video, Palette } from "lucide-react";
+import { PhoneOff, VideoOff, MicOff, Users, Timer, ScreenShare, ScreenShareOff, Pencil, Eraser, Trash2, Monitor, Video, Palette, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
@@ -61,8 +61,7 @@ const Whiteboard = React.forwardRef<
     React.useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-
-        // Handle device pixel ratio for high-res displays
+        
         const dpr = window.devicePixelRatio || 1;
         const rect = canvas.getBoundingClientRect();
         canvas.width = rect.width * dpr;
@@ -131,7 +130,7 @@ const Whiteboard = React.forwardRef<
         clear: () => {
             const canvas = canvasRef.current;
             if (canvas && contextRef.current) {
-                 const dpr = window.devicePixelRatio || 1;
+                const dpr = window.devicePixelRatio || 1;
                 contextRef.current.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
             }
         }
@@ -154,6 +153,62 @@ const Whiteboard = React.forwardRef<
 });
 Whiteboard.displayName = "Whiteboard";
 
+const MicIndicator = ({ stream, isMuted }: { stream: MediaStream | null, isMuted: boolean }) => {
+    const [volume, setVolume] = React.useState(0);
+    const audioContextRef = React.useRef<AudioContext | null>(null);
+    const analyserRef = React.useRef<AnalyserNode | null>(null);
+    const animationFrameId = React.useRef<number>();
+
+    React.useEffect(() => {
+        if (stream && !isMuted) {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            analyserRef.current = audioContextRef.current.createAnalyser();
+            const source = audioContextRef.current.createMediaStreamSource(stream);
+            source.connect(analyserRef.current);
+            analyserRef.current.fftSize = 256;
+            const bufferLength = analyserRef.current.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            const getVolume = () => {
+                if (analyserRef.current) {
+                    analyserRef.current.getByteFrequencyData(dataArray);
+                    const avg = dataArray.reduce((acc, val) => acc + val, 0) / bufferLength;
+                    setVolume(avg / 255); // Normalize to 0-1 range
+                }
+                animationFrameId.current = requestAnimationFrame(getVolume);
+            };
+            getVolume();
+        }
+
+        return () => {
+            if (animationFrameId.current) {
+                cancelAnimationFrame(animationFrameId.current);
+            }
+            if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+                audioContextRef.current.close();
+            }
+        };
+    }, [stream, isMuted]);
+
+    return (
+        <div className="flex items-center gap-2 bg-gray-800/50 p-2 rounded-lg">
+            {isMuted ? <MicOff className="w-5 h-5 text-red-500" /> : <Mic className="w-5 h-5 text-green-500" />}
+            <div className="flex items-end gap-1 h-6">
+                {[...Array(8)].map((_, i) => (
+                    <div
+                        key={i}
+                        className="w-1 bg-gray-600 rounded-full transition-all duration-75"
+                        style={{
+                            height: `${Math.max(5, (isMuted ? 0 : volume) * 100 * ((i + 1) / 8))}%`,
+                            backgroundColor: isMuted ? 'rgb(107 114 128)' : `hsl(120, 100%, ${25 + volume * 50}%)`,
+                        }}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
+
 
 export default function MeetingPage({ params }: { params: { bookingId: string } }) {
   const router = useRouter();
@@ -170,6 +225,9 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
 
   const cameraStreamRef = React.useRef<MediaStream | null>(null);
   const screenStreamRef = React.useRef<MediaStream | null>(null);
+  
+  const [isMicMuted, setIsMicMuted] = React.useState(false);
+
 
   const [wbColor, setWbColor] = React.useState("#000000");
   const [wbSize, setWbSize] = React.useState(5);
@@ -180,10 +238,10 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
     
     const bookingId = params.bookingId;
     if (bookingId === 'test-meeting-123') {
-      setBooking(testBooking);
-      const now = new Date();
-      const end = new Date(now.getTime() + 60 * 60 * 1000);
-      setSessionTime({ start: now, end: end });
+        const now = new Date();
+        const end = new Date(now.getTime() + 60 * 60 * 1000);
+        setBooking({ ...testBooking, slot: {day: "Mon", time: `${now.getHours()}:${now.getMinutes()}`}});
+        setSessionTime({ start: now, end: end });
     } else {
       const storedBookings = localStorage.getItem("userBookings");
       if (storedBookings) {
@@ -259,6 +317,15 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
     return () => clearInterval(timer);
   }, [sessionTime.end, router, toast]);
 
+  const handleToggleMic = () => {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = !track.enabled;
+      });
+      setIsMicMuted(prev => !prev);
+    }
+  };
+
   const handleToggleScreenShare = async () => {
     if (viewMode === 'screen') {
       screenStreamRef.current?.getTracks().forEach(track => track.stop());
@@ -316,6 +383,7 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
               <Timer className="w-5 h-5 text-primary"/>
               <span className="font-mono text-lg">{timeLeft}</span>
             </div>
+             <MicIndicator stream={cameraStreamRef.current} isMuted={isMicMuted} />
             <div className="md:hidden">
               <Users className="w-5 h-5"/>
             </div>
@@ -384,8 +452,13 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
             )}
 
              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-4 bg-gray-800/50 p-2 rounded-full">
-                <Button variant="secondary" size="icon" className="rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20">
-                    <MicOff className="w-5 h-5 sm:w-6 sm:h-6"/>
+                <Button 
+                    variant="secondary"
+                    size="icon" 
+                    className={cn("rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20", isMicMuted && "bg-red-500 hover:bg-red-600")}
+                    onClick={handleToggleMic}
+                >
+                    {isMicMuted ? <MicOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Mic className="w-5 h-5 sm:w-6 sm:h-6" />}
                 </Button>
                  <Button variant="destructive" size="icon" className="rounded-full h-14 w-14 sm:h-16 sm:w-16" onClick={handleLeave}>
                     <PhoneOff className="w-6 h-6 sm:w-7 sm:h-7"/>
@@ -442,7 +515,3 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
     </div>
   );
 }
-
-    
-
-    
