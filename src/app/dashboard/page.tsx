@@ -198,6 +198,7 @@ export default function DashboardPage() {
   const subjects = getSubjects().slice(0, 3); // Placeholder for "Your Subjects"
   const recentTopics = getSubjects().flatMap(s => s.topics).slice(0,3);
   const [userRole, setUserRole] = React.useState<string | null>(null);
+  const router = useRouter();
 
   React.useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -244,9 +245,30 @@ export default function DashboardPage() {
             <ScrollReveal>
                 <h2 className="text-2xl font-bold tracking-tight mb-4">Teacher Dashboard</h2>
             </ScrollReveal>
-             <ScrollReveal delay={0.1}>
+            
+            <ScrollReveal delay={0.1}>
+                <Card className="bg-primary/10 border-primary">
+                    <CardHeader className="text-center">
+                        <CardTitle className="text-2xl">Test the Meeting Interface</CardTitle>
+                        <CardDescription>Click the button below to immediately join a test video call and see how the meeting room looks and feels.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex justify-center">
+                        <Button 
+                            size="lg" 
+                            onClick={() => router.push('/dashboard/meeting/test-meeting-123')}
+                            className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow transform hover:scale-105"
+                        >
+                            <Video className="mr-2 h-5 w-5" />
+                            Jump Into a Test Meeting NOW
+                        </Button>
+                    </CardContent>
+                </Card>
+            </ScrollReveal>
+            
+             <ScrollReveal delay={0.2}>
                <TeacherSessions />
             </ScrollReveal>
+
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 <Card>
                     <CardHeader>
