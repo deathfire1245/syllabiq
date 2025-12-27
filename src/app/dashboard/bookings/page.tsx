@@ -22,27 +22,33 @@ interface Booking {
 
 const dayToNumber: { [key: string]: number } = { "Sun": 0, "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6 };
 
-function getNextSessionDate(day: string, time: string): Date {
+function getSessionDates(day: string, time: string): { start: Date, end: Date } {
   const now = new Date();
   const targetDay = dayToNumber[day];
-  const [startTime] = time.split(" - ");
-  const [hour, minute] = startTime.split(":").map(Number);
-  
-  let resultDate = new Date();
-  // Find the next occurrence of the target day.
+  const [startTimeStr] = time.split(" - ");
+  const [hour, minute] = startTimeStr.split(":").map(Number);
+
+  let startDate = new Date();
   const currentDay = now.getDay();
-  let dayDifference = (targetDay - currentDay + 7) % 7;
-  
-  // If the day is today but the time has passed, set it for next week
-  if (dayDifference === 0 && (now.getHours() > hour || (now.getHours() === hour && now.getMinutes() >= minute))) {
+  let dayDifference = targetDay - currentDay;
+
+  // If the day is in the past for this week, schedule it for next week.
+  if (dayDifference < 0) {
+      dayDifference += 7;
+  }
+  // If the day is today but the time has passed, schedule it for next week.
+  else if (dayDifference === 0 && (now.getHours() > hour || (now.getHours() === hour && now.getMinutes() >= minute))) {
       dayDifference = 7;
   }
-  
-  resultDate.setDate(now.getDate() + dayDifference);
-  resultDate.setHours(hour, minute, 0, 0);
 
-  return resultDate;
+  startDate.setDate(now.getDate() + dayDifference);
+  startDate.setHours(hour, minute, 0, 0);
+
+  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1-hour session
+
+  return { start: startDate, end: endDate };
 }
+
 
 const Countdown = ({ targetDate }: { targetDate: Date }) => {
   const calculateTimeLeft = () => {
@@ -89,25 +95,33 @@ const Countdown = ({ targetDate }: { targetDate: Date }) => {
 
 const SessionCard = ({ booking }: { booking: Booking }) => {
     const router = useRouter();
-    const sessionDate = getNextSessionDate(booking.slot.day, booking.slot.time);
-    const sessionEndDate = new Date(sessionDate.getTime() + 60 * 60 * 1000); // 1 hour session
+    const [sessionDates, setSessionDates] = React.useState<{ start: Date, end: Date } | null>(null);
     const [isSessionActive, setIsSessionActive] = React.useState(false);
 
     React.useEffect(() => {
+        const { start, end } = getSessionDates(booking.slot.day, booking.slot.time);
+        setSessionDates({ start, end });
+    }, [booking.slot.day, booking.slot.time]);
+
+    React.useEffect(() => {
+        if (!sessionDates) return;
+
         const checkSessionStatus = () => {
             const now = new Date();
-            setIsSessionActive(now >= sessionDate && now < sessionEndDate);
+            setIsSessionActive(now >= sessionDates.start && now < sessionDates.end);
         };
         checkSessionStatus();
         const interval = setInterval(checkSessionStatus, 1000);
         return () => clearInterval(interval);
-    }, [sessionDate, sessionEndDate]);
+    }, [sessionDates]);
 
     const handleJoinMeeting = () => {
       if(isSessionActive) {
         router.push(`/dashboard/meeting/${booking.id}`);
       }
     }
+
+    if (!sessionDates) return null;
 
     return (
          <Card className="overflow-hidden">
@@ -124,7 +138,7 @@ const SessionCard = ({ booking }: { booking: Booking }) => {
             <CardContent className="p-6 text-center">
                 <h3 className="text-lg font-semibold text-muted-foreground mb-4">Session starts in:</h3>
                 <div className="flex justify-center items-center">
-                  <Countdown targetDate={sessionDate} />
+                  <Countdown targetDate={sessionDates.start} />
                 </div>
             </CardContent>
             <CardFooter className="p-4 bg-secondary/30">
