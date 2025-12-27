@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -6,14 +7,19 @@ import {
   History,
   Target,
   TrendingUp,
+  Video,
 } from "lucide-react";
 import { getSubjects } from "@/lib/data";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Image from "next/image";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { useInView, motion, animate } from "framer-motion";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { useRouter } from 'next/navigation';
 
 const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?: string, suffix?: string }) => {
   const ref = React.useRef<HTMLSpanElement>(null);
@@ -119,10 +125,84 @@ const SubjectProgress = ({ subject, delay = 0 }: { subject: ReturnType<typeof ge
   );
 };
 
+interface Booking {
+  id: string;
+  tutorId: string;
+  tutorName: string;
+  tutorAvatar: string;
+  slot: { day: string; time: string };
+  cost: number;
+  bookedAt: string;
+}
+
+const TeacherSessions = () => {
+    const router = useRouter();
+    const [bookings, setBookings] = React.useState<Booking[]>([]);
+
+    React.useEffect(() => {
+        const storedBookings = localStorage.getItem("userBookings");
+        if (storedBookings) {
+            setBookings(JSON.parse(storedBookings));
+        }
+    }, []);
+
+    const handleJoinMeeting = (bookingId: string) => {
+        router.push(`/dashboard/meeting/${bookingId}`);
+    }
+
+    if (bookings.length === 0) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Upcoming Sessions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">You have no upcoming sessions booked by students.</p>
+                </CardContent>
+            </Card>
+        );
+    }
+    
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Your Upcoming Sessions</CardTitle>
+                <CardDescription>Students have booked these sessions with you.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {bookings.map(booking => (
+                    <div key={booking.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                        <div className="flex items-center gap-4">
+                             <Avatar>
+                                <AvatarImage src="https://picsum.photos/seed/student-avatar/100" />
+                                <AvatarFallback>S</AvatarFallback>
+                            </Avatar>
+                            <div>
+                                <p className="font-semibold">Session with a Student</p>
+                                <p className="text-sm text-muted-foreground">{booking.slot.day} at {booking.slot.time}</p>
+                            </div>
+                        </div>
+                        <Button onClick={() => handleJoinMeeting(booking.id)}>
+                            <Video className="mr-2 h-4 w-4" />
+                            Jump Into Meeting
+                        </Button>
+                    </div>
+                ))}
+            </CardContent>
+        </Card>
+    )
+}
+
 
 export default function DashboardPage() {
   const subjects = getSubjects().slice(0, 3); // Placeholder for "Your Subjects"
   const recentTopics = getSubjects().flatMap(s => s.topics).slice(0,3);
+  const [userRole, setUserRole] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const role = localStorage.getItem("userRole");
+    setUserRole(role);
+  }, []);
 
   const userStats = {
     topicsCompleted: 18,
@@ -153,6 +233,49 @@ export default function DashboardPage() {
       }
   ]
 
+  if (!userRole) {
+      return <div>Loading...</div>
+  }
+
+  // Teacher Dashboard View
+  if (userRole === "Teacher") {
+    return (
+        <div className="space-y-8">
+            <ScrollReveal>
+                <h2 className="text-2xl font-bold tracking-tight mb-4">Teacher Dashboard</h2>
+            </ScrollReveal>
+             <ScrollReveal delay={0.1}>
+               <TeacherSessions />
+            </ScrollReveal>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Your Courses</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground">You haven't created any courses yet.</p>
+                        <Button asChild className="mt-4">
+                            <Link href="/dashboard/create/courses">Create a Course</Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Your Availability</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground">Set your schedule for live classes.</p>
+                         <Button asChild className="mt-4">
+                            <Link href="/dashboard/create/classes">Manage Schedule</Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+  }
+
+  // Student Dashboard View
   return (
     <div className="space-y-8">
       {/* Your Subjects Section */}
@@ -212,3 +335,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
