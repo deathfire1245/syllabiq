@@ -96,24 +96,25 @@ const Countdown = ({ targetDate }: { targetDate: Date }) => {
 const SessionCard = ({ booking }: { booking: Booking }) => {
     const router = useRouter();
     const [sessionDates, setSessionDates] = React.useState<{ start: Date, end: Date } | null>(null);
-    const [isSessionActive, setIsSessionActive] = React.useState(false);
+    const [isSessionActive, setIsSessionActive] = React.useState(true); // Always active for testing
 
     React.useEffect(() => {
         const { start, end } = getSessionDates(booking.slot.day, booking.slot.time);
         setSessionDates({ start, end });
     }, [booking.slot.day, booking.slot.time]);
 
-    React.useEffect(() => {
-        if (!sessionDates) return;
+    // This useEffect is no longer needed to set session status for testing
+    // React.useEffect(() => {
+    //     if (!sessionDates) return;
 
-        const checkSessionStatus = () => {
-            const now = new Date();
-            setIsSessionActive(now >= sessionDates.start && now < sessionDates.end);
-        };
-        checkSessionStatus();
-        const interval = setInterval(checkSessionStatus, 1000);
-        return () => clearInterval(interval);
-    }, [sessionDates]);
+    //     const checkSessionStatus = () => {
+    //         const now = new Date();
+    //         setIsSessionActive(now >= sessionDates.start && now < sessionDates.end);
+    //     };
+    //     checkSessionStatus();
+    //     const interval = setInterval(checkSessionStatus, 1000);
+    //     return () => clearInterval(interval);
+    // }, [sessionDates]);
 
     const handleJoinMeeting = () => {
       if(isSessionActive) {
