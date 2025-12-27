@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -7,10 +8,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Video, CalendarX2 } from "lucide-react";
 import Link from "next/link";
-import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { useRouter } from 'next/navigation';
 
 interface Booking {
+  id: string;
   tutorId: string;
   tutorName: string;
   tutorAvatar: string;
@@ -28,13 +29,17 @@ function getNextSessionDate(day: string, time: string): Date {
   const [hour, minute] = startTime.split(":").map(Number);
   
   let resultDate = new Date();
-  resultDate.setDate(now.getDate() + ((targetDay + 7 - now.getDay()) % 7));
-  resultDate.setHours(hour, minute, 0, 0);
-
-  // If the time has already passed for today, get next week's day
-  if (resultDate < now) {
-    resultDate.setDate(resultDate.getDate() + 7);
+  // Find the next occurrence of the target day.
+  const currentDay = now.getDay();
+  let dayDifference = (targetDay - currentDay + 7) % 7;
+  
+  // If the day is today but the time has passed, set it for next week
+  if (dayDifference === 0 && (now.getHours() > hour || (now.getHours() === hour && now.getMinutes() >= minute))) {
+      dayDifference = 7;
   }
+  
+  resultDate.setDate(now.getDate() + dayDifference);
+  resultDate.setHours(hour, minute, 0, 0);
 
   return resultDate;
 }
@@ -42,7 +47,7 @@ function getNextSessionDate(day: string, time: string): Date {
 const Countdown = ({ targetDate }: { targetDate: Date }) => {
   const calculateTimeLeft = () => {
     const difference = +targetDate - +new Date();
-    let timeLeft = {};
+    let timeLeft: {[key: string]: number} = {};
 
     if (difference > 0) {
       timeLeft = {
@@ -66,7 +71,9 @@ const Countdown = ({ targetDate }: { targetDate: Date }) => {
   });
 
   const timerComponents = Object.entries(timeLeft).map(([interval, value]) => {
-     if (value === 0 && interval !== 'seconds' && timeLeft.days === 0) return null;
+     if (value === 0 && interval !== 'seconds' && !timeLeft.days && !timeLeft.hours && !timeLeft.minutes) return null;
+     if (value === 0 && interval !== 'seconds' && !timeLeft.days && !timeLeft.hours) return null;
+     if (value === 0 && interval !== 'seconds' && !timeLeft.days) return null;
      if (value === 0 && interval === 'days') return null;
 
     return (
@@ -77,11 +84,11 @@ const Countdown = ({ targetDate }: { targetDate: Date }) => {
     );
   }).filter(Boolean);
 
-  return timerComponents.length ? <div className="flex gap-4">{timerComponents}</div> : <span>Session Active!</span>;
+  return timerComponents.length ? <div className="flex gap-4">{timerComponents}</div> : <span className="text-primary font-semibold">Session is active!</span>;
 };
 
 const SessionCard = ({ booking }: { booking: Booking }) => {
-    const { toast } = useToast();
+    const router = useRouter();
     const sessionDate = getNextSessionDate(booking.slot.day, booking.slot.time);
     const sessionEndDate = new Date(sessionDate.getTime() + 60 * 60 * 1000); // 1 hour session
     const [isSessionActive, setIsSessionActive] = React.useState(false);
@@ -97,11 +104,9 @@ const SessionCard = ({ booking }: { booking: Booking }) => {
     }, [sessionDate, sessionEndDate]);
 
     const handleJoinMeeting = () => {
-      // For this simulation, we just show a toast. In a real app, this would redirect to a video call.
-      toast({
-        title: "Joining Meeting...",
-        description: `Connecting you with ${booking.tutorName}.`,
-      });
+      if(isSessionActive) {
+        router.push(`/dashboard/meeting/${booking.id}`);
+      }
     }
 
     return (
@@ -125,7 +130,7 @@ const SessionCard = ({ booking }: { booking: Booking }) => {
             <CardFooter className="p-4 bg-secondary/30">
                 <Button className="w-full" disabled={!isSessionActive} onClick={handleJoinMeeting}>
                     <Video className="mr-2 h-4 w-4" />
-                    {isSessionActive ? "Join Meeting" : "Meeting not started"}
+                    {isSessionActive ? "Jump Into Meeting" : "Meeting not started"}
                 </Button>
             </CardFooter>
         </Card>
@@ -168,7 +173,7 @@ export default function MyBookingsPage() {
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {bookings.map((booking, index) => (
-            <ScrollReveal key={index} delay={index * 0.1}>
+            <ScrollReveal key={booking.id} delay={index * 0.1}>
               <SessionCard booking={booking} />
             </ScrollReveal>
         ))}

@@ -75,6 +75,7 @@ export default function TutorsPage() {
     // In a real app, this would involve a payment flow.
     // For this simulation, we'll store the booking in localStorage.
     const booking = {
+      id: `booking-${tutor.id}-${Date.now()}`, // Create a unique booking ID
       tutorId: tutor.id,
       tutorName: tutor.name,
       tutorAvatar: tutor.avatar,
