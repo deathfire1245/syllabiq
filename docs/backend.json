@@ -1,0 +1,149 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user within the SyllabiQ platform.",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user, either 'teacher' or 'student'."
+        }
+      },
+      "required": [
+        "uid",
+        "email",
+        "role"
+      ]
+    },
+    "Meeting": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Meeting",
+      "type": "object",
+      "description": "Represents a meeting session within the SyllabiQ platform.",
+      "properties": {
+        "meetingCode": {
+          "type": "string",
+          "description": "Unique human-readable code for the meeting."
+        },
+        "meetingRoomId": {
+          "type": "string",
+          "description": "Unique identifier for the meeting room (UUID)."
+        },
+        "hostUid": {
+          "type": "string",
+          "description": "Reference to the User who is hosting the meeting. (Relationship: User 1:N Meeting)"
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates whether the meeting is currently active."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the meeting was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "meetingCode",
+        "meetingRoomId",
+        "hostUid",
+        "isActive",
+        "createdAt"
+      ]
+    },
+    "Participant": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Participant",
+      "type": "object",
+      "description": "Represents a participant in a meeting.",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Reference to the User participating in the meeting. (Relationship: User 1:N Participant)"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the participant (teacher or student)."
+        },
+        "joinedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the participant joined the meeting.",
+          "format": "date-time"
+        },
+        "cameraOn": {
+          "type": "boolean",
+          "description": "Indicates whether the participant's camera is on."
+        },
+        "micOn": {
+          "type": "boolean",
+          "description": "Indicates whether the participant's microphone is on."
+        }
+      },
+      "required": [
+        "uid",
+        "role",
+        "joinedAt",
+        "cameraOn",
+        "micOn"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/meetings/{meetingCode}",
+        "definition": {
+          "entityName": "Meeting",
+          "schema": {
+            "$ref": "#/backend/entities/Meeting"
+          },
+          "description": "Stores meeting information, including the meeting code, meeting room ID, host UID, and activity status.",
+          "params": [
+            {
+              "name": "meetingCode",
+              "description": "The unique, human-readable meeting code."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/participants/{meetingRoomId}/{uid}",
+        "definition": {
+          "entityName": "Participant",
+          "schema": {
+            "$ref": "#/backend/entities/Participant"
+          },
+          "description": "Stores participant information for each meeting, including the user ID, role, join time, and camera/microphone status. Includes denormalized 'role' from the user document for authorization independence.",
+          "params": [
+            {
+              "name": "meetingRoomId",
+              "description": "The unique identifier for the meeting room (UUID)."
+            },
+            {
+              "name": "uid",
+              "description": "The unique identifier of the user participating in the meeting."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "This Firestore structure is designed to support a real-time online meeting system (SyllabiQ) with a focus on simplicity, security, and real-time responsiveness. It emphasizes Authorization Independence and supports the required QAPs through structural segregation and a membership model.\n\n**Authorization Independence:** The `participants` subcollection denormalizes the `role` from the user object. This eliminates the need for `get()` calls in security rules when determining a user's role within a meeting.\n\n**Structural Segregation:** Meetings and participants are stored in separate collections, each with its own distinct security profile. This prevents mixing data with different access needs.\n\n**Access Modeling (Membership Map):** The `participants` subcollection acts as a membership map for each meeting, explicitly listing all participants and their associated roles. This structure enables efficient and secure `list` operations, ensuring that only authorized users can access participant data.\n\n**Global Roles (DBAC):** The system leverages the `role` field within the user document to determine access rights. No custom claims are used, and authorization relies solely on `request.auth.uid` and the user's stored role."
+  }
+}

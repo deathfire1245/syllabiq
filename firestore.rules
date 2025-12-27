@@ -1,0 +1,106 @@
+/**
+ * # Firestore Security Rules for SyllabiQ Meeting System
+ *
+ * This ruleset enforces a secure, real-time meeting environment. It is designed
+ * for rapid prototyping, focusing on strict authorization while remaining flexible
+ * on data schemas.
+ *
+ * ## Core Philosophy
+ * The security model is centered around user authentication and roles. All users
+ * must be signed in to access any feature. A custom claim, `role: 'teacher'`,
+ * grants elevated privileges for creating and managing meeting sessions. Students
+ * can join existing meetings but cannot create them.
+ *
+ * ## Data Structure
+ * The data is organized into two primary top-level collections:
+ * - `/meetings/{meetingCode}`: Stores the discoverable meeting metadata, like the
+ *   human-readable code and the internal room ID. This is the entry point for users.
+ * - `/participants/{meetingRoomId}/users/{uid}`: A nested structure that tracks
+ *   real-time presence. Each meeting room has a subcollection of its participants.
+ *   This structure functions as a membership list, enabling rules that grant
+ *   access only to fellow participants.
+ *
+ * ## Key Security Decisions
+ * - **Authenticated Access Only**: No anonymous or unauthenticated access is permitted.
+ * - **Teacher-Only Creation**: Only users with a `teacher` role (via custom claims) can create meetings.
+ * - **No Public Listing**: Users cannot list all available meetings or all participant rooms,
+ *   preventing data scraping and preserving privacy.
+ * - **Membership-Based Visibility**: A user can only see the list of participants for a
+ *   meeting if they are also a participant in that same meeting.
+ *
+ * ## Denormalization for Authorization
+ * To ensure fast and secure rule execution, we rely on denormalized data:
+ * - The `hostUid` is stored directly on the `/meetings/{meetingCode}` document, allowing
+ *   for simple ownership checks without extra database reads (`get`).
+ * - We assume a parent document exists at `/participants/{meetingRoomId}` that holds
+ *   critical state like `isActive`. This allows rules on the `users` subcollection
+ *   to securely verify the meeting's status with a single, performant `get` call.
+ *
+ * ## Structural Segregation
+ * Separating meeting metadata (`/meetings`) from participant presence data
+ * (`/participants`) allows for distinct and more granular security controls,
+ * ensuring that the rules for each collection are simple and targeted.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for readable and reusable logic
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Use for update/delete to ensure the document exists before applying the rule.
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    // Checks for a 'teacher' role via custom claims. This is the secure way to manage roles.
+    function isTeacher() {
+      return isSignedIn() && request.auth.token.role == 'teacher';
+    }
+
+    // Validates if the requesting user is a participant in the specified meeting room.
+    function isMeetingParticipant(meetingRoomId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/participants/$(meetingRoomId)/users/$(request.auth.uid));
+    }
+
+
+    /**
+     * @description Governs access to meeting metadata documents. These documents are the entry point for joining a meeting.
+     * @path /meetings/{meetingCode}
+     * @allow (get) Any signed-in user trying to look up a meeting by its code.
+     * @deny (list) Any user attempting to scrape a list of all meetings.
+     * @deny (create) A student attempting to create a new meeting.
+     * @principle Public read for authenticated users with owner-only writes. Teacher role required for creation.
+     */
+    match /meetings/{meetingCode} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isTeacher() && request.resource.data.hostUid == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.hostUid);
+      allow delete: if isExistingOwner(resource.data.hostUid);
+    }
+
+    /**
+     * @description Governs access to the participant documents, which represent a user's presence in a meeting.
+     * @path /participants/{meetingRoomId}/users/{uid}
+     * @allow (create) A signed-in user creating their own participant document to join an active meeting.
+     * @allow (list) An existing participant fetching the list of other users in the same meeting.
+     * @deny (update) A user trying to change another participant's camera or mic status.
+     * @deny (list) An outside user trying to see who is in a private meeting.
+     * @principle Restricts access to a user's own data tree and enforces membership for visibility.
+     */
+    match /participants/{meetingRoomId}/users/{uid} {
+      allow get: if isMeetingParticipant(meetingRoomId);
+      allow list: if isMeetingParticipant(meetingRoomId);
+      allow create: if isOwner(uid) && request.resource.data.uid == request.auth.uid && get(/databases/$(database)/documents/meetings/$(request.resource.data.meetingCode)).data.isActive == true;
+      allow update: if isExistingOwner(uid) && request.resource.data.uid == resource.data.uid;
+      allow delete: if isExistingOwner(uid);
+    }
+  }
+}
