@@ -2,37 +2,16 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
-import { GlassForm, GlassInput } from "@/components/ui/glass-form";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useToast } from "@/hooks/use-toast";
+import { GlassForm } from "@/components/ui/glass-form";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { toast } = useToast();
 
-  const [name, setName] = React.useState("");
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
-  const [role, setRole] = React.useState("Student");
-
-  const handleSignup = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !email || !password) {
-      toast({
-        variant: "destructive",
-        title: "Missing fields",
-        description: "Please fill out all required fields.",
-      });
-      return;
-    }
-    
-    // Save role to localStorage for the onboarding flow
+  const handleSignup = (role: 'Student' | 'Teacher') => {
     localStorage.setItem("userRole", role);
     localStorage.setItem("onboardingStatus", "pending");
-    
     router.push('/onboarding');
   };
 
@@ -40,54 +19,14 @@ export default function SignupPage() {
     <GlassForm>
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-white">Create Account</h1>
-        <p className="text-gray-300 mt-2">Join SyllabiQ to start learning.</p>
+        <p className="text-gray-300 mt-2">Choose your role to get started.</p>
       </div>
-      <form onSubmit={handleSignup} className="space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="name" className="text-gray-300">Name</Label>
-          <GlassInput 
-            id="name" 
-            placeholder="John Doe" 
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="email" className="text-gray-300">Email</Label>
-          <GlassInput 
-            id="email" 
-            type="email" 
-            placeholder="m@example.com" 
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password" className="text-gray-300">Password</Label>
-          <GlassInput 
-            id="password" 
-            type="password" 
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-3">
-          <Label className="text-gray-300">Sign up as a</Label>
-          <RadioGroup defaultValue="Student" value={role} onValueChange={setRole} className="flex gap-4">
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="Student" id="role-student" className="text-white border-white/50" />
-              <Label htmlFor="role-student" className="text-white">Student</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="Teacher" id="role-teacher" className="text-white border-white/50" />
-              <Label htmlFor="role-teacher" className="text-white">Teacher</Label>
-            </div>
-          </RadioGroup>
-        </div>
-
-        <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11 text-base font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">
-          Create Account
+      <div className="space-y-4">
+        <Button onClick={() => handleSignup('Student')} className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11 text-base font-semibold">
+          Sign up as a Student
+        </Button>
+        <Button onClick={() => handleSignup('Teacher')} className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/80 h-11 text-base font-semibold">
+          Sign up as a Teacher
         </Button>
         <div className="mt-6 text-center text-sm">
           <span className="text-gray-300">Already have an account?</span>{" "}
@@ -95,7 +34,7 @@ export default function SignupPage() {
             Login
           </Link>
         </div>
-      </form>
+      </div>
     </GlassForm>
   );
 }
