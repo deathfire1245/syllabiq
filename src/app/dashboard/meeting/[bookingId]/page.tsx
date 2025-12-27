@@ -39,6 +39,12 @@ function getSessionDates(day: string, time: string): { start: Date, end: Date } 
   return { start: startDate, end: endDate };
 }
 
+const testBooking: Booking = {
+  id: "test-meeting-123",
+  tutorName: "Test Teacher",
+  slot: { day: "Mon", time: "10:00 - 11:00" },
+};
+
 export default function MeetingPage({ params }: { params: { bookingId: string } }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -49,16 +55,23 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
   const [timeLeft, setTimeLeft] = React.useState("");
 
   React.useEffect(() => {
-    const storedBookings = localStorage.getItem("userBookings");
-    if (storedBookings) {
-      const allBookings = JSON.parse(storedBookings);
-      const currentBooking = allBookings.find((b: Booking) => b.id === params.bookingId);
-      if (currentBooking) {
-        setBooking(currentBooking);
-        const { start, end } = getSessionDates(currentBooking.slot.day, currentBooking.slot.time);
-        setSessionTime({ start, end });
-      } else {
-        router.replace("/dashboard/bookings");
+    if (params.bookingId === 'test-meeting-123') {
+      setBooking(testBooking);
+      const now = new Date();
+      const end = new Date(now.getTime() + 60 * 60 * 1000);
+      setSessionTime({ start: now, end: end });
+    } else {
+      const storedBookings = localStorage.getItem("userBookings");
+      if (storedBookings) {
+        const allBookings = JSON.parse(storedBookings);
+        const currentBooking = allBookings.find((b: Booking) => b.id === params.bookingId);
+        if (currentBooking) {
+          setBooking(currentBooking);
+          const { start, end } = getSessionDates(currentBooking.slot.day, currentBooking.slot.time);
+          setSessionTime({ start, end });
+        } else {
+          router.replace("/dashboard/bookings");
+        }
       }
     }
   }, [params.bookingId, router]);
@@ -144,7 +157,7 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
                 <Button variant="secondary" size="icon" className="rounded-full h-14 w-14 bg-white/10 hover:bg-white/20">
                     <MicOff className="w-6 h-6"/>
                 </Button>
-                 <Button variant="destructive" size="icon" className="rounded-full h-16 w-16" onClick={() => router.replace('/dashboard/bookings')}>
+                 <Button variant="destructive" size="icon" className="rounded-full h-16 w-16" onClick={() => router.replace('/dashboard')}>
                     <PhoneOff className="w-7 h-7"/>
                 </Button>
                 <Button variant="secondary" size="icon" className="rounded-full h-14 w-14 bg-white/10 hover:bg-white/20">
@@ -179,3 +192,5 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
     </div>
   );
 }
+
+    
