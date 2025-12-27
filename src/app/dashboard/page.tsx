@@ -10,7 +10,6 @@ import {
   Video,
   Copy,
   PlusCircle,
-  Users
 } from "lucide-react";
 import { getSubjects } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -19,12 +18,13 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { useInView, motion, animate } from "framer-motion";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
+import { useUser, useFirebase } from "@/firebase";
+import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 
 const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?: string, suffix?: string }) => {
   const ref = React.useRef<HTMLSpanElement>(null);
@@ -133,23 +133,43 @@ const SubjectProgress = ({ subject, delay = 0 }: { subject: ReturnType<typeof ge
 const TeacherDashboard = () => {
     const router = useRouter();
     const { toast } = useToast();
+    const { firestore, user } = useFirebase();
     const [meetingCode, setMeetingCode] = React.useState<string | null>(null);
+    const [meetingRoomId, setMeetingRoomId] = React.useState<string | null>(null);
 
-    React.useEffect(() => {
-        const storedCode = localStorage.getItem('activeMeetingCode');
-        if (storedCode) {
-            setMeetingCode(storedCode);
-        }
-    }, []);
-
-    const generateMeetingCode = () => {
+    const generateMeetingCode = async () => {
+        if (!user || !firestore) return;
+        
         const code = `SYL-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-        setMeetingCode(code);
-        localStorage.setItem('activeMeetingCode', code);
+        const roomId = crypto.randomUUID();
+        
+        const meetingDocRef = doc(firestore, "meetings", code);
+
+        try {
+            await setDoc(meetingDocRef, {
+                meetingCode: code,
+                meetingRoomId: roomId,
+                hostUid: user.uid,
+                isActive: true,
+                createdAt: serverTimestamp()
+            });
+            setMeetingCode(code);
+            setMeetingRoomId(roomId);
+            toast({
+                title: 'Meeting Code Generated!',
+                description: `Your new meeting code is ${code}`,
+            });
+        } catch(error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error creating meeting',
+                description: error.message,
+            });
+        }
     };
 
     const startMeeting = () => {
-        if (!meetingCode) {
+        if (!meetingCode || !meetingRoomId) {
             toast({
                 variant: 'destructive',
                 title: 'No Meeting Code',
@@ -157,7 +177,7 @@ const TeacherDashboard = () => {
             });
             return;
         }
-        router.push(`/dashboard/meeting/${meetingCode}`);
+        router.push(`/dashboard/meeting/${meetingRoomId}`);
     };
 
     const copyCode = () => {
@@ -169,9 +189,24 @@ const TeacherDashboard = () => {
         });
     };
 
-    const clearMeeting = () => {
-        localStorage.removeItem('activeMeetingCode');
-        setMeetingCode(null);
+    const endMeeting = async () => {
+        if (!meetingCode || !firestore) return;
+        const meetingDocRef = doc(firestore, "meetings", meetingCode);
+        try {
+            await setDoc(meetingDocRef, { isActive: false }, { merge: true });
+            setMeetingCode(null);
+            setMeetingRoomId(null);
+            toast({
+                title: 'Meeting Ended',
+                description: 'The meeting session has been closed.',
+            });
+        } catch(error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error ending meeting',
+                description: error.message,
+            });
+        }
     }
 
     return (
@@ -207,8 +242,8 @@ const TeacherDashboard = () => {
                                         <Video className="mr-2 h-5 w-5" />
                                         Start Meeting Now
                                     </Button>
-                                     <Button variant="secondary" onClick={clearMeeting}>
-                                        End & Create New
+                                     <Button variant="secondary" onClick={endMeeting}>
+                                        End Session
                                     </Button>
                                 </div>
                             </div>
@@ -216,31 +251,6 @@ const TeacherDashboard = () => {
                     </CardContent>
                 </Card>
             </ScrollReveal>
-
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Your Courses</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-muted-foreground">You haven't created any courses yet.</p>
-                        <Button asChild className="mt-4">
-                            <Link href="/dashboard/create/courses">Create a Course</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Your Availability</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-muted-foreground">Set your schedule for live classes.</p>
-                         <Button asChild className="mt-4">
-                            <Link href="/dashboard/create/classes">Manage Schedule</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
         </div>
     );
 };
@@ -250,6 +260,7 @@ const StudentDashboard = () => {
     const recentTopics = getSubjects().flatMap(s => s.topics).slice(0,3);
     const router = useRouter();
     const { toast } = useToast();
+    const { firestore } = useFirebase();
     const [meetingCode, setMeetingCode] = React.useState('');
 
 
@@ -282,7 +293,7 @@ const StudentDashboard = () => {
         }
     ];
 
-    const handleJoinMeeting = () => {
+    const handleJoinMeeting = async () => {
         if (!meetingCode.trim()) {
             toast({
                 variant: 'destructive',
@@ -291,7 +302,29 @@ const StudentDashboard = () => {
             });
             return;
         }
-        router.push(`/dashboard/meeting/${meetingCode.trim()}`);
+
+        try {
+            const meetingDocRef = doc(firestore, "meetings", meetingCode.trim());
+            const meetingDoc = await getDoc(meetingDocRef);
+
+            if (!meetingDoc.exists() || !meetingDoc.data()?.isActive) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Invalid or Inactive Code',
+                    description: 'The meeting code is not valid or the session has not started yet.',
+                });
+                return;
+            }
+
+            const { meetingRoomId } = meetingDoc.data();
+            router.push(`/dashboard/meeting/${meetingRoomId}`);
+        } catch (error: any) {
+             toast({
+                variant: 'destructive',
+                title: 'Error Joining Meeting',
+                description: error.message || 'Could not join the meeting.',
+            });
+        }
     };
 
     return (
@@ -381,14 +414,18 @@ const StudentDashboard = () => {
 
 
 export default function DashboardPage() {
+  const { user, isUserLoading } = useUser();
   const [userRole, setUserRole] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    // Rely on localStorage for a quick role check, but Firestore is the source of truth
     const role = localStorage.getItem("userRole");
-    setUserRole(role);
+    if(role) {
+        setUserRole(role);
+    }
   }, []);
 
-  if (!userRole) {
+  if (isUserLoading || !user) {
       return <div>Loading...</div>
   }
 

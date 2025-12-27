@@ -1,20 +1,37 @@
 "use client";
 
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { GlassForm, GlassInput } from "@/components/ui/glass-form";
+import { useToast } from "@/hooks/use-toast";
+import { useFirebase } from "@/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { toast } = useToast();
+  const { auth } = useFirebase();
+  const [email, setEmail] = React.useState("student@example.com");
+  const [password, setPassword] = React.useState("password");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, you'd have authentication logic here.
-    // For this demo, we'll just navigate to the dashboard.
-    localStorage.setItem("userRole", "Student"); // Default to student for demo
-    router.push('/dashboard');
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged in FirebaseProvider will handle the redirect
+      // For demo purposes, we can manually set a role if needed, but Firestore should be the source of truth
+      // For now, let's assume onAuthStateChanged handles the main logic
+      router.push('/dashboard');
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: error.message || "An unknown error occurred.",
+      });
+    }
   };
 
   return (
@@ -30,7 +47,8 @@ export default function LoginPage() {
             id="email" 
             type="email" 
             placeholder="student@example.com" 
-            defaultValue="student@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
           />
         </div>
         <div className="space-y-2">
@@ -43,7 +61,8 @@ export default function LoginPage() {
           <GlassInput 
             id="password" 
             type="password" 
-            defaultValue="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
         </div>
         <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11 text-base font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">

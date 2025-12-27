@@ -7,20 +7,57 @@ import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { GlassForm, GlassInput } from "@/components/ui/glass-form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useToast } from "@/hooks/use-toast";
+import { useFirebase } from "@/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 
 export default function SignupPage() {
   const router = useRouter();
+  const { toast } = useToast();
+  const { auth, firestore } = useFirebase();
+
+  const [name, setName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
   const [role, setRole] = React.useState("Student");
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, you'd save the role to Firebase here.
-    // For this demo, we'll use localStorage.
-    if (typeof window !== "undefined") {
+    if (!name || !email || !password) {
+      toast({
+        variant: "destructive",
+        title: "Missing fields",
+        description: "Please fill out all required fields.",
+      });
+      return;
+    }
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Store user role and name in Firestore
+      const userDocRef = doc(firestore, "users", user.uid);
+      await setDoc(userDocRef, {
+        uid: user.uid,
+        email: user.email,
+        name: name,
+        role: role,
+      });
+
+      // Save role to localStorage for immediate UI updates, though Firestore is the source of truth
       localStorage.setItem("userRole", role);
       localStorage.setItem("onboardingStatus", "pending");
+      
+      router.push('/onboarding');
+
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Signup Failed",
+        description: error.message || "An unknown error occurred.",
+      });
     }
-    router.push('/onboarding');
   };
 
   return (
@@ -35,6 +72,8 @@ export default function SignupPage() {
           <GlassInput 
             id="name" 
             placeholder="John Doe" 
+            value={name}
+            onChange={(e) => setName(e.target.value)}
           />
         </div>
         <div className="space-y-2">
@@ -43,6 +82,8 @@ export default function SignupPage() {
             id="email" 
             type="email" 
             placeholder="m@example.com" 
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
           />
         </div>
         <div className="space-y-2">
@@ -50,6 +91,8 @@ export default function SignupPage() {
           <GlassInput 
             id="password" 
             type="password" 
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
         </div>
 

@@ -6,6 +6,10 @@ import Link from "next/link";
 import { BookMarked, Home, Compass, CalendarClock, PlusCircle, User, Video, GraduationCap, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
+import { useUser } from "@/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
+
 
 const studentNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
@@ -28,16 +32,30 @@ const teacherNavItems = [
 
 export function SidebarNav({ isMobile = false }: { isMobile?: boolean }) {
   const pathname = usePathname();
-  const [userRole, setUserRole] = React.useState("Student");
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const [userRole, setUserRole] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedRole = localStorage.getItem("userRole");
-      if (storedRole) {
-        setUserRole(storedRole);
+    const fetchUserRole = async () => {
+      if (user && firestore) {
+        const userDocRef = doc(firestore, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const role = userDoc.data()?.role;
+          setUserRole(role);
+          localStorage.setItem("userRole", role); // Keep localStorage for non-critical UI
+        }
+      } else {
+         const localRole = localStorage.getItem("userRole");
+         if(localRole) setUserRole(localRole);
       }
+    };
+
+    if (!isUserLoading) {
+      fetchUserRole();
     }
-  }, []);
+  }, [user, isUserLoading, firestore]);
 
   const navItems = userRole === "Teacher" ? teacherNavItems : studentNavItems;
 

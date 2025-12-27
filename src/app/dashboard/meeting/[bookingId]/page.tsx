@@ -1,19 +1,31 @@
-
 "use client";
 
 import * as React from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { PhoneOff, VideoOff, MicOff, Users, Timer, ScreenShare, Pencil, Eraser, Trash2, Monitor, Video, Palette, Mic } from "lucide-react";
+import { PhoneOff, VideoOff, MicOff, Users, Timer, Pencil, Eraser, Trash2, Monitor, Video, Palette, Mic, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useUser, useFirebase } from "@/firebase";
+import { collection, doc, onSnapshot, setDoc, deleteDoc, serverTimestamp, getDoc } from "firebase/firestore";
 
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
+
+interface Participant {
+    id: string;
+    uid: string;
+    role: string;
+    name: string;
+    isLocal: boolean;
+    stream: MediaStream | null;
+    isCameraOff: boolean;
+    isMicMuted: boolean;
+}
 
 const ParticipantVideo = ({ stream, isCameraOff, isMicMuted, name, isLocal = false }: { stream: MediaStream | null, isCameraOff: boolean, isMicMuted: boolean, name: string, isLocal?: boolean }) => {
     const videoRef = React.useRef<HTMLVideoElement>(null);
@@ -226,10 +238,12 @@ export default function MeetingPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
+  const { firestore } = useFirebase();
   
+  const [meetingRoomId, setMeetingRoomId] = React.useState<string | null>(null);
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const [hasPermission, setHasPermission] = React.useState(true);
-  const [meetingCode, setMeetingCode] = React.useState<string | null>(null);
   const [timeLeft, setTimeLeft] = React.useState("");
   const whiteboardRef = React.useRef<{ clear: () => void }>(null);
   
@@ -245,166 +259,157 @@ export default function MeetingPage() {
   const [wbSize, setWbSize] = React.useState(5);
   const [isErasing, setIsErasing] = React.useState(false);
   
-  const [participants, setParticipants] = React.useState<any[]>([]);
+  const [participants, setParticipants] = React.useState<Participant[]>([]);
   const [mainViewStream, setMainViewStream] = React.useState<MediaStream | null>(null);
-  const [mainViewParticipant, setMainViewParticipant] = React.useState<any | null>(null);
+  const [mainViewParticipant, setMainViewParticipant] = React.useState<Participant | null>(null);
 
+  // This should be WebRTC peer connections in a real app
+  const peerConnections = React.useRef<Map<string, any>>(new Map());
 
   React.useEffect(() => {
-    const role = localStorage.getItem("userRole");
-    setUserRole(role);
-    
-    const id = params.bookingId;
-    if (typeof id === 'string') {
-        const code = id.startsWith('SYL-') ? id : localStorage.getItem('activeMeetingCode');
-        if (!code) {
-             toast({ title: "Error", description: "No active meeting code found." });
-             router.replace('/dashboard');
-             return;
-        }
-      setMeetingCode(code);
-    } else {
-       router.replace("/dashboard");
-    }
-
-    const sessionEndTime = new Date(new Date().getTime() + 60 * 60 * 1000); 
-
-    const timer = setInterval(() => {
-      const now = new Date();
-      const difference = +sessionEndTime - +now;
-
-      if (difference <= 0) {
-        setTimeLeft("00:00");
-        toast({ title: "Session Ended", description: "Your meeting time has finished." });
-        handleLeave();
-        clearInterval(timer);
+    const roomId = params.bookingId as string;
+    if (!roomId) {
+        toast({ title: "Error", description: "No meeting room ID found." });
+        router.replace('/dashboard');
         return;
-      }
-      
-      const minutes = Math.floor((difference / 1000 / 60) % 60);
-      const seconds = Math.floor((difference / 1000) % 60);
-      setTimeLeft(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
-    }, 1000);
-
-    return () => clearInterval(timer);
-    
+    }
+    setMeetingRoomId(roomId);
   }, [params.bookingId, router, toast]);
-  
-  const getLocalStream = React.useCallback(async () => {
-    if (localStreamRef.current) {
-      return localStreamRef.current;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localStreamRef.current = stream;
-      setHasPermission(true);
-      
-      const localUser = {
-        id: 'local',
-        name: userRole || 'You',
-        stream: stream,
-        isCameraOff: false,
-        isMicMuted: false,
-        isLocal: true,
-      };
 
-      setParticipants([localUser]);
-      setMainViewStream(stream);
-      setMainViewParticipant(localUser);
-
-      return stream;
-    } catch (error) {
-      console.error("Error accessing camera:", error);
-      setHasPermission(false);
-      toast({
-        variant: "destructive",
-        title: "Permission Denied",
-        description: "Please enable camera and microphone permissions.",
-      });
-      return null;
-    }
-  }, [toast, userRole]);
-
+  // Main effect for joining and managing the meeting
   React.useEffect(() => {
-    getLocalStream();
+    if (!meetingRoomId || !user || !firestore) return;
 
-    // Placeholder for joining a real WebRTC room and getting remote participants
-    const remoteUser = {
-        id: 'remote-1',
-        name: userRole === 'Teacher' ? 'Student' : 'Teacher',
-        stream: null, // will be populated by WebRTC
-        isCameraOff: true,
-        isMicMuted: false,
-        isLocal: false
+    let unsubscribeParticipants: () => void;
+
+    const joinMeeting = async () => {
+        try {
+            // Get local media stream
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            localStreamRef.current = stream;
+            setHasPermission(true);
+
+            // Fetch user's role from Firestore
+            const userDocRef = doc(firestore, "users", user.uid);
+            const userDoc = await getDoc(userDocRef);
+            const role = userDoc.exists() ? userDoc.data().role : 'student';
+            const name = userDoc.exists() ? userDoc.data().name : 'Guest';
+            setUserRole(role);
+
+            // Add self to participants collection in Firestore
+            const selfParticipantRef = doc(firestore, `participants/${meetingRoomId}/users`, user.uid);
+            await setDoc(selfParticipantRef, {
+                uid: user.uid,
+                role: role,
+                name: name,
+                cameraOn: !isCameraOff,
+                micOn: !isMicMuted,
+                joinedAt: serverTimestamp(),
+            });
+
+            // Set up listener for participants
+            const participantsColRef = collection(firestore, `participants/${meetingRoomId}/users`);
+            unsubscribeParticipants = onSnapshot(participantsColRef, (snapshot) => {
+                const remoteParticipants: Participant[] = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.uid !== user.uid) { // Don't add self to remote list
+                        remoteParticipants.push({
+                            id: doc.id,
+                            uid: data.uid,
+                            role: data.role,
+                            name: data.name,
+                            isLocal: false,
+                            stream: null, // Placeholder for WebRTC stream
+                            isCameraOff: !data.cameraOn,
+                            isMicMuted: !data.micOn,
+                        });
+                    }
+                });
+                
+                const localUser: Participant = {
+                    id: user.uid,
+                    uid: user.uid,
+                    role: role,
+                    name: name,
+                    isLocal: true,
+                    stream: localStreamRef.current,
+                    isCameraOff: isCameraOff,
+                    isMicMuted: isMicMuted,
+                };
+                
+                setParticipants([localUser, ...remoteParticipants]);
+                if (!mainViewParticipant || mainViewParticipant.id === user.uid) {
+                    setMainViewStream(localStreamRef.current);
+                    setMainViewParticipant(localUser);
+                }
+            });
+
+        } catch (error) {
+            console.error("Error joining meeting:", error);
+            setHasPermission(false);
+            toast({
+                variant: "destructive",
+                title: "Could not join meeting",
+                description: "Please enable camera and microphone permissions.",
+            });
+            router.replace('/dashboard');
+        }
     };
-    setParticipants(prev => [...prev, remoteUser]);
+
+    joinMeeting();
 
     return () => {
-      localStreamRef.current?.getTracks().forEach(track => track.stop());
-      screenStreamRef.current?.getTracks().forEach(track => track.stop());
+        // Cleanup on unmount
+        if (unsubscribeParticipants) unsubscribeParticipants();
+        if (user && meetingRoomId) {
+            const selfParticipantRef = doc(firestore, `participants/${meetingRoomId}/users`, user.uid);
+            deleteDoc(selfParticipantRef);
+        }
+        localStreamRef.current?.getTracks().forEach(track => track.stop());
+        screenStreamRef.current?.getTracks().forEach(track => track.stop());
     };
-  }, [getLocalStream, userRole]);
+  }, [meetingRoomId, user, firestore]);
+
   
-  const handleToggleMic = () => {
-    if (localStreamRef.current) {
-      const audioTracks = localStreamRef.current.getAudioTracks();
-      if (audioTracks.length > 0) {
-        audioTracks[0].enabled = !audioTracks[0].enabled;
-        const newMutedState = !audioTracks[0].enabled;
-        setIsMicMuted(newMutedState);
-        setParticipants(p => p.map(u => u.isLocal ? {...u, isMicMuted: newMutedState} : u));
-      }
+  const handleToggleMic = async () => {
+    const newMutedState = !isMicMuted;
+    localStreamRef.current?.getAudioTracks().forEach(track => track.enabled = !newMutedState);
+    setIsMicMuted(newMutedState);
+    
+    // Update self in participants list
+    setParticipants(p => p.map(u => u.isLocal ? {...u, isMicMuted: newMutedState} : u));
+    
+    // Update Firestore
+    if (user && meetingRoomId) {
+        const selfParticipantRef = doc(firestore, `participants/${meetingRoomId}/users`, user.uid);
+        await setDoc(selfParticipantRef, { micOn: !newMutedState }, { merge: true });
     }
   };
   
-  const handleToggleCamera = () => {
-    if (localStreamRef.current) {
-        const videoTracks = localStreamRef.current.getVideoTracks();
-        if(videoTracks.length > 0) {
-            videoTracks[0].enabled = !videoTracks[0].enabled;
-            const newCameraOffState = !videoTracks[0].enabled;
-            setIsCameraOff(newCameraOffState);
-            setParticipants(p => p.map(u => u.isLocal ? {...u, isCameraOff: newCameraOffState} : u));
+  const handleToggleCamera = async () => {
+    const newCameraOffState = !isCameraOff;
+    localStreamRef.current?.getVideoTracks().forEach(track => track.enabled = !newCameraOffState);
+    setIsCameraOff(newCameraOffState);
 
-            if(mainViewParticipant?.isLocal) {
-                 setMainViewParticipant((p: any) => ({...p, isCameraOff: newCameraOffState}));
-            }
-        }
+    // Update self in participants list
+    setParticipants(p => p.map(u => u.isLocal ? {...u, isCameraOff: newCameraOffState} : u));
+    if(mainViewParticipant?.isLocal) {
+        setMainViewParticipant((p: any) => ({...p, isCameraOff: newCameraOffState}));
+    }
+
+    // Update Firestore
+     if (user && meetingRoomId) {
+        const selfParticipantRef = doc(firestore, `participants/${meetingRoomId}/users`, user.uid);
+        await setDoc(selfParticipantRef, { cameraOn: !newCameraOffState }, { merge: true });
     }
   };
 
   const handleToggleScreenShare = async () => {
-    if (viewMode === 'screen') {
-      screenStreamRef.current?.getTracks().forEach(track => track.stop());
-      screenStreamRef.current = null;
-      setViewMode('camera');
-       setMainViewStream(localStreamRef.current);
-       setMainViewParticipant(participants.find(p => p.isLocal) || null);
-    } else {
-      try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        screenStreamRef.current = stream;
-        stream.getVideoTracks()[0].onended = () => {
-           handleToggleScreenShare();
-        };
-        setViewMode('screen');
-        setMainViewStream(stream);
-        setMainViewParticipant({ id: 'screen', name: 'Your Screen', stream: stream, isCameraOff: false, isMicMuted: true, isLocal: true });
-
-      } catch (error) {
-        console.error("Error sharing screen:", error);
-        toast({
-          variant: "destructive",
-          title: "Could not share screen",
-          description: "Permission was likely denied. Please try again.",
-        });
-      }
-    }
+     // Not implemented with full WebRTC
   };
   
   const handleLeave = () => {
-    localStreamRef.current?.getTracks().forEach(track => track.stop());
-    screenStreamRef.current?.getTracks().forEach(track => track.stop());
     router.replace('/dashboard');
   };
 
@@ -414,8 +419,8 @@ export default function MeetingPage() {
 
   const colors = ["#000000", "#ef4444", "#3b82f6", "#22c55e", "#f97316"];
 
-  if (!meetingCode) {
-    return null; // or a loading spinner
+  if (isUserLoading || !meetingRoomId) {
+    return <div className="fixed inset-0 bg-gray-900 text-white flex items-center justify-center">Loading meeting...</div>;
   }
 
   const isTeacher = userRole === 'Teacher';
@@ -425,12 +430,12 @@ export default function MeetingPage() {
       <header className="flex justify-between items-center mb-4 flex-shrink-0">
         <div>
             <h1 className="text-xl font-bold">Meeting Room</h1>
-            <p className="text-xs text-muted-foreground font-mono">Code: {meetingCode} | Participants: {participants.length}</p>
+            <p className="text-xs text-muted-foreground font-mono">Room ID: {meetingRoomId}</p>
         </div>
         <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 bg-gray-800/50 px-3 py-1.5 rounded-lg">
-              <Timer className="w-5 h-5 text-primary"/>
-              <span className="font-mono text-lg">{timeLeft}</span>
+              <Users className="w-5 h-5 text-primary"/>
+              <span className="font-mono text-lg">{participants.length}</span>
             </div>
              <MicIndicator stream={localStreamRef.current} isMuted={isMicMuted} />
         </div>
@@ -466,19 +471,6 @@ export default function MeetingPage() {
                 </Alert>
             )}
             
-            <div className="absolute top-4 left-4 flex gap-2">
-                {viewMode === 'screen' && isTeacher && (
-                    <div className="bg-blue-500/80 text-white px-3 py-1 rounded-md text-sm font-medium">
-                        You are sharing your screen
-                    </div>
-                )}
-                 {viewMode === 'whiteboard' && isTeacher && (
-                    <div className="bg-green-500/80 text-white px-3 py-1 rounded-md text-sm font-medium">
-                        Whiteboard is active
-                    </div>
-                )}
-            </div>
-
             {isTeacher && viewMode === 'whiteboard' && (
               <div className="absolute top-4 right-4 flex flex-col gap-2 bg-gray-800/70 p-2 rounded-lg z-10">
                   <Button variant={isErasing ? "secondary" : "default"} size="icon" onClick={() => setIsErasing(false)}> <Pencil className="w-5 h-5"/> </Button>
@@ -535,8 +527,8 @@ export default function MeetingPage() {
                       variant={viewMode === 'screen' ? 'default' : 'secondary'}
                       size="icon" 
                       className={cn("rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20", viewMode === 'screen' && "bg-blue-500 hover:bg-blue-600")}
-                      onClick={handleToggleScreenShare}
-                      disabled={isCameraOff && viewMode !== 'screen'}
+                      onClick={() => {}}
+                      disabled
                     >
                       <Monitor className="w-5 h-5 sm:w-6 sm:h-6"/>
                     </Button>
@@ -560,10 +552,13 @@ export default function MeetingPage() {
             <CardContent className="p-0 space-y-4 overflow-y-auto">
               {participants.map(p => (
                 <div key={p.id} onClick={() => {
-                    if (p.stream || p.isCameraOff) {
-                        setMainViewStream(p.stream);
-                        setMainViewParticipant(p);
+                    if (p.isLocal) {
+                        setMainViewStream(localStreamRef.current);
+                    } else {
+                        // In real WebRTC, you'd set the stream from the peer connection
+                        setMainViewStream(null);
                     }
+                    setMainViewParticipant(p);
                 }}>
                     <ParticipantVideo 
                         stream={p.stream}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/toaster";
 import { BookmarkProvider } from "@/contexts/BookmarkContext";
 import "./globals.css";
+import { FirebaseClientProvider } from "@/firebase";
 
 export const metadata: Metadata = {
   title: "SyllabiQ",
@@ -21,10 +22,12 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <BookmarkProvider>
-          {children}
-          <Toaster />
-        </BookmarkProvider>
+        <FirebaseClientProvider>
+          <BookmarkProvider>
+            {children}
+            <Toaster />
+          </BookmarkProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );
