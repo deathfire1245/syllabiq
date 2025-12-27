@@ -50,7 +50,10 @@ const testBooking: Booking = {
 
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
 
-const Whiteboard = ({ isActive, color, size, isErasing, onDraw }: { isActive: boolean; color: string; size: number; isErasing: boolean; onDraw: (data: any) => void }) => {
+const Whiteboard = React.forwardRef<
+    { clear: () => void; },
+    { isActive: boolean; color: string; size: number; isErasing: boolean; onDraw: (data: any) => void }
+>(({ isActive, color, size, isErasing, onDraw }, ref) => {
     const canvasRef = React.useRef<HTMLCanvasElement>(null);
     const contextRef = React.useRef<CanvasRenderingContext2D | null>(null);
     const [isDrawing, setIsDrawing] = React.useState(false);
@@ -59,8 +62,15 @@ const Whiteboard = ({ isActive, color, size, isErasing, onDraw }: { isActive: bo
         const canvas = canvasRef.current;
         if (!canvas) return;
 
+        // Handle device pixel ratio for high-res displays
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+
         const context = canvas.getContext('2d');
         if (!context) return;
+        context.scale(dpr, dpr);
         context.lineCap = 'round';
         context.lineJoin = 'round';
         contextRef.current = context;
@@ -73,11 +83,31 @@ const Whiteboard = ({ isActive, color, size, isErasing, onDraw }: { isActive: bo
         }
     }, [color, size]);
 
-    const startDrawing = ({ nativeEvent }: React.MouseEvent) => {
+    const getCoords = (event: React.MouseEvent | React.TouchEvent) => {
+        if (!canvasRef.current) return { x: 0, y: 0 };
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+
+        let clientX, clientY;
+        if ('touches' in event) {
+            clientX = event.touches[0].clientX;
+            clientY = event.touches[0].clientY;
+        } else {
+            clientX = event.clientX;
+            clientY = event.clientY;
+        }
+
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top,
+        };
+    };
+
+    const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
         if (!contextRef.current || !isActive) return;
-        const { offsetX, offsetY } = nativeEvent;
+        const { x, y } = getCoords(event);
         contextRef.current.beginPath();
-        contextRef.current.moveTo(offsetX, offsetY);
+        contextRef.current.moveTo(x, y);
         setIsDrawing(true);
     };
 
@@ -87,24 +117,22 @@ const Whiteboard = ({ isActive, color, size, isErasing, onDraw }: { isActive: bo
         setIsDrawing(false);
     };
 
-    const draw = ({ nativeEvent }: React.MouseEvent) => {
+    const draw = (event: React.MouseEvent | React.TouchEvent) => {
         if (!isDrawing || !contextRef.current || !isActive) return;
-        const { offsetX, offsetY } = nativeEvent;
-        if (isErasing) {
-             contextRef.current.globalCompositeOperation = 'destination-out';
-        } else {
-             contextRef.current.globalCompositeOperation = 'source-over';
-        }
-        contextRef.current.lineTo(offsetX, offsetY);
+        const { x, y } = getCoords(event);
+        
+        contextRef.current.globalCompositeOperation = isErasing ? 'destination-out' : 'source-over';
+        
+        contextRef.current.lineTo(x, y);
         contextRef.current.stroke();
     };
     
-    // Public method for clearing
-    React.useImperativeHandle(whiteboardRef, () => ({
+    React.useImperativeHandle(ref, () => ({
         clear: () => {
             const canvas = canvasRef.current;
             if (canvas && contextRef.current) {
-                contextRef.current.clearRect(0, 0, canvas.width, canvas.height);
+                 const dpr = window.devicePixelRatio || 1;
+                contextRef.current.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
             }
         }
     }));
@@ -113,18 +141,18 @@ const Whiteboard = ({ isActive, color, size, isErasing, onDraw }: { isActive: bo
     return (
         <canvas
             ref={canvasRef}
-            width={1280}
-            height={720}
             onMouseDown={startDrawing}
             onMouseUp={finishDrawing}
             onMouseMove={draw}
             onMouseLeave={finishDrawing}
-            className={cn("w-full h-full bg-white", isActive ? "cursor-crosshair" : "cursor-not-allowed")}
+            onTouchStart={startDrawing}
+            onTouchEnd={finishDrawing}
+            onTouchMove={draw}
+            className={cn("w-full h-full bg-white rounded-lg", isActive ? "cursor-crosshair" : "cursor-not-allowed")}
         />
     );
-};
+});
 Whiteboard.displayName = "Whiteboard";
-const whiteboardRef = React.createRef<{ clear: () => void }>();
 
 
 export default function MeetingPage({ params }: { params: { bookingId: string } }) {
@@ -136,14 +164,13 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
   const [booking, setBooking] = React.useState<Booking | null>(null);
   const [sessionTime, setSessionTime] = React.useState({ start: new Date(), end: new Date() });
   const [timeLeft, setTimeLeft] = React.useState("");
+  const whiteboardRef = React.useRef<{ clear: () => void }>(null);
   
   const [viewMode, setViewMode] = React.useState<ViewMode>('camera');
 
-  // Store streams in refs to avoid re-renders
   const cameraStreamRef = React.useRef<MediaStream | null>(null);
   const screenStreamRef = React.useRef<MediaStream | null>(null);
 
-  // Whiteboard state
   const [wbColor, setWbColor] = React.useState("#000000");
   const [wbSize, setWbSize] = React.useState(5);
   const [isErasing, setIsErasing] = React.useState(false);
@@ -151,7 +178,8 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
   React.useEffect(() => {
     setUserRole(localStorage.getItem("userRole"));
     
-    if (params.bookingId === 'test-meeting-123') {
+    const bookingId = params.bookingId;
+    if (bookingId === 'test-meeting-123') {
       setBooking(testBooking);
       const now = new Date();
       const end = new Date(now.getTime() + 60 * 60 * 1000);
@@ -160,7 +188,7 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
       const storedBookings = localStorage.getItem("userBookings");
       if (storedBookings) {
         const allBookings = JSON.parse(storedBookings);
-        const currentBooking = allBookings.find((b: Booking) => b.id === params.bookingId);
+        const currentBooking = allBookings.find((b: Booking) => b.id === bookingId);
         if (currentBooking) {
           setBooking(currentBooking);
           const { start, end } = getSessionDates(currentBooking.slot.day, currentBooking.slot.time);
@@ -168,6 +196,8 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
         } else {
           router.replace("/dashboard/bookings");
         }
+      } else {
+         router.replace("/dashboard/bookings");
       }
     }
   }, [params.bookingId, router]);
@@ -231,7 +261,6 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
 
   const handleToggleScreenShare = async () => {
     if (viewMode === 'screen') {
-      // Stop screen share and switch back to camera
       screenStreamRef.current?.getTracks().forEach(track => track.stop());
       screenStreamRef.current = null;
       setViewMode('camera');
@@ -239,16 +268,12 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
         videoRef.current.srcObject = cameraStreamRef.current;
       }
     } else {
-      // Start screen share
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         screenStreamRef.current = stream;
-
-        // When the user stops sharing via the browser UI
         stream.getVideoTracks()[0].onended = () => {
-           handleToggleScreenShare(); // Will toggle back to camera
+           handleToggleScreenShare();
         };
-        
         setViewMode('screen');
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -276,7 +301,6 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
 
   const colors = ["#000000", "#ef4444", "#3b82f6", "#22c55e", "#f97316"];
 
-
   if (!booking) {
     return null; // or a loading spinner
   }
@@ -284,16 +308,21 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
   const isTeacher = userRole === 'Teacher';
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col p-4">
-      <header className="flex justify-between items-center mb-4">
+    <div className="fixed inset-0 bg-gray-900 text-white flex flex-col p-4 z-50">
+      <header className="flex justify-between items-center mb-4 flex-shrink-0">
         <h1 className="text-xl font-bold">Session with {booking.tutorName}</h1>
-        <div className="flex items-center gap-2 bg-gray-800/50 px-3 py-1.5 rounded-lg">
-          <Timer className="w-5 h-5 text-primary"/>
-          <span className="font-mono text-lg">{timeLeft}</span>
+        <div className="flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-2 bg-gray-800/50 px-3 py-1.5 rounded-lg">
+              <Timer className="w-5 h-5 text-primary"/>
+              <span className="font-mono text-lg">{timeLeft}</span>
+            </div>
+            <div className="md:hidden">
+              <Users className="w-5 h-5"/>
+            </div>
         </div>
       </header>
 
-      <main className="flex-grow grid grid-cols-1 md:grid-cols-4 gap-4">
+      <main className="flex-grow grid grid-cols-1 md:grid-cols-4 gap-4 min-h-0">
         <div className="md:col-span-3 bg-black rounded-lg overflow-hidden relative flex items-center justify-center">
             {viewMode !== 'whiteboard' && <video ref={videoRef} className="w-full h-full object-contain" autoPlay muted />}
             
@@ -301,7 +330,7 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
                 <Whiteboard ref={whiteboardRef} isActive={isTeacher} color={wbColor} size={wbSize} isErasing={isErasing} onDraw={() => {}} />
             )}
 
-            {!hasPermission && (
+            {!hasPermission && viewMode !== 'whiteboard' && (
                  <Alert variant="destructive" className="max-w-md absolute">
                     <VideoOff className="h-4 w-4"/>
                     <AlertTitle>Camera Access Required</AlertTitle>
@@ -310,16 +339,19 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
                     </AlertDescription>
                 </Alert>
             )}
-            {viewMode === 'screen' && isTeacher && (
-                <div className="absolute top-4 left-4 bg-blue-500/80 text-white px-3 py-1 rounded-md text-sm font-medium">
-                    You are sharing your screen
-                </div>
-            )}
-             {viewMode === 'whiteboard' && isTeacher && (
-                <div className="absolute top-4 left-4 bg-green-500/80 text-white px-3 py-1 rounded-md text-sm font-medium">
-                    Whiteboard is active
-                </div>
-            )}
+            
+            <div className="absolute top-4 left-4 flex gap-2">
+                {viewMode === 'screen' && isTeacher && (
+                    <div className="bg-blue-500/80 text-white px-3 py-1 rounded-md text-sm font-medium">
+                        You are sharing your screen
+                    </div>
+                )}
+                 {viewMode === 'whiteboard' && isTeacher && (
+                    <div className="bg-green-500/80 text-white px-3 py-1 rounded-md text-sm font-medium">
+                        Whiteboard is active
+                    </div>
+                )}
+            </div>
 
             {isTeacher && viewMode === 'whiteboard' && (
               <div className="absolute top-4 right-4 flex flex-col gap-2 bg-gray-800/70 p-2 rounded-lg">
@@ -351,40 +383,40 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
               </div>
             )}
 
-             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4">
-                <Button variant="secondary" size="icon" className="rounded-full h-14 w-14 bg-white/10 hover:bg-white/20">
-                    <MicOff className="w-6 h-6"/>
+             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-4 bg-gray-800/50 p-2 rounded-full">
+                <Button variant="secondary" size="icon" className="rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20">
+                    <MicOff className="w-5 h-5 sm:w-6 sm:h-6"/>
                 </Button>
-                 <Button variant="destructive" size="icon" className="rounded-full h-16 w-16" onClick={handleLeave}>
-                    <PhoneOff className="w-7 h-7"/>
+                 <Button variant="destructive" size="icon" className="rounded-full h-14 w-14 sm:h-16 sm:w-16" onClick={handleLeave}>
+                    <PhoneOff className="w-6 h-6 sm:w-7 sm:h-7"/>
                 </Button>
-                <Button variant="secondary" size="icon" className="rounded-full h-14 w-14 bg-white/10 hover:bg-white/20" onClick={() => setViewMode('camera')}>
-                    <Video className="w-6 h-6" />
+                <Button variant={viewMode === 'camera' ? 'default' : 'secondary'} size="icon" className="rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20" onClick={() => setViewMode('camera')}>
+                    <Video className="w-5 h-5 sm:w-6 sm:h-6" />
                 </Button>
                 {isTeacher && (
                   <>
                     <Button 
-                      variant="secondary"
+                      variant={viewMode === 'screen' ? 'default' : 'secondary'}
                       size="icon" 
-                      className={cn("rounded-full h-14 w-14 bg-white/10 hover:bg-white/20", viewMode === 'screen' && "bg-blue-500 hover:bg-blue-600")}
+                      className={cn("rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20", viewMode === 'screen' && "bg-blue-500 hover:bg-blue-600")}
                       onClick={handleToggleScreenShare}
                     >
-                      <Monitor className="w-6 h-6"/>
+                      <Monitor className="w-5 h-5 sm:w-6 sm:h-6"/>
                     </Button>
                      <Button 
-                      variant="secondary"
+                      variant={viewMode === 'whiteboard' ? 'default' : 'secondary'}
                       size="icon" 
-                      className={cn("rounded-full h-14 w-14 bg-white/10 hover:bg-white/20", viewMode === 'whiteboard' && "bg-green-500 hover:bg-green-600")}
+                      className={cn("rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20", viewMode === 'whiteboard' && "bg-green-500 hover:bg-green-600")}
                       onClick={() => setViewMode('whiteboard')}
                     >
-                      <Pencil className="w-6 h-6"/>
+                      <Pencil className="w-5 h-5 sm:w-6 sm:h-6"/>
                     </Button>
                   </>
                 )}
             </div>
         </div>
-        <div className="md:col-span-1 bg-gray-800/50 rounded-lg p-4">
-          <Card className="bg-transparent border-0 text-white">
+        <div className="hidden md:flex flex-col bg-gray-800/50 rounded-lg p-4">
+          <Card className="bg-transparent border-0 text-white flex-grow">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5"/> Participants (2)</CardTitle>
             </CardHeader>
@@ -410,5 +442,7 @@ export default function MeetingPage({ params }: { params: { bookingId: string } 
     </div>
   );
 }
+
+    
 
     
