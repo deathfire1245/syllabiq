@@ -51,6 +51,54 @@ const testBooking: Booking = {
 
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
 
+const RemoteParticipant = ({ isCameraOff, isMicMuted }: { isCameraOff: boolean, isMicMuted: boolean }) => {
+    const videoRef = React.useRef<HTMLVideoElement>(null);
+    const [stream, setStream] = React.useState<MediaStream|null>(null);
+
+    // This is a placeholder for getting the remote stream via WebRTC
+    React.useEffect(() => {
+        const getRemoteStream = async () => {
+            try {
+                // In a real WebRTC app, this stream would come from a peer connection
+                const remoteStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                if(videoRef.current) {
+                    videoRef.current.srcObject = remoteStream;
+                }
+                setStream(remoteStream);
+            } catch(e) {
+                console.error("Could not get remote user media for placeholder");
+            }
+        };
+        if(!isCameraOff) {
+            getRemoteStream();
+        } else {
+             stream?.getTracks().forEach(track => track.stop());
+             setStream(null);
+        }
+        return () => {
+            stream?.getTracks().forEach(track => track.stop());
+        }
+    }, [isCameraOff]);
+
+
+    return (
+        <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
+            <video ref={videoRef} className={cn("w-full h-full object-cover", isCameraOff && "hidden")} autoPlay muted />
+             {isCameraOff && (
+                <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                    <Avatar className="w-16 h-16">
+                       <AvatarImage src="https://picsum.photos/seed/remote-user/100" />
+                       <AvatarFallback>R</AvatarFallback>
+                    </Avatar>
+                </div>
+            )}
+            <div className="absolute bottom-2 left-2 flex items-center gap-2">
+                {isMicMuted ? <MicOff className="w-4 h-4 text-red-500 bg-black/50 rounded-full p-0.5" /> : <Mic className="w-4 h-4 text-green-500 bg-black/50 rounded-full p-0.5" />}
+            </div>
+        </div>
+    );
+}
+
 const Whiteboard = React.forwardRef<
     { clear: () => void; },
     { isActive: boolean; color: string; size: number; isErasing: boolean; onDraw: (data: any) => void }
@@ -63,18 +111,6 @@ const Whiteboard = React.forwardRef<
         const canvas = canvasRef.current;
         if (!canvas) return;
         
-        const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-
-        const context = canvas.getContext('2d');
-        if (!context) return;
-        context.scale(dpr, dpr);
-        context.lineCap = 'round';
-        context.lineJoin = 'round';
-        contextRef.current = context;
-
         const handleResize = () => {
              const dpr = window.devicePixelRatio || 1;
             const rect = canvas.getBoundingClientRect();
@@ -85,11 +121,17 @@ const Whiteboard = React.forwardRef<
                 ctx.scale(dpr, dpr);
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
+                 if(contextRef.current) {
+                    ctx.strokeStyle = contextRef.current.strokeStyle;
+                    ctx.lineWidth = contextRef.current.lineWidth;
+                }
                 contextRef.current = ctx;
             }
         };
 
         window.addEventListener('resize', handleResize);
+        handleResize();
+
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
@@ -115,12 +157,13 @@ const Whiteboard = React.forwardRef<
         }
 
         return {
-            x: clientX - rect.left,
-            y: clientY - rect.top,
+            x: (clientX - rect.left),
+            y: (clientY - rect.top),
         };
     };
 
     const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
+        event.preventDefault();
         if (!contextRef.current || !isActive) return;
         const { x, y } = getCoords(event);
         contextRef.current.beginPath();
@@ -128,13 +171,15 @@ const Whiteboard = React.forwardRef<
         setIsDrawing(true);
     };
 
-    const finishDrawing = () => {
+    const finishDrawing = (event: React.MouseEvent | React.TouchEvent) => {
+        event.preventDefault();
         if (!contextRef.current || !isActive) return;
         contextRef.current.closePath();
         setIsDrawing(false);
     };
 
     const draw = (event: React.MouseEvent | React.TouchEvent) => {
+        event.preventDefault();
         if (!isDrawing || !contextRef.current || !isActive) return;
         const { x, y } = getCoords(event);
         
@@ -165,7 +210,7 @@ const Whiteboard = React.forwardRef<
             onTouchStart={startDrawing}
             onTouchEnd={finishDrawing}
             onTouchMove={draw}
-            className={cn("w-full h-full bg-white rounded-lg", isActive ? "cursor-crosshair" : "cursor-not-allowed")}
+            className={cn("w-full h-full bg-white rounded-lg", isActive ? "touch-none" : "pointer-events-none")}
         />
     );
 });
@@ -179,13 +224,16 @@ const MicIndicator = ({ stream, isMuted }: { stream: MediaStream | null, isMuted
 
     React.useEffect(() => {
         if (stream && !isMuted) {
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-            analyserRef.current = audioContextRef.current.createAnalyser();
-            const source = audioContextRef.current.createMediaStreamSource(stream);
-            source.connect(analyserRef.current);
-            analyserRef.current.fftSize = 256;
-            const bufferLength = analyserRef.current.frequencyBinCount;
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const analyser = audioContext.createAnalyser();
+            const source = audioContext.createMediaStreamSource(stream);
+            source.connect(analyser);
+            analyser.fftSize = 256;
+            const bufferLength = analyser.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
+            
+            audioContextRef.current = audioContext;
+            analyserRef.current = analyser;
 
             const getVolume = () => {
                 if (analyserRef.current) {
@@ -203,7 +251,7 @@ const MicIndicator = ({ stream, isMuted }: { stream: MediaStream | null, isMuted
                 cancelAnimationFrame(animationFrameId.current);
             }
             if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-                audioContextRef.current.close();
+                audioContextRef.current.close().catch(console.error);
             }
         };
     }, [stream, isMuted]);
@@ -252,6 +300,11 @@ export default function MeetingPage() {
   const [wbColor, setWbColor] = React.useState("#000000");
   const [wbSize, setWbSize] = React.useState(5);
   const [isErasing, setIsErasing] = React.useState(false);
+  
+  // Placeholder for remote participants' state
+  const [remoteCameraOff, setRemoteCameraOff] = React.useState(false);
+  const [remoteMicMuted, setRemoteMicMuted] = React.useState(false);
+
 
   React.useEffect(() => {
     setUserRole(localStorage.getItem("userRole"));
@@ -278,7 +331,7 @@ export default function MeetingPage() {
          router.replace("/dashboard/bookings");
       }
     }
-  }, [params.bookingId, router]);
+  }, [params, router]);
   
   const getCameraStream = React.useCallback(async () => {
     if (cameraStreamRef.current) {
@@ -339,19 +392,25 @@ export default function MeetingPage() {
 
   const handleToggleMic = () => {
     if (cameraStreamRef.current) {
-      cameraStreamRef.current.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setIsMicMuted(prev => !prev);
+      const audioTracks = cameraStreamRef.current.getAudioTracks();
+      if (audioTracks.length > 0) {
+        audioTracks[0].enabled = !audioTracks[0].enabled;
+        setIsMicMuted(!audioTracks[0].enabled);
+        // Placeholder for remote sync
+        setRemoteMicMuted(!audioTracks[0].enabled);
+      }
     }
   };
   
   const handleToggleCamera = () => {
     if (cameraStreamRef.current) {
-        cameraStreamRef.current.getVideoTracks().forEach(track => {
-            track.enabled = !track.enabled;
-        });
-        setIsCameraOff(prev => !prev);
+        const videoTracks = cameraStreamRef.current.getVideoTracks();
+        if(videoTracks.length > 0) {
+            videoTracks[0].enabled = !videoTracks[0].enabled;
+            setIsCameraOff(!videoTracks[0].enabled);
+            // Placeholder for remote sync
+            setRemoteCameraOff(!videoTracks[0].enabled);
+        }
     }
   };
 
@@ -424,13 +483,13 @@ export default function MeetingPage() {
             {viewMode !== 'whiteboard' && (
               <div className="w-full h-full">
                 <video ref={videoRef} className={cn("w-full h-full object-contain", isCameraOff && "hidden")} autoPlay muted />
-                {isCameraOff && (
+                {isCameraOff && viewMode === 'camera' && (
                    <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800">
                         <Avatar className="w-32 h-32">
                            <AvatarImage src="https://picsum.photos/seed/user-avatar/100" />
                            <AvatarFallback>{isTeacher ? 'T' : 'S'}</AvatarFallback>
                         </Avatar>
-                        <p className="mt-4 text-lg">Camera is off</p>
+                        <p className="mt-4 text-lg">Your camera is off</p>
                    </div>
                 )}
               </div>
@@ -464,7 +523,7 @@ export default function MeetingPage() {
             </div>
 
             {isTeacher && viewMode === 'whiteboard' && (
-              <div className="absolute top-4 right-4 flex flex-col gap-2 bg-gray-800/70 p-2 rounded-lg">
+              <div className="absolute top-4 right-4 flex flex-col gap-2 bg-gray-800/70 p-2 rounded-lg z-10">
                   <Button variant={isErasing ? "secondary" : "default"} size="icon" onClick={() => setIsErasing(false)}> <Pencil className="w-5 h-5"/> </Button>
                   <Button variant={isErasing ? "default" : "secondary"} size="icon" onClick={() => setIsErasing(true)}> <Eraser className="w-5 h-5"/> </Button>
                   <Popover>
@@ -493,7 +552,7 @@ export default function MeetingPage() {
               </div>
             )}
 
-             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-4 bg-gray-800/50 p-2 rounded-full">
+             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-4 bg-gray-800/50 p-2 rounded-full z-10">
                 <Button 
                     variant="secondary"
                     size="icon" 
@@ -520,7 +579,7 @@ export default function MeetingPage() {
                       size="icon" 
                       className={cn("rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20", viewMode === 'screen' && "bg-blue-500 hover:bg-blue-600")}
                       onClick={handleToggleScreenShare}
-                      disabled={isCameraOff}
+                      disabled={isCameraOff && viewMode !== 'screen'}
                     >
                       <Monitor className="w-5 h-5 sm:w-6 sm:h-6"/>
                     </Button>
@@ -528,7 +587,7 @@ export default function MeetingPage() {
                       variant={viewMode === 'whiteboard' ? 'default' : 'secondary'}
                       size="icon" 
                       className={cn("rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20", viewMode === 'whiteboard' && "bg-green-500 hover:bg-green-600")}
-                      onClick={() => setViewMode('whiteboard')}
+                      onClick={() => setViewMode(viewMode === 'whiteboard' ? 'camera' : 'whiteboard')}
                     >
                       <Pencil className="w-5 h-5 sm:w-6 sm:h-6"/>
                     </Button>
@@ -536,21 +595,21 @@ export default function MeetingPage() {
                 )}
             </div>
         </div>
-        <div className="hidden md:flex flex-col bg-gray-800/50 rounded-lg p-4">
-          <Card className="bg-transparent border-0 text-white flex-grow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5"/> Participants (2)</CardTitle>
+        <div className="hidden md:flex flex-col bg-gray-800/50 rounded-lg p-4 gap-4">
+          <Card className="bg-transparent border-0 text-white">
+            <CardHeader className="p-0 pb-4">
+              <CardTitle className="flex items-center gap-2 text-base"><Users className="w-5 h-5"/> Participants (2)</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="p-0 space-y-4">
               <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center font-bold">T</div>
+                 <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center font-bold flex-shrink-0">T</div>
                  <div>
                     <p className="font-semibold">{booking.tutorName}</p>
-                    <p className="text-sm text-gray-400">Teacher</p>
+                    <p className="text-sm text-gray-400">Teacher (You)</p>
                  </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center font-bold">S</div>
+                <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center font-bold flex-shrink-0">S</div>
                 <div>
                   <p className="font-semibold">Student</p>
                   <p className="text-sm text-gray-400">Student</p>
@@ -558,8 +617,15 @@ export default function MeetingPage() {
               </div>
             </CardContent>
           </Card>
+           <div className="flex-grow space-y-4 overflow-y-auto">
+               <h3 className="font-semibold text-base text-center">Remote Participants</h3>
+                {/* This is a placeholder for a real participant list */}
+                <RemoteParticipant isCameraOff={remoteCameraOff} isMicMuted={remoteMicMuted} />
+           </div>
         </div>
       </main>
     </div>
   );
 }
+
+    
