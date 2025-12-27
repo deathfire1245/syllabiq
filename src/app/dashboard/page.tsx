@@ -10,7 +10,7 @@ import {
   Video,
   Copy,
   PlusCircle,
-  HelpCircle
+  Users
 } from "lucide-react";
 import { getSubjects } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -130,20 +130,17 @@ const SubjectProgress = ({ subject, delay = 0 }: { subject: ReturnType<typeof ge
   );
 };
 
-interface Booking {
-  id: string;
-  tutorId: string;
-  tutorName: string;
-  tutorAvatar: string;
-  slot: { day: string; time: string };
-  cost: number;
-  bookedAt: string;
-}
-
 const TeacherDashboard = () => {
     const router = useRouter();
     const { toast } = useToast();
     const [meetingCode, setMeetingCode] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        const storedCode = localStorage.getItem('activeMeetingCode');
+        if (storedCode) {
+            setMeetingCode(storedCode);
+        }
+    }, []);
 
     const generateMeetingCode = () => {
         const code = `SYL-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
@@ -171,6 +168,11 @@ const TeacherDashboard = () => {
             description: 'The meeting code has been copied to your clipboard.',
         });
     };
+
+    const clearMeeting = () => {
+        localStorage.removeItem('activeMeetingCode');
+        setMeetingCode(null);
+    }
 
     return (
         <div className="space-y-8">
@@ -205,8 +207,8 @@ const TeacherDashboard = () => {
                                         <Video className="mr-2 h-5 w-5" />
                                         Start Meeting Now
                                     </Button>
-                                     <Button variant="secondary" onClick={() => setMeetingCode(null)}>
-                                        Create New Code
+                                     <Button variant="secondary" onClick={clearMeeting}>
+                                        End & Create New
                                     </Button>
                                 </div>
                             </div>

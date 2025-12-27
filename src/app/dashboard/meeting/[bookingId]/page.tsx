@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { PhoneOff, VideoOff, MicOff, Users, Timer, ScreenShare, ScreenShareOff, Pencil, Eraser, Trash2, Monitor, Video, Palette, Mic } from "lucide-react";
+import { PhoneOff, VideoOff, MicOff, Users, Timer, ScreenShare, Pencil, Eraser, Trash2, Monitor, Video, Palette, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
@@ -15,58 +15,40 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
 
-const RemoteParticipant = ({ isCameraOff, isMicMuted }: { isCameraOff: boolean, isMicMuted: boolean }) => {
+const ParticipantVideo = ({ stream, isCameraOff, isMicMuted, name, isLocal = false }: { stream: MediaStream | null, isCameraOff: boolean, isMicMuted: boolean, name: string, isLocal?: boolean }) => {
     const videoRef = React.useRef<HTMLVideoElement>(null);
-    const [stream, setStream] = React.useState<MediaStream|null>(null);
 
-    // This is a placeholder for getting the remote stream via WebRTC
     React.useEffect(() => {
-        const getRemoteStream = async () => {
-            try {
-                // In a real WebRTC app, this stream would come from a peer connection
-                const remoteStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                if(videoRef.current) {
-                    videoRef.current.srcObject = remoteStream;
-                }
-                setStream(remoteStream);
-            } catch(e) {
-                console.error("Could not get remote user media for placeholder");
-            }
-        };
-        if(!isCameraOff) {
-            getRemoteStream();
-        } else {
-             stream?.getTracks().forEach(track => track.stop());
-             setStream(null);
+        if (videoRef.current && stream) {
+            videoRef.current.srcObject = stream;
         }
-        return () => {
-            stream?.getTracks().forEach(track => track.stop());
-        }
-    }, [isCameraOff]);
-
-
+    }, [stream]);
+    
     return (
-        <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
-            <video ref={videoRef} className={cn("w-full h-full object-cover", isCameraOff && "hidden")} autoPlay muted />
+        <div className="aspect-video bg-gray-800 rounded-lg overflow-hidden relative group">
+            <video ref={videoRef} className={cn("w-full h-full object-cover", { 'hidden': isCameraOff })} autoPlay playsInline muted={isLocal} />
              {isCameraOff && (
-                <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                <div className="w-full h-full flex items-center justify-center bg-gray-700">
                     <Avatar className="w-16 h-16">
-                       <AvatarImage src="https://picsum.photos/seed/remote-user/100" />
-                       <AvatarFallback>R</AvatarFallback>
+                       <AvatarImage src={`https://picsum.photos/seed/${name}/100`} />
+                       <AvatarFallback>{name.charAt(0)}</AvatarFallback>
                     </Avatar>
                 </div>
             )}
-            <div className="absolute bottom-2 left-2 flex items-center gap-2">
-                {isMicMuted ? <MicOff className="w-4 h-4 text-red-500 bg-black/50 rounded-full p-0.5" /> : <Mic className="w-4 h-4 text-green-500 bg-black/50 rounded-full p-0.5" />}
+            <div className="absolute bottom-0 left-0 bg-black/50 px-2 py-1 rounded-tr-lg">
+                <span className="text-sm text-white">{name} {isLocal && '(You)'}</span>
+            </div>
+            <div className="absolute top-2 right-2">
+                {isMicMuted ? <MicOff className="w-5 h-5 text-red-500 bg-black/50 rounded-full p-1" /> : <Mic className="w-5 h-5 text-green-500 bg-black/50 rounded-full p-1" />}
             </div>
         </div>
     );
-}
+};
 
 const Whiteboard = React.forwardRef<
     { clear: () => void; },
-    { isActive: boolean; color: string; size: number; isErasing: boolean; onDraw: (data: any) => void }
->(({ isActive, color, size, isErasing, onDraw }, ref) => {
+    { isActive: boolean; color: string; size: number; isErasing: boolean; }
+>(({ isActive, color, size, isErasing }, ref) => {
     const canvasRef = React.useRef<HTMLCanvasElement>(null);
     const contextRef = React.useRef<CanvasRenderingContext2D | null>(null);
     const [isDrawing, setIsDrawing] = React.useState(false);
@@ -76,7 +58,7 @@ const Whiteboard = React.forwardRef<
         if (!canvas) return;
         
         const handleResize = () => {
-             const dpr = window.devicePixelRatio || 1;
+            const dpr = window.devicePixelRatio || 1;
             const rect = canvas.getBoundingClientRect();
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
@@ -244,7 +226,7 @@ export default function MeetingPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const videoRef = React.useRef<HTMLVideoElement>(null);
+  
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const [hasPermission, setHasPermission] = React.useState(true);
   const [meetingCode, setMeetingCode] = React.useState<string | null>(null);
@@ -253,33 +235,39 @@ export default function MeetingPage() {
   
   const [viewMode, setViewMode] = React.useState<ViewMode>('camera');
 
-  const cameraStreamRef = React.useRef<MediaStream | null>(null);
+  const localStreamRef = React.useRef<MediaStream | null>(null);
   const screenStreamRef = React.useRef<MediaStream | null>(null);
   
   const [isMicMuted, setIsMicMuted] = React.useState(false);
   const [isCameraOff, setIsCameraOff] = React.useState(false);
 
-
   const [wbColor, setWbColor] = React.useState("#000000");
   const [wbSize, setWbSize] = React.useState(5);
   const [isErasing, setIsErasing] = React.useState(false);
   
-  // Placeholder for remote participants' state
-  const [remoteCameraOff, setRemoteCameraOff] = React.useState(false);
-  const [remoteMicMuted, setRemoteMicMuted] = React.useState(false);
+  const [participants, setParticipants] = React.useState<any[]>([]);
+  const [mainViewStream, setMainViewStream] = React.useState<MediaStream | null>(null);
+  const [mainViewParticipant, setMainViewParticipant] = React.useState<any | null>(null);
 
 
   React.useEffect(() => {
-    setUserRole(localStorage.getItem("userRole"));
+    const role = localStorage.getItem("userRole");
+    setUserRole(role);
     
-    const bookingId = params.bookingId;
-    if (typeof bookingId === 'string') {
-      setMeetingCode(bookingId);
+    const id = params.bookingId;
+    if (typeof id === 'string') {
+        const code = id.startsWith('SYL-') ? id : localStorage.getItem('activeMeetingCode');
+        if (!code) {
+             toast({ title: "Error", description: "No active meeting code found." });
+             router.replace('/dashboard');
+             return;
+        }
+      setMeetingCode(code);
     } else {
        router.replace("/dashboard");
     }
 
-    const sessionEndTime = new Date(new Date().getTime() + 60 * 60 * 1000); // 1 hour from now
+    const sessionEndTime = new Date(new Date().getTime() + 60 * 60 * 1000); 
 
     const timer = setInterval(() => {
       const now = new Date();
@@ -288,7 +276,7 @@ export default function MeetingPage() {
       if (difference <= 0) {
         setTimeLeft("00:00");
         toast({ title: "Session Ended", description: "Your meeting time has finished." });
-        router.replace("/dashboard");
+        handleLeave();
         clearInterval(timer);
         return;
       }
@@ -300,16 +288,30 @@ export default function MeetingPage() {
 
     return () => clearInterval(timer);
     
-  }, [params, router, toast]);
+  }, [params.bookingId, router, toast]);
   
-  const getCameraStream = React.useCallback(async () => {
-    if (cameraStreamRef.current) {
-      return cameraStreamRef.current;
+  const getLocalStream = React.useCallback(async () => {
+    if (localStreamRef.current) {
+      return localStreamRef.current;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      cameraStreamRef.current = stream;
+      localStreamRef.current = stream;
       setHasPermission(true);
+      
+      const localUser = {
+        id: 'local',
+        name: userRole || 'You',
+        stream: stream,
+        isCameraOff: false,
+        isMicMuted: false,
+        isLocal: true,
+      };
+
+      setParticipants([localUser]);
+      setMainViewStream(stream);
+      setMainViewParticipant(localUser);
+
       return stream;
     } catch (error) {
       console.error("Error accessing camera:", error);
@@ -321,41 +323,52 @@ export default function MeetingPage() {
       });
       return null;
     }
-  }, [toast]);
+  }, [toast, userRole]);
 
   React.useEffect(() => {
-    getCameraStream().then(stream => {
-      if (videoRef.current && stream && viewMode === 'camera') {
-        videoRef.current.srcObject = stream;
-      }
-    });
+    getLocalStream();
+
+    // Placeholder for joining a real WebRTC room and getting remote participants
+    const remoteUser = {
+        id: 'remote-1',
+        name: userRole === 'Teacher' ? 'Student' : 'Teacher',
+        stream: null, // will be populated by WebRTC
+        isCameraOff: true,
+        isMicMuted: false,
+        isLocal: false
+    };
+    setParticipants(prev => [...prev, remoteUser]);
 
     return () => {
-      cameraStreamRef.current?.getTracks().forEach(track => track.stop());
+      localStreamRef.current?.getTracks().forEach(track => track.stop());
       screenStreamRef.current?.getTracks().forEach(track => track.stop());
     };
-  }, [getCameraStream, viewMode]);
+  }, [getLocalStream, userRole]);
   
   const handleToggleMic = () => {
-    if (cameraStreamRef.current) {
-      const audioTracks = cameraStreamRef.current.getAudioTracks();
+    if (localStreamRef.current) {
+      const audioTracks = localStreamRef.current.getAudioTracks();
       if (audioTracks.length > 0) {
         audioTracks[0].enabled = !audioTracks[0].enabled;
-        setIsMicMuted(!audioTracks[0].enabled);
-        // Placeholder for remote sync
-        setRemoteMicMuted(!audioTracks[0].enabled);
+        const newMutedState = !audioTracks[0].enabled;
+        setIsMicMuted(newMutedState);
+        setParticipants(p => p.map(u => u.isLocal ? {...u, isMicMuted: newMutedState} : u));
       }
     }
   };
   
   const handleToggleCamera = () => {
-    if (cameraStreamRef.current) {
-        const videoTracks = cameraStreamRef.current.getVideoTracks();
+    if (localStreamRef.current) {
+        const videoTracks = localStreamRef.current.getVideoTracks();
         if(videoTracks.length > 0) {
             videoTracks[0].enabled = !videoTracks[0].enabled;
-            setIsCameraOff(!videoTracks[0].enabled);
-            // Placeholder for remote sync
-            setRemoteCameraOff(!videoTracks[0].enabled);
+            const newCameraOffState = !videoTracks[0].enabled;
+            setIsCameraOff(newCameraOffState);
+            setParticipants(p => p.map(u => u.isLocal ? {...u, isCameraOff: newCameraOffState} : u));
+
+            if(mainViewParticipant?.isLocal) {
+                 setMainViewParticipant((p: any) => ({...p, isCameraOff: newCameraOffState}));
+            }
         }
     }
   };
@@ -365,9 +378,8 @@ export default function MeetingPage() {
       screenStreamRef.current?.getTracks().forEach(track => track.stop());
       screenStreamRef.current = null;
       setViewMode('camera');
-      if (videoRef.current && cameraStreamRef.current) {
-        videoRef.current.srcObject = cameraStreamRef.current;
-      }
+       setMainViewStream(localStreamRef.current);
+       setMainViewParticipant(participants.find(p => p.isLocal) || null);
     } else {
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
@@ -376,9 +388,9 @@ export default function MeetingPage() {
            handleToggleScreenShare();
         };
         setViewMode('screen');
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
+        setMainViewStream(stream);
+        setMainViewParticipant({ id: 'screen', name: 'Your Screen', stream: stream, isCameraOff: false, isMicMuted: true, isLocal: true });
+
       } catch (error) {
         console.error("Error sharing screen:", error);
         toast({
@@ -391,7 +403,7 @@ export default function MeetingPage() {
   };
   
   const handleLeave = () => {
-    cameraStreamRef.current?.getTracks().forEach(track => track.stop());
+    localStreamRef.current?.getTracks().forEach(track => track.stop());
     screenStreamRef.current?.getTracks().forEach(track => track.stop());
     router.replace('/dashboard');
   };
@@ -411,40 +423,39 @@ export default function MeetingPage() {
   return (
     <div className="fixed inset-0 bg-gray-900 text-white flex flex-col p-4 z-50">
       <header className="flex justify-between items-center mb-4 flex-shrink-0">
-        <h1 className="text-xl font-bold">Meeting: {meetingCode}</h1>
+        <div>
+            <h1 className="text-xl font-bold">Meeting Room</h1>
+            <p className="text-xs text-muted-foreground font-mono">Code: {meetingCode} | Participants: {participants.length}</p>
+        </div>
         <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 bg-gray-800/50 px-3 py-1.5 rounded-lg">
               <Timer className="w-5 h-5 text-primary"/>
               <span className="font-mono text-lg">{timeLeft}</span>
             </div>
-             <MicIndicator stream={cameraStreamRef.current} isMuted={isMicMuted} />
-            <div className="md:hidden">
-              <Users className="w-5 h-5"/>
-            </div>
+             <MicIndicator stream={localStreamRef.current} isMuted={isMicMuted} />
         </div>
       </header>
 
       <main className="flex-grow grid grid-cols-1 md:grid-cols-4 gap-4 min-h-0">
         <div className="md:col-span-3 bg-black rounded-lg overflow-hidden relative flex items-center justify-center">
-            {viewMode !== 'whiteboard' && (
+            {viewMode === 'whiteboard' ? (
+                <Whiteboard ref={whiteboardRef} isActive={isTeacher} color={wbColor} size={wbSize} isErasing={isErasing} />
+            ) : mainViewParticipant ? (
               <div className="w-full h-full">
-                <video ref={videoRef} className={cn("w-full h-full object-contain", isCameraOff && "hidden")} autoPlay muted />
-                {isCameraOff && viewMode === 'camera' && (
-                   <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800">
-                        <Avatar className="w-32 h-32">
-                           <AvatarImage src="https://picsum.photos/seed/user-avatar/100" />
-                           <AvatarFallback>{isTeacher ? 'T' : 'S'}</AvatarFallback>
-                        </Avatar>
-                        <p className="mt-4 text-lg">Your camera is off</p>
-                   </div>
-                )}
+                <ParticipantVideo 
+                    stream={mainViewStream}
+                    isCameraOff={mainViewParticipant.isCameraOff}
+                    isMicMuted={mainViewParticipant.isMicMuted}
+                    name={mainViewParticipant.name}
+                    isLocal={mainViewParticipant.isLocal}
+                />
               </div>
+            ): (
+                 <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800">
+                    <p>Select a participant to view</p>
+                 </div>
             )}
             
-            {viewMode === 'whiteboard' && (
-                <Whiteboard ref={whiteboardRef} isActive={isTeacher} color={wbColor} size={wbSize} isErasing={isErasing} onDraw={() => {}} />
-            )}
-
             {!hasPermission && viewMode === 'camera' && !isCameraOff &&(
                  <Alert variant="destructive" className="max-w-md absolute">
                     <VideoOff className="h-4 w-4"/>
@@ -544,30 +555,27 @@ export default function MeetingPage() {
         <div className="hidden md:flex flex-col bg-gray-800/50 rounded-lg p-4 gap-4">
           <Card className="bg-transparent border-0 text-white">
             <CardHeader className="p-0 pb-4">
-              <CardTitle className="flex items-center gap-2 text-base"><Users className="w-5 h-5"/> Participants (2)</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base"><Users className="w-5 h-5"/> Participants ({participants.length})</CardTitle>
             </CardHeader>
-            <CardContent className="p-0 space-y-4">
-              <div className="flex items-center gap-3">
-                 <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center font-bold flex-shrink-0">T</div>
-                 <div>
-                    <p className="font-semibold">{isTeacher ? 'You' : 'Teacher'}</p>
-                    <p className="text-sm text-gray-400">Teacher</p>
-                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center font-bold flex-shrink-0">S</div>
-                <div>
-                  <p className="font-semibold">{isTeacher ? 'Student' : 'You'}</p>
-                  <p className="text-sm text-gray-400">Student</p>
+            <CardContent className="p-0 space-y-4 overflow-y-auto">
+              {participants.map(p => (
+                <div key={p.id} onClick={() => {
+                    if (p.stream || p.isCameraOff) {
+                        setMainViewStream(p.stream);
+                        setMainViewParticipant(p);
+                    }
+                }}>
+                    <ParticipantVideo 
+                        stream={p.stream}
+                        isCameraOff={p.isCameraOff}
+                        isMicMuted={p.isMicMuted}
+                        name={p.name}
+                        isLocal={p.isLocal}
+                    />
                 </div>
-              </div>
+              ))}
             </CardContent>
           </Card>
-           <div className="flex-grow space-y-4 overflow-y-auto">
-               <h3 className="font-semibold text-base text-center">Remote Participants</h3>
-                {/* This is a placeholder for a real participant list */}
-                <RemoteParticipant isCameraOff={remoteCameraOff} isMicMuted={remoteMicMuted} />
-           </div>
         </div>
       </main>
     </div>
