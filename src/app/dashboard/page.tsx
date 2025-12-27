@@ -8,6 +8,9 @@ import {
   Target,
   TrendingUp,
   Video,
+  Copy,
+  PlusCircle,
+  HelpCircle
 } from "lucide-react";
 import { getSubjects } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,6 +23,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
+import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
 
 const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?: string, suffix?: string }) => {
   const ref = React.useRef<HTMLSpanElement>(null);
@@ -135,111 +140,38 @@ interface Booking {
   bookedAt: string;
 }
 
-const TeacherSessions = () => {
+const TeacherDashboard = () => {
     const router = useRouter();
-    const [bookings, setBookings] = React.useState<Booking[]>([]);
+    const { toast } = useToast();
+    const [meetingCode, setMeetingCode] = React.useState<string | null>(null);
 
-    React.useEffect(() => {
-        const storedBookings = localStorage.getItem("userBookings");
-        if (storedBookings) {
-            setBookings(JSON.parse(storedBookings));
+    const generateMeetingCode = () => {
+        const code = `SYL-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        setMeetingCode(code);
+        localStorage.setItem('activeMeetingCode', code);
+    };
+
+    const startMeeting = () => {
+        if (!meetingCode) {
+            toast({
+                variant: 'destructive',
+                title: 'No Meeting Code',
+                description: 'Please generate a code first.',
+            });
+            return;
         }
-    }, []);
+        router.push(`/dashboard/meeting/${meetingCode}`);
+    };
 
-    const handleJoinMeeting = (bookingId: string) => {
-        router.push(`/dashboard/meeting/${bookingId}`);
-    }
+    const copyCode = () => {
+        if (!meetingCode) return;
+        navigator.clipboard.writeText(meetingCode);
+        toast({
+            title: 'Code Copied!',
+            description: 'The meeting code has been copied to your clipboard.',
+        });
+    };
 
-    if (bookings.length === 0) {
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Upcoming Sessions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">You have no upcoming sessions booked by students.</p>
-                </CardContent>
-            </Card>
-        );
-    }
-    
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Your Upcoming Sessions</CardTitle>
-                <CardDescription>Students have booked these sessions with you.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {bookings.map(booking => (
-                    <div key={booking.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                        <div className="flex items-center gap-4">
-                             <Avatar>
-                                <AvatarImage src="https://picsum.photos/seed/student-avatar/100" />
-                                <AvatarFallback>S</AvatarFallback>
-                            </Avatar>
-                            <div>
-                                <p className="font-semibold">Session with a Student</p>
-                                <p className="text-sm text-muted-foreground">{booking.slot.day} at {booking.slot.time}</p>
-                            </div>
-                        </div>
-                        <Button onClick={() => handleJoinMeeting(booking.id)}>
-                            <Video className="mr-2 h-4 w-4" />
-                            Jump Into Meeting
-                        </Button>
-                    </div>
-                ))}
-            </CardContent>
-        </Card>
-    )
-}
-
-
-export default function DashboardPage() {
-  const subjects = getSubjects().slice(0, 3); // Placeholder for "Your Subjects"
-  const recentTopics = getSubjects().flatMap(s => s.topics).slice(0,3);
-  const [userRole, setUserRole] = React.useState<string | null>(null);
-  const router = useRouter();
-
-  React.useEffect(() => {
-    const role = localStorage.getItem("userRole");
-    setUserRole(role);
-  }, []);
-
-  const userStats = {
-    topicsCompleted: 18,
-    totalTopics: 50,
-    studyHours: 42,
-    quizzesTaken: 12,
-    avgScore: 88,
-  }
-
-  const statCards = [
-      {
-          title: "Topics Completed",
-          icon: TrendingUp,
-          value: <><AnimatedCounter to={userStats.topicsCompleted} /> / {userStats.totalTopics}</>,
-          footer: "+5 from last week",
-      },
-      {
-          title: "Study Hours",
-          icon: Clock,
-          value: <AnimatedCounter to={userStats.studyHours} />,
-          footer: "Total time spent learning",
-      },
-      {
-          title: "Average Score",
-          icon: Target,
-          value: <AnimatedCounter to={userStats.avgScore} suffix="%" />,
-          footer: <>Across <AnimatedCounter to={userStats.quizzesTaken} /> quizzes</>,
-      }
-  ]
-
-  if (!userRole) {
-      return <div>Loading...</div>
-  }
-
-  // Teacher Dashboard View
-  if (userRole === "Teacher") {
     return (
         <div className="space-y-8">
             <ScrollReveal>
@@ -249,24 +181,38 @@ export default function DashboardPage() {
             <ScrollReveal delay={0.1}>
                 <Card className="bg-primary/10 border-primary">
                     <CardHeader className="text-center">
-                        <CardTitle className="text-2xl">Test the Meeting Interface</CardTitle>
-                        <CardDescription>Click the button below to immediately join a test video call and see how the meeting room looks and feels.</CardDescription>
+                        <CardTitle className="text-2xl">Host a Meeting</CardTitle>
+                        <CardDescription>Generate a code to start a live session. Share the code with your students to have them join.</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex justify-center">
-                        <Button 
-                            size="lg" 
-                            onClick={() => router.push('/dashboard/meeting/test-meeting-123')}
-                            className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow transform hover:scale-105"
-                        >
-                            <Video className="mr-2 h-5 w-5" />
-                            Jump Into a Test Meeting NOW
-                        </Button>
+                    <CardContent className="flex flex-col items-center gap-4">
+                        {!meetingCode ? (
+                             <Button 
+                                size="lg" 
+                                onClick={generateMeetingCode}
+                                className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow transform hover:scale-105"
+                            >
+                                <PlusCircle className="mr-2 h-5 w-5" />
+                                Generate a New Meeting Code
+                            </Button>
+                        ) : (
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <p className="text-2xl font-bold font-mono tracking-widest p-3 bg-background rounded-lg border">{meetingCode}</p>
+                                    <Button variant="outline" size="icon" onClick={copyCode}><Copy className="w-5 h-5"/></Button>
+                                </div>
+                                <div className="flex gap-4">
+                                    <Button size="lg" onClick={startMeeting}>
+                                        <Video className="mr-2 h-5 w-5" />
+                                        Start Meeting Now
+                                    </Button>
+                                     <Button variant="secondary" onClick={() => setMeetingCode(null)}>
+                                        Create New Code
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
-            </ScrollReveal>
-            
-             <ScrollReveal delay={0.2}>
-               <TeacherSessions />
             </ScrollReveal>
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -295,67 +241,160 @@ export default function DashboardPage() {
             </div>
         </div>
     );
-  }
+};
 
-  // Student Dashboard View
-  return (
-    <div className="space-y-8">
-      {/* Your Subjects Section */}
-      <ScrollReveal>
-        <h2 className="text-2xl font-bold tracking-tight mb-4">Your Subjects</h2>
-      </ScrollReveal>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {subjects.map((subject, index) => (
-            <SubjectProgress key={subject.id} subject={subject} delay={index * 0.1} />
-        ))}
-      </div>
+const StudentDashboard = () => {
+    const subjects = getSubjects().slice(0, 3);
+    const recentTopics = getSubjects().flatMap(s => s.topics).slice(0,3);
+    const router = useRouter();
+    const { toast } = useToast();
+    const [meetingCode, setMeetingCode] = React.useState('');
 
-      {/* User Stats Section */}
-       <div>
-        <ScrollReveal>
-            <h2 className="text-2xl font-bold tracking-tight mb-4">Your Progress</h2>
-        </ScrollReveal>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {statCards.map((stat, index) => {
-                const Icon = stat.icon;
-                return (
-                    <ScrollReveal key={stat.title} delay={index * 0.1}>
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                                <Icon className="w-4 h-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{stat.value}</div>
-                                <p className="text-xs text-muted-foreground mt-1">{stat.footer}</p>
-                            </CardContent>
-                        </Card>
-                    </ScrollReveal>
-                )
-            })}
-             <ScrollReveal className="sm:col-span-2 lg:col-span-1" delay={0.3}>
+
+    const userStats = {
+      topicsCompleted: 18,
+      totalTopics: 50,
+      studyHours: 42,
+      quizzesTaken: 12,
+      avgScore: 88,
+    }
+
+    const statCards = [
+        {
+            title: "Topics Completed",
+            icon: TrendingUp,
+            value: <><AnimatedCounter to={userStats.topicsCompleted} /> / {userStats.totalTopics}</>,
+            footer: "+5 from last week",
+        },
+        {
+            title: "Study Hours",
+            icon: Clock,
+            value: <AnimatedCounter to={userStats.studyHours} />,
+            footer: "Total time spent learning",
+        },
+        {
+            title: "Average Score",
+            icon: Target,
+            value: <AnimatedCounter to={userStats.avgScore} suffix="%" />,
+            footer: <>Across <AnimatedCounter to={userStats.quizzesTaken} /> quizzes</>,
+        }
+    ];
+
+    const handleJoinMeeting = () => {
+        if (!meetingCode.trim()) {
+            toast({
+                variant: 'destructive',
+                title: 'Meeting Code Required',
+                description: 'Please enter a valid meeting code to join.',
+            });
+            return;
+        }
+        router.push(`/dashboard/meeting/${meetingCode.trim()}`);
+    };
+
+    return (
+        <div className="space-y-8">
+            <ScrollReveal delay={0.1}>
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Recently Accessed</CardTitle>
-                        <History className="w-4 h-4 text-muted-foreground" />
+                    <CardHeader>
+                        <CardTitle>Join a Live Session</CardTitle>
+                        <CardDescription>Enter the meeting code provided by your teacher to join the class.</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                    {recentTopics.map(topic => (
-                        <div key={topic.id} className="flex items-center gap-3 group">
-                            <Image src={topic.coverImage.src} alt={topic.name} width={40} height={40} className="rounded-md object-cover"/>
-                            <div>
-                            <p className="text-sm font-medium line-clamp-1 group-hover:text-primary transition-colors">{topic.name}</p>
-                            <p className="text-xs text-muted-foreground">{topic.chapter}</p>
-                            </div>
-                        </div>
-                    ))}
+                    <CardContent className="flex flex-col sm:flex-row items-center gap-4">
+                        <Input 
+                            placeholder="Enter code (e.g., SYL-ABCD)" 
+                            className="text-lg h-12 max-w-sm"
+                            value={meetingCode}
+                            onChange={(e) => setMeetingCode(e.target.value)}
+                        />
+                        <Button 
+                            size="lg" 
+                            onClick={handleJoinMeeting}
+                            className="w-full sm:w-auto"
+                        >
+                            <Video className="mr-2 h-5 w-5" />
+                            Join Meeting
+                        </Button>
                     </CardContent>
                 </Card>
             </ScrollReveal>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-    
+            {/* Your Subjects Section */}
+            <ScrollReveal>
+                <h2 className="text-2xl font-bold tracking-tight mb-4">Your Subjects</h2>
+            </ScrollReveal>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {subjects.map((subject, index) => (
+                    <SubjectProgress key={subject.id} subject={subject} delay={index * 0.1} />
+                ))}
+            </div>
+
+            {/* User Stats Section */}
+            <div>
+                <ScrollReveal>
+                    <h2 className="text-2xl font-bold tracking-tight mb-4">Your Progress</h2>
+                </ScrollReveal>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                    {statCards.map((stat, index) => {
+                        const Icon = stat.icon;
+                        return (
+                            <ScrollReveal key={stat.title} delay={index * 0.1}>
+                                <Card>
+                                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                        <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                                        <Icon className="w-4 h-4 text-muted-foreground" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold">{stat.value}</div>
+                                        <p className="text-xs text-muted-foreground mt-1">{stat.footer}</p>
+                                    </CardContent>
+                                </Card>
+                            </ScrollReveal>
+                        )
+                    })}
+                    <ScrollReveal className="sm:col-span-2 lg:col-span-1" delay={0.3}>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                <CardTitle className="text-sm font-medium">Recently Accessed</CardTitle>
+                                <History className="w-4 h-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                            {recentTopics.map(topic => (
+                                <div key={topic.id} className="flex items-center gap-3 group">
+                                    <Image src={topic.coverImage.src} alt={topic.name} width={40} height={40} className="rounded-md object-cover"/>
+                                    <div>
+                                    <p className="text-sm font-medium line-clamp-1 group-hover:text-primary transition-colors">{topic.name}</p>
+                                    <p className="text-xs text-muted-foreground">{topic.chapter}</p>
+                                    </div>
+                                </div>
+                            ))}
+                            </CardContent>
+                        </Card>
+                    </ScrollReveal>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+export default function DashboardPage() {
+  const [userRole, setUserRole] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const role = localStorage.getItem("userRole");
+    setUserRole(role);
+  }, []);
+
+  if (!userRole) {
+      return <div>Loading...</div>
+  }
+
+  // Teacher Dashboard View
+  if (userRole === "Teacher") {
+    return <TeacherDashboard />;
+  }
+
+  // Student Dashboard View
+  return <StudentDashboard />;
+}

@@ -13,42 +13,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Slider } from "@/components/ui/slider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-interface Booking {
-  id: string;
-  tutorName: string;
-  slot: { day: string; time: string };
-}
-
-const dayToNumber: { [key: string]: number } = { "Sun": 0, "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6 };
-
-function getSessionDates(day: string, time: string): { start: Date, end: Date } {
-  const now = new Date();
-  const targetDay = dayToNumber[day];
-  const [startTimeStr] = time.split(" - ");
-  const [hour, minute] = startTimeStr.split(":").map(Number);
-
-  let startDate = new Date();
-  const currentDay = now.getDay();
-  let dayDifference = (targetDay - currentDay + 7) % 7;
-  
-  if (dayDifference === 0 && (now.getHours() > hour || (now.getHours() === hour && now.getMinutes() >= minute))) {
-      dayDifference = 7;
-  }
-  
-  startDate.setDate(now.getDate() + dayDifference);
-  startDate.setHours(hour, minute, 0, 0);
-
-  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1-hour session
-
-  return { start: startDate, end: endDate };
-}
-
-const testBooking: Booking = {
-  id: "test-meeting-123",
-  tutorName: "Test Teacher",
-  slot: { day: "Mon", time: "10:00 - 11:00" },
-};
-
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
 
 const RemoteParticipant = ({ isCameraOff, isMicMuted }: { isCameraOff: boolean, isMicMuted: boolean }) => {
@@ -283,8 +247,7 @@ export default function MeetingPage() {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const [hasPermission, setHasPermission] = React.useState(true);
-  const [booking, setBooking] = React.useState<Booking | null>(null);
-  const [sessionTime, setSessionTime] = React.useState({ start: new Date(), end: new Date() });
+  const [meetingCode, setMeetingCode] = React.useState<string | null>(null);
   const [timeLeft, setTimeLeft] = React.useState("");
   const whiteboardRef = React.useRef<{ clear: () => void }>(null);
   
@@ -310,28 +273,34 @@ export default function MeetingPage() {
     setUserRole(localStorage.getItem("userRole"));
     
     const bookingId = params.bookingId;
-    if (bookingId === 'test-meeting-123') {
-        const now = new Date();
-        const end = new Date(now.getTime() + 60 * 60 * 1000);
-        setBooking({ ...testBooking, slot: {day: "Mon", time: `${now.getHours()}:${now.getMinutes()}`}});
-        setSessionTime({ start: now, end: end });
+    if (typeof bookingId === 'string') {
+      setMeetingCode(bookingId);
     } else {
-      const storedBookings = localStorage.getItem("userBookings");
-      if (storedBookings) {
-        const allBookings = JSON.parse(storedBookings);
-        const currentBooking = allBookings.find((b: Booking) => b.id === bookingId);
-        if (currentBooking) {
-          setBooking(currentBooking);
-          const { start, end } = getSessionDates(currentBooking.slot.day, currentBooking.slot.time);
-          setSessionTime({ start, end });
-        } else {
-          router.replace("/dashboard/bookings");
-        }
-      } else {
-         router.replace("/dashboard/bookings");
-      }
+       router.replace("/dashboard");
     }
-  }, [params, router]);
+
+    const sessionEndTime = new Date(new Date().getTime() + 60 * 60 * 1000); // 1 hour from now
+
+    const timer = setInterval(() => {
+      const now = new Date();
+      const difference = +sessionEndTime - +now;
+
+      if (difference <= 0) {
+        setTimeLeft("00:00");
+        toast({ title: "Session Ended", description: "Your meeting time has finished." });
+        router.replace("/dashboard");
+        clearInterval(timer);
+        return;
+      }
+      
+      const minutes = Math.floor((difference / 1000 / 60) % 60);
+      const seconds = Math.floor((difference / 1000) % 60);
+      setTimeLeft(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+    }, 1000);
+
+    return () => clearInterval(timer);
+    
+  }, [params, router, toast]);
   
   const getCameraStream = React.useCallback(async () => {
     if (cameraStreamRef.current) {
@@ -367,29 +336,6 @@ export default function MeetingPage() {
     };
   }, [getCameraStream, viewMode]);
   
-  React.useEffect(() => {
-    if (!sessionTime.end) return;
-
-    const timer = setInterval(() => {
-      const now = new Date();
-      const difference = +sessionTime.end - +now;
-
-      if (difference <= 0) {
-        setTimeLeft("00:00");
-        toast({ title: "Session Ended", description: "Your meeting time has finished." });
-        router.replace("/dashboard/bookings");
-        clearInterval(timer);
-        return;
-      }
-      
-      const minutes = Math.floor((difference / 1000 / 60) % 60);
-      const seconds = Math.floor((difference / 1000) % 60);
-      setTimeLeft(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [sessionTime.end, router, toast]);
-
   const handleToggleMic = () => {
     if (cameraStreamRef.current) {
       const audioTracks = cameraStreamRef.current.getAudioTracks();
@@ -456,7 +402,7 @@ export default function MeetingPage() {
 
   const colors = ["#000000", "#ef4444", "#3b82f6", "#22c55e", "#f97316"];
 
-  if (!booking) {
+  if (!meetingCode) {
     return null; // or a loading spinner
   }
 
@@ -465,7 +411,7 @@ export default function MeetingPage() {
   return (
     <div className="fixed inset-0 bg-gray-900 text-white flex flex-col p-4 z-50">
       <header className="flex justify-between items-center mb-4 flex-shrink-0">
-        <h1 className="text-xl font-bold">Session with {booking.tutorName}</h1>
+        <h1 className="text-xl font-bold">Meeting: {meetingCode}</h1>
         <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 bg-gray-800/50 px-3 py-1.5 rounded-lg">
               <Timer className="w-5 h-5 text-primary"/>
@@ -604,14 +550,14 @@ export default function MeetingPage() {
               <div className="flex items-center gap-3">
                  <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center font-bold flex-shrink-0">T</div>
                  <div>
-                    <p className="font-semibold">{booking.tutorName}</p>
-                    <p className="text-sm text-gray-400">Teacher (You)</p>
+                    <p className="font-semibold">{isTeacher ? 'You' : 'Teacher'}</p>
+                    <p className="text-sm text-gray-400">Teacher</p>
                  </div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center font-bold flex-shrink-0">S</div>
                 <div>
-                  <p className="font-semibold">Student</p>
+                  <p className="font-semibold">{isTeacher ? 'Student' : 'You'}</p>
                   <p className="text-sm text-gray-400">Student</p>
                 </div>
               </div>
@@ -627,5 +573,3 @@ export default function MeetingPage() {
     </div>
   );
 }
-
-    
