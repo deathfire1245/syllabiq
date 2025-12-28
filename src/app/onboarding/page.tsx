@@ -5,34 +5,43 @@ import { useRouter } from "next/navigation";
 import StudentOnboarding from "./student/page";
 import TeacherOnboarding from "./teacher/page";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUser } from "@/firebase";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const { user, isUserLoading } = useUser();
 
   React.useEffect(() => {
+    if (isUserLoading) {
+      return;
+    }
+
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+    
     const role = localStorage.getItem("userRole");
     const status = localStorage.getItem("onboardingStatus");
 
     if (status !== 'pending') {
-      // If onboarding is already completed or not required, redirect to dashboard
       router.replace('/dashboard');
     } else if (role) {
       setUserRole(role);
       setLoading(false);
     } else {
-      // If no role is found, something is wrong, redirect to login
       router.replace('/login');
     }
-  }, [router]);
+  }, [router, user, isUserLoading]);
 
   const handleOnboardingComplete = () => {
     localStorage.setItem("onboardingStatus", "completed");
     router.push("/dashboard");
   };
 
-  if (loading) {
+  if (loading || isUserLoading) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-background p-4">
             <div className="w-full max-w-2xl space-y-8">
@@ -49,8 +58,8 @@ export default function OnboardingPage() {
 
   return (
     <div>
-      {userRole === "Student" && <StudentOnboarding onComplete={handleOnboardingComplete} />}
-      {userRole === "Teacher" && <TeacherOnboarding onComplete={handleOnboardingComplete} />}
+      {userRole === "student" && <StudentOnboarding onComplete={handleOnboardingComplete} />}
+      {userRole === "teacher" && <TeacherOnboarding onComplete={handleOnboardingComplete} />}
     </div>
   );
 }

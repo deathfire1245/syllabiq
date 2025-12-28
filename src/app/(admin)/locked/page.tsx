@@ -9,33 +9,79 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { KeyRound, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { useUser } from "@/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const ADMIN_CODE = "we2025";
 
 export default function LockedPage() {
   const [code, setCode] = React.useState("");
-  const [error, setError] = React.useState("");
   const router = useRouter();
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const [isVerifying, setIsVerifying] = React.useState(false);
 
-  const handleAccess = () => {
-    if (code === ADMIN_CODE) {
-      setError("");
-      sessionStorage.setItem("isAdminAuthenticated", "true");
-      toast({
-        title: "Access Granted",
-        description: "Welcome to the Admin Portal.",
-      });
-      router.push("/admin");
-    } else {
-      setError("Invalid access code. Please try again.");
+  const handleAccess = async () => {
+    if (code !== ADMIN_CODE) {
       toast({
         variant: "destructive",
         title: "Access Denied",
-        description: "The code you entered is incorrect.",
+        description: "The access code is incorrect.",
       });
+      return;
+    }
+
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication Required",
+        description: "You must be logged in as an admin to access this portal.",
+      });
+      router.push('/login');
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      const userDocRef = doc(firestore, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists() && userDoc.data().role === 'admin') {
+        sessionStorage.setItem("isAdminAuthenticated", "true");
+        toast({
+          title: "Access Granted",
+          description: "Welcome to the Admin Portal.",
+        });
+        router.push("/admin");
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Authorization Failed",
+          description: "You do not have permission to access the admin portal.",
+        });
+        sessionStorage.removeItem("isAdminAuthenticated");
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not verify your role. Please try again.",
+      });
+    } finally {
+      setIsVerifying(false);
     }
   };
+
+  if (isUserLoading) {
+    return (
+        <div className="min-h-screen flex items-center justify-center">
+            <Skeleton className="w-full max-w-md h-[400px]" />
+        </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-secondary/50 p-4">
@@ -65,10 +111,9 @@ export default function LockedPage() {
                   className="pl-10"
                 />
               </div>
-              {error && <p className="text-sm font-medium text-destructive">{error}</p>}
             </div>
-            <Button type="submit" className="w-full">
-              Unlock Portal
+            <Button type="submit" className="w-full" disabled={isVerifying}>
+              {isVerifying ? 'Verifying...' : 'Unlock Portal'}
             </Button>
           </form>
         </CardContent>

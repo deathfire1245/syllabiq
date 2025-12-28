@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -27,6 +26,8 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useUser, useFirebase } from "@/firebase";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 
 const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?: string, suffix?: string }) => {
   const ref = React.useRef<HTMLSpanElement>(null);
@@ -64,23 +65,41 @@ const iconMap: { [key:string]: React.ElementType } = {
 const TeacherDashboard = () => {
     const router = useRouter();
     const { toast } = useToast();
+    const { user } = useUser();
+    const { firestore } = useFirebase();
     const [meetingCode, setMeetingCode] = React.useState<string | null>(null);
     const [meetingRoomId, setMeetingRoomId] = React.useState<string | null>(null);
+    const [isCreatingMeeting, setIsCreatingMeeting] = React.useState(false);
 
     const generateMeetingCode = async () => {
+        if (!user || !firestore) return;
+        setIsCreatingMeeting(true);
+
         const code = `SYL-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
         const newMeetingRoomId = crypto.randomUUID();
         
-        // Store in localStorage for simple multi-tab/multi-window testing
-        localStorage.setItem("activeMeetingCode", code);
-        localStorage.setItem("activeMeetingRoomId", newMeetingRoomId);
-        
-        setMeetingCode(code);
-        setMeetingRoomId(newMeetingRoomId);
-        toast({
-            title: 'Meeting Code Generated!',
-            description: `Your new meeting code is ${code}`,
-        });
+        try {
+            const meetingDocRef = doc(firestore, 'meetings', code);
+            await setDoc(meetingDocRef, {
+                meetingCode: code,
+                meetingRoomId: newMeetingRoomId,
+                hostUid: user.uid,
+                isActive: true,
+                createdAt: serverTimestamp(),
+            });
+
+            setMeetingCode(code);
+            setMeetingRoomId(newMeetingRoomId);
+            toast({
+                title: 'Meeting Code Generated!',
+                description: `Your new meeting code is ${code}`,
+            });
+        } catch (error) {
+            console.error("Error creating meeting: ", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not create meeting.'});
+        } finally {
+            setIsCreatingMeeting(false);
+        }
     };
 
     const startMeeting = () => {
@@ -105,8 +124,8 @@ const TeacherDashboard = () => {
     };
 
     const endMeeting = async () => {
-        localStorage.removeItem("activeMeetingCode");
-        localStorage.removeItem("activeMeetingRoomId");
+        if (!meetingCode) return;
+        // In a real app, you'd update the meeting doc to `isActive: false`
         setMeetingCode(null);
         setMeetingRoomId(null);
         toast({
@@ -155,10 +174,11 @@ const TeacherDashboard = () => {
                              <Button 
                                 size="lg" 
                                 onClick={generateMeetingCode}
+                                disabled={isCreatingMeeting}
                                 className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow transform hover:scale-105"
                             >
                                 <PlusCircle className="mr-2 h-5 w-5" />
-                                Generate New Meeting Code
+                                {isCreatingMeeting ? "Generating..." : "Generate New Meeting Code"}
                             </Button>
                         ) : (
                             <div className="flex flex-wrap items-center justify-center gap-4">
@@ -250,7 +270,9 @@ const StudentDashboard = () => {
     const subjects = getSubjects().slice(0, 3);
     const router = useRouter();
     const { toast } = useToast();
+    const { firestore } = useFirebase();
     const [meetingCode, setMeetingCode] = React.useState('');
+    const [isJoining, setIsJoining] = React.useState(false);
 
     const userStats = [
         {
@@ -278,7 +300,8 @@ const StudentDashboard = () => {
     const recentTopics = getSubjects().flatMap(s => s.topics).slice(0,3);
 
     const handleJoinMeeting = async () => {
-        if (!meetingCode.trim()) {
+        const code = meetingCode.trim().toUpperCase();
+        if (!code) {
             toast({
                 variant: 'destructive',
                 title: 'Meeting Code Required',
@@ -287,19 +310,29 @@ const StudentDashboard = () => {
             return;
         }
 
-        const storedCode = localStorage.getItem("activeMeetingCode");
-        const storedRoomId = localStorage.getItem("activeMeetingRoomId");
+        setIsJoining(true);
+        try {
+            const meetingDocRef = doc(firestore, 'meetings', code);
+            const meetingDoc = await getDoc(meetingDocRef);
 
-        if (meetingCode.trim().toUpperCase() !== storedCode) {
-            toast({
-                variant: 'destructive',
-                title: 'Invalid or Inactive Code',
-                description: 'The meeting code is not valid or the session has not started yet.',
-            });
-            return;
+            if (!meetingDoc.exists() || !meetingDoc.data().isActive) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Invalid or Inactive Code',
+                    description: 'The meeting code is not valid or the session has not started yet.',
+                });
+                return;
+            }
+            
+            const { meetingRoomId } = meetingDoc.data();
+            router.push(`/dashboard/meeting/${meetingRoomId}`);
+
+        } catch (error) {
+            console.error("Error joining meeting:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not join meeting.'});
+        } finally {
+            setIsJoining(false);
         }
-
-        router.push(`/dashboard/meeting/${storedRoomId}`);
     };
 
     return (
@@ -325,9 +358,10 @@ const StudentDashboard = () => {
                         <Button 
                             size="lg" 
                             onClick={handleJoinMeeting}
+                            disabled={isJoining}
                             className="w-full sm:w-auto"
                         >
-                            Join Meeting
+                            {isJoining ? "Joining..." : "Join Meeting"}
                         </Button>
                     </CardContent>
                 </Card>
@@ -428,17 +462,16 @@ const StudentDashboard = () => {
 
 
 export default function DashboardPage() {
+  const { user, isUserLoading } = useUser();
   const [userRole, setUserRole] = React.useState<string | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    // In a real app, you'd get this from an auth context
+    if (isUserLoading) return;
     const role = localStorage.getItem("userRole");
     setUserRole(role);
-    setIsLoading(false);
-  }, []);
+  }, [isUserLoading]);
 
-  if (isLoading) {
+  if (isUserLoading) {
       return (
         <div className="p-8">
             <div className="space-y-8">
@@ -455,12 +488,9 @@ export default function DashboardPage() {
       )
   }
 
-  // Teacher Dashboard View
-  if (userRole === "Teacher") {
+  if (userRole === "teacher") {
     return <TeacherDashboard />;
   }
 
-  // Student Dashboard View
-  // Default to student if no role or student role is set
   return <StudentDashboard />;
 }

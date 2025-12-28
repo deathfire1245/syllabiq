@@ -11,49 +11,62 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
     }
 
+    function isRole(role) {
+      return isSignedIn() && getUserData(request.auth.uid).role == role;
+    }
+    
     function isTeacher() {
-      return isSignedIn() && getUserRole() == 'teacher';
+      return isRole('teacher');
+    }
+
+    function isAdmin() {
+      return isRole('admin');
     }
 
     function isMeetingParticipant(meetingRoomId) {
       return isSignedIn() && exists(/databases/$(database)/documents/participants/$(meetingRoomId)/users/$(request.auth.uid));
     }
     
-    // Users can only manage their own profile document.
+    // User profile rules
     match /users/{uid} {
-      allow read, create, update: if isOwner(uid);
-      allow delete: if false;
+      // Admins can read any user profile
+      // Users can read their own profile
+      allow get: if isAdmin() || isOwner(uid);
+      // Admins can list all users for management purposes
+      allow list: if isAdmin();
+      // Users can create their own profile upon signup
+      // Admins can create users manually
+      allow create: if isOwner(uid) || isAdmin();
+      // Users can update their own non-critical info. Role changes are protected.
+      // Admins can update any user profile.
+      allow update: if (isOwner(uid) && request.resource.data.role == resource.data.role) || isAdmin();
+      // Deleting users is an admin-only action
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Governs access to meeting metadata documents.
-     * @path /meetings/{meetingCode}
-     */
+    // Meeting metadata rules
     match /meetings/{meetingCode} {
       // Any signed-in user can look up a meeting to get its room ID.
       allow get: if isSignedIn();
       // Listing all meetings is disallowed for privacy.
       allow list: if false;
-      // Only teachers can create meetings.
+      // Only teachers can create new meetings.
       allow create: if isTeacher() && request.resource.data.hostUid == request.auth.uid;
-      // Only the teacher who hosted the meeting can update it (e.g., to set isActive to false).
-      allow update: if isTeacher() && resource.data.hostUid == request.auth.uid;
-      // Deleting meetings is disallowed to preserve history.
-      allow delete: if false;
+      // Only the teacher who hosted the meeting or an admin can update it.
+      allow update: if (isTeacher() && resource.data.hostUid == request.auth.uid) || isAdmin();
+      // Only an admin can delete a meeting record.
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Governs the real-time presence list for each meeting.
-     * @path /participants/{meetingRoomId}/users/{uid}
-     */
+    // Real-time presence list rules
     match /participants/{meetingRoomId}/users/{uid} {
       // Any participant in the meeting can see who else is in the meeting.
       allow get, list: if isMeetingParticipant(meetingRoomId);
-      // A user can only create their OWN participant document to join a meeting.
+      // A user can only create their OWN participant document to join.
       allow create: if isOwner(uid);
       // A user can only update their OWN participant document (e.g., camera/mic status).
       allow update: if isOwner(uid);

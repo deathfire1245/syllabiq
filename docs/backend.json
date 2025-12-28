@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -5,37 +6,106 @@
       "type": "object",
       "description": "Represents a user within the SyllabiQ platform.",
       "properties": {
-        "uid": { "type": "string", "description": "Unique identifier for the User entity." },
-        "email": { "type": "string", "description": "Email address of the user.", "format": "email" },
-        "name": { "type": "string", "description": "Display name of the user." },
-        "role": { "type": "string", "description": "Role of the user, either 'teacher' or 'student'." }
+        "uid": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the user."
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user, one of 'student', 'teacher', or 'admin'.",
+          "enum": ["student", "teacher", "admin"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp indicating when the user was created."
+        },
+        "lastLogin": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp indicating the user's last login."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates if the user account is active."
+        }
       },
-      "required": ["uid", "email", "role", "name"]
+      "required": ["uid", "email", "role", "name", "createdAt", "isActive"]
     },
     "Meeting": {
       "title": "Meeting",
       "type": "object",
       "description": "Represents a meeting session within the SyllabiQ platform.",
       "properties": {
-        "meetingCode": { "type": "string", "description": "Unique human-readable code for the meeting." },
-        "meetingRoomId": { "type": "string", "description": "Unique identifier for the meeting room (UUID)." },
-        "hostUid": { "type": "string", "description": "Reference to the User who is hosting the meeting." },
-        "isActive": { "type": "boolean", "description": "Indicates whether the meeting is currently active." },
-        "createdAt": { "type": "string", "description": "Timestamp indicating when the meeting was created.", "format": "date-time" }
+        "meetingCode": {
+          "type": "string",
+          "description": "Unique human-readable code for the meeting."
+        },
+        "meetingRoomId": {
+          "type": "string",
+          "description": "Unique identifier for the meeting room (UUID)."
+        },
+        "hostUid": {
+          "type": "string",
+          "description": "Reference to the User who is hosting the meeting."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates whether the meeting is currently active."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the meeting was created.",
+          "format": "date-time"
+        }
       },
-      "required": ["meetingCode", "meetingRoomId", "hostUid", "isActive", "createdAt"]
+      "required": [
+        "meetingCode",
+        "meetingRoomId",
+        "hostUid",
+        "isActive",
+        "createdAt"
+      ]
     },
     "Participant": {
       "title": "Participant",
       "type": "object",
       "description": "Represents a participant in a meeting.",
       "properties": {
-        "uid": { "type": "string", "description": "Reference to the User participating in the meeting." },
-        "name": { "type": "string", "description": "Display name of the participant." },
-        "role": { "type": "string", "description": "Role of the participant (teacher or student)." },
-        "joinedAt": { "type": "string", "description": "Timestamp indicating when the participant joined.", "format": "date-time" },
-        "cameraOn": { "type": "boolean", "description": "Indicates if the camera is on." },
-        "micOn": { "type": "boolean", "description": "Indicates if the mic is on." }
+        "uid": {
+          "type": "string",
+          "description": "Reference to the User participating in the meeting."
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the participant."
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the participant (teacher or student)."
+        },
+        "joinedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the participant joined.",
+          "format": "date-time"
+        },
+        "cameraOn": {
+          "type": "boolean",
+          "description": "Indicates if the camera is on."
+        },
+        "micOn": {
+          "type": "boolean",
+          "description": "Indicates if the mic is on."
+        }
       },
       "required": ["uid", "role", "name", "joinedAt", "cameraOn", "micOn"]
     }
@@ -49,29 +119,51 @@
         "path": "/users/{uid}",
         "definition": {
           "entityName": "User",
-          "schema": { "$ref": "#/backend/entities/User" },
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
           "description": "Stores user profile information, including their role.",
-          "params": [{ "name": "uid", "description": "The unique identifier of the user." }]
+          "params": [
+            {
+              "name": "uid",
+              "description": "The unique identifier of the user."
+            }
+          ]
         }
       },
       {
         "path": "/meetings/{meetingCode}",
         "definition": {
           "entityName": "Meeting",
-          "schema": { "$ref": "#/backend/entities/Meeting" },
+          "schema": {
+            "$ref": "#/backend/entities/Meeting"
+          },
           "description": "Stores meeting metadata, linking a human-readable code to a unique room ID.",
-          "params": [{ "name": "meetingCode", "description": "The unique, human-readable meeting code." }]
+          "params": [
+            {
+              "name": "meetingCode",
+              "description": "The unique, human-readable meeting code."
+            }
+          ]
         }
       },
       {
         "path": "/participants/{meetingRoomId}/users/{uid}",
         "definition": {
           "entityName": "Participant",
-          "schema": { "$ref": "#/backend/entities/Participant" },
+          "schema": {
+            "$ref": "#/backend/entities/Participant"
+          },
           "description": "Acts as a real-time presence list for each meeting room.",
           "params": [
-            { "name": "meetingRoomId", "description": "The unique identifier for the meeting room (UUID)." },
-            { "name": "uid", "description": "The unique identifier of the user participating." }
+            {
+              "name": "meetingRoomId",
+              "description": "The unique identifier for the meeting room (UUID)."
+            },
+            {
+              "name": "uid",
+              "description": "The unique identifier of the user participating."
+            }
           ]
         }
       }
