@@ -96,11 +96,9 @@ const Whiteboard = React.forwardRef<
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
                  if(contextRef.current) {
-                    const oldStrokeStyle = contextRef.current.strokeStyle;
-                    const oldLineWidth = contextRef.current.lineWidth;
-                    // Redraw logic would be needed here to preserve content
-                    ctx.strokeStyle = oldStrokeStyle;
-                    ctx.lineWidth = oldLineWidth;
+                    // Redraw logic would be needed here to preserve content on resize
+                    ctx.strokeStyle = contextRef.current.strokeStyle;
+                    ctx.lineWidth = contextRef.current.lineWidth;
                 }
                 contextRef.current = ctx;
             }
@@ -111,13 +109,6 @@ const Whiteboard = React.forwardRef<
 
         return () => window.removeEventListener('resize', handleResize);
     }, []);
-
-    React.useEffect(() => {
-        if (contextRef.current) {
-            contextRef.current.strokeStyle = color;
-            contextRef.current.lineWidth = size;
-        }
-    }, [color, size]);
 
     const getCoords = (event: React.MouseEvent | React.TouchEvent) => {
         if (!canvasRef.current) return { x: 0, y: 0 };
@@ -132,10 +123,7 @@ const Whiteboard = React.forwardRef<
             clientX = event.clientX;
             clientY = event.clientY;
         }
-
-        const scaleX = canvas.width / (rect.width * (window.devicePixelRatio || 1));
-        const scaleY = canvas.height / (rect.height * (window.devicePixelRatio || 1));
-
+        
         return {
             x: (clientX - rect.left),
             y: (clientY - rect.top),
@@ -144,10 +132,16 @@ const Whiteboard = React.forwardRef<
 
     const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
         event.preventDefault();
-        if (!contextRef.current || !isActive) return;
+        const ctx = contextRef.current;
+        if (!ctx || !isActive) return;
+
+        ctx.globalCompositeOperation = isErasing ? 'destination-out' : 'source-over';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = isErasing ? size * 2 : size;
+        
         const { x, y } = getCoords(event);
-        contextRef.current.beginPath();
-        contextRef.current.moveTo(x, y);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
         setIsDrawing(true);
     };
 
@@ -162,15 +156,6 @@ const Whiteboard = React.forwardRef<
         event.preventDefault();
         if (!isDrawing || !contextRef.current || !isActive) return;
         const { x, y } = getCoords(event);
-        
-        contextRef.current.globalCompositeOperation = isErasing ? 'destination-out' : 'source-over';
-        if (isErasing) {
-             contextRef.current.lineWidth = size * 2; // Make eraser bigger
-        } else {
-             contextRef.current.strokeStyle = color;
-             contextRef.current.lineWidth = size;
-        }
-        
         contextRef.current.lineTo(x, y);
         contextRef.current.stroke();
     };
@@ -180,7 +165,7 @@ const Whiteboard = React.forwardRef<
             const canvas = canvasRef.current;
             if (canvas && contextRef.current) {
                 const dpr = window.devicePixelRatio || 1;
-                contextRef.current.clearRect(0, 0, canvas.width * dpr, canvas.height * dpr);
+                contextRef.current.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
             }
         }
     }));
@@ -655,3 +640,5 @@ export default function MeetingPage() {
     </div>
   );
 }
+
+    
