@@ -57,7 +57,7 @@ export function SidebarNav({ isMobile = false }: { isMobile?: boolean }) {
     }
   }, [user, isUserLoading, firestore]);
 
-  const navItems = userRole === "Teacher" ? teacherNavItems : studentNavItems;
+  const navItems = userRole === "teacher" ? teacherNavItems : studentNavItems;
 
   const navClass = isMobile ? "flex flex-col gap-2 p-4" : "fixed top-0 left-0 h-full w-64 bg-card border-r z-50 hidden md:flex md:flex-col";
 

@@ -34,7 +34,7 @@ export default function CreatePage() {
     return <div>Loading...</div>; // Or a skeleton loader
   }
 
-  if (userRole !== "Teacher") {
+  if (userRole !== "teacher") {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center">
         <h2 className="text-2xl font-bold">Access Denied</h2>
