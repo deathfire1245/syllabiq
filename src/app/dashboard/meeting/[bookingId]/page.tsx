@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -11,8 +12,6 @@ import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUser, useFirebase } from "@/firebase";
-import { collection, doc, onSnapshot, setDoc, deleteDoc, serverTimestamp, getDoc, updateDoc } from "firebase/firestore";
 
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
 
@@ -117,8 +116,8 @@ const Whiteboard = React.forwardRef<
         const scaleY = canvas.height / (rect.height * (window.devicePixelRatio || 1));
 
         return {
-            x: (clientX - rect.left) * scaleX,
-            y: (clientY - rect.top) * scaleY,
+            x: (clientX - rect.left),
+            y: (clientY - rect.top),
         };
     };
 
@@ -153,7 +152,8 @@ const Whiteboard = React.forwardRef<
         clear: () => {
             const canvas = canvasRef.current;
             if (canvas && contextRef.current) {
-                contextRef.current.clearRect(0, 0, canvas.width, canvas.height);
+                const dpr = window.devicePixelRatio || 1;
+                contextRef.current.clearRect(0, 0, canvas.width * dpr, canvas.height * dpr);
             }
         }
     }));
@@ -239,8 +239,6 @@ export default function MeetingPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const { user, isUserLoading } = useUser();
-  const { firestore } = useFirebase();
   
   const [meetingRoomId, setMeetingRoomId] = React.useState<string | null>(null);
   const [userRole, setUserRole] = React.useState<string | null>(null);
@@ -272,113 +270,63 @@ export default function MeetingPage() {
         return;
     }
     setMeetingRoomId(roomId);
-  }, [params.bookingId, router, toast]);
-
-  React.useEffect(() => {
-    if (!meetingRoomId || !user || !firestore) return;
-
-    let unsubscribeParticipants: () => void;
+    
+    // Mock user for testing
+    const role = localStorage.getItem('userRole') || 'Student';
+    setUserRole(role);
 
     const joinMeeting = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            localStreamRef.current = stream;
-            setHasPermission(true);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localStreamRef.current = stream;
+        setHasPermission(true);
 
-            const userDocRef = doc(firestore, "users", user.uid);
-            const userDoc = await getDoc(userDocRef);
-            const role = userDoc.exists() ? userDoc.data().role : 'student';
-            const name = userDoc.exists() ? userDoc.data().name : 'Guest';
-            setUserRole(role);
+        const localUser: Participant = {
+          uid: `user-${Date.now()}`,
+          name: role,
+          role: role,
+          cameraOn: true,
+          micOn: true,
+          isLocal: true,
+          stream: stream
+        };
 
-            const selfParticipantRef = doc(firestore, `participants/${meetingRoomId}/users`, user.uid);
-            await setDoc(selfParticipantRef, {
-                uid: user.uid,
-                role: role,
-                name: name,
-                cameraOn: !isCameraOff,
-                micOn: !isMicMuted,
-                joinedAt: serverTimestamp(),
-            });
+        setParticipants([localUser]);
+        setMainViewParticipant(localUser);
 
-            const participantsColRef = collection(firestore, `participants/${meetingRoomId}/users`);
-            unsubscribeParticipants = onSnapshot(participantsColRef, (snapshot) => {
-                const updatedParticipants: Participant[] = [];
-                snapshot.docs.forEach((doc) => {
-                    const data = doc.data();
-                    const isLocal = data.uid === user.uid;
-                    updatedParticipants.push({
-                        uid: data.uid,
-                        name: data.name,
-                        role: data.role,
-                        cameraOn: data.cameraOn,
-                        micOn: data.micOn,
-                        isLocal: isLocal,
-                        stream: isLocal ? localStreamRef.current : null, // Placeholder for remote streams
-                    });
-                });
-                
-                setParticipants(updatedParticipants);
-                const localUser = updatedParticipants.find(p => p.isLocal);
-                 if (!mainViewParticipant && localUser) {
-                    setMainViewParticipant(localUser);
-                } else if(mainViewParticipant) {
-                    // Update main view participant if their state changed
-                    const updatedMain = updatedParticipants.find(p => p.uid === mainViewParticipant.uid);
-                    if (updatedMain) setMainViewParticipant(updatedMain);
-                }
-            });
-
-        } catch (error) {
-            console.error("Error joining meeting:", error);
-            setHasPermission(false);
-            toast({
-                variant: "destructive",
-                title: "Could not join meeting",
-                description: "Please enable camera and microphone permissions.",
-            });
-            router.replace('/dashboard');
-        }
+      } catch (error) {
+        console.error("Error joining meeting:", error);
+        setHasPermission(false);
+        toast({
+            variant: "destructive",
+            title: "Could not join meeting",
+            description: "Please enable camera and microphone permissions.",
+        });
+        router.replace('/dashboard');
+      }
     };
 
     joinMeeting();
 
-    const leaveMeeting = () => {
-        if (unsubscribeParticipants) unsubscribeParticipants();
-        if (user && meetingRoomId) {
-            const selfParticipantRef = doc(firestore, `participants/${meetingRoomId}/users`, user.uid);
-            deleteDoc(selfParticipantRef);
-        }
-        localStreamRef.current?.getTracks().forEach(track => track.stop());
-        screenStreamRef.current?.getTracks().forEach(track => track.stop());
-    }
-
-    // Add beforeunload event listener to handle tab closing
-    window.addEventListener('beforeunload', leaveMeeting);
-
     return () => {
-        leaveMeeting();
-        window.removeEventListener('beforeunload', leaveMeeting);
+      localStreamRef.current?.getTracks().forEach(track => track.stop());
+      screenStreamRef.current?.getTracks().forEach(track => track.stop());
     };
-  }, [meetingRoomId, user, firestore]);
+  }, [params.bookingId, router, toast]);
 
   
   const handleToggleMic = async () => {
-    if (!user || !meetingRoomId) return;
     const newMutedState = !isMicMuted;
     localStreamRef.current?.getAudioTracks().forEach(track => track.enabled = !newMutedState);
     setIsMicMuted(newMutedState);
-    const selfParticipantRef = doc(firestore, `participants/${meetingRoomId}/users`, user.uid);
-    await updateDoc(selfParticipantRef, { micOn: !newMutedState });
+    setParticipants(prev => prev.map(p => p.isLocal ? { ...p, micOn: !newMutedState } : p));
   };
   
   const handleToggleCamera = async () => {
-    if (!user || !meetingRoomId) return;
     const newCameraOffState = !isCameraOff;
     localStreamRef.current?.getVideoTracks().forEach(track => track.enabled = !newCameraOffState);
     setIsCameraOff(newCameraOffState);
-    const selfParticipantRef = doc(firestore, `participants/${meetingRoomId}/users`, user.uid);
-    await updateDoc(selfParticipantRef, { cameraOn: !newCameraOffState });
+    setParticipants(prev => prev.map(p => p.isLocal ? { ...p, cameraOn: !newCameraOffState } : p));
   };
 
   const handleToggleScreenShare = async () => {
@@ -395,7 +343,7 @@ export default function MeetingPage() {
         screenStreamRef.current = stream;
         setViewMode('screen');
         setMainViewParticipant({
-            uid: user!.uid,
+            uid: `screen-${Date.now()}`,
             name: 'Your Screen',
             role: 'screen',
             cameraOn: true,
@@ -423,29 +371,21 @@ export default function MeetingPage() {
   };
   
   const handleParticipantClick = (participant: Participant) => {
-    if (participant.isLocal) {
-        setMainViewParticipant({ ...participant, stream: localStreamRef.current });
-    } else {
-        // In a real WebRTC app, you'd get the stream from the peer connection
-        setMainViewParticipant({ ...participant, stream: null });
-    }
+    setMainViewParticipant(participant);
   };
 
   const colors = ["#000000", "#ef4444", "#3b82f6", "#22c55e", "#f97316"];
 
-  if (isUserLoading || !meetingRoomId) {
+  if (!meetingRoomId) {
     return <div className="fixed inset-0 bg-gray-900 text-white flex items-center justify-center">Loading meeting...</div>;
   }
 
   const isTeacher = userRole === 'Teacher';
   const localParticipant = participants.find(p => p.isLocal);
-  const remoteParticipants = participants.filter(p => !p.isLocal);
 
   const currentMainViewStream = viewMode === 'screen' 
         ? screenStreamRef.current 
-        : mainViewParticipant?.isLocal 
-            ? localStreamRef.current 
-            : null; // Remote streams not handled yet
+        : mainViewParticipant?.stream;
 
   return (
     <div className="fixed inset-0 bg-gray-900 text-white flex flex-col z-50">
@@ -455,6 +395,8 @@ export default function MeetingPage() {
             <div>
                 <h1 className="text-xl font-bold">Meeting Room</h1>
                 <p className="text-xs text-muted-foreground font-mono">Room ID: {meetingRoomId}</p>
+                 <p className="text-xs text-muted-foreground font-mono">Code: {localStorage.getItem("activeMeetingCode")}</p>
+                 <p className="text-xs text-muted-foreground font-mono">Participants: {participants.length}</p>
             </div>
             <div className="flex items-center gap-4">
                 <div className="hidden md:flex items-center gap-2 bg-gray-800/50 px-3 py-1.5 rounded-lg">

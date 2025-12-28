@@ -26,8 +26,6 @@ import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
-import { doc, setDoc, serverTimestamp, getDoc, collection, addDoc } from "firebase/firestore";
-import { useFirebase } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
 
 const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?: string, suffix?: string }) => {
@@ -66,46 +64,30 @@ const iconMap: { [key:string]: React.ElementType } = {
 const TeacherDashboard = () => {
     const router = useRouter();
     const { toast } = useToast();
-    const { firestore, user } = useFirebase();
     const [meetingCode, setMeetingCode] = React.useState<string | null>(null);
     const [meetingRoomId, setMeetingRoomId] = React.useState<string | null>(null);
 
     const generateMeetingCode = async () => {
-        if (!user || !firestore) return;
-        
         const code = `SYL-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
         const newMeetingRoomId = crypto.randomUUID();
         
-        const meetingDocRef = doc(firestore, "meetings", code);
-
-        try {
-            await setDoc(meetingDocRef, {
-                meetingCode: code,
-                meetingRoomId: newMeetingRoomId,
-                hostUid: user.uid,
-                isActive: true,
-                createdAt: serverTimestamp()
-            });
-            setMeetingCode(code);
-            setMeetingRoomId(newMeetingRoomId);
-            toast({
-                title: 'Meeting Code Generated!',
-                description: `Your new meeting code is ${code}`,
-            });
-        } catch(error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Error creating meeting',
-                description: error.message,
-            });
-        }
+        // Store in localStorage for simple multi-tab/multi-window testing
+        localStorage.setItem("activeMeetingCode", code);
+        localStorage.setItem("activeMeetingRoomId", newMeetingRoomId);
+        
+        setMeetingCode(code);
+        setMeetingRoomId(newMeetingRoomId);
+        toast({
+            title: 'Meeting Code Generated!',
+            description: `Your new meeting code is ${code}`,
+        });
     };
 
     const startMeeting = () => {
-        if (!meetingCode || !meetingRoomId) {
+        if (!meetingRoomId) {
             toast({
                 variant: 'destructive',
-                title: 'No Meeting Code',
+                title: 'No Meeting Room',
                 description: 'Please generate a code first.',
             });
             return;
@@ -123,23 +105,14 @@ const TeacherDashboard = () => {
     };
 
     const endMeeting = async () => {
-        if (!meetingCode || !firestore) return;
-        const meetingDocRef = doc(firestore, "meetings", meetingCode);
-        try {
-            await setDoc(meetingDocRef, { isActive: false }, { merge: true });
-            setMeetingCode(null);
-            setMeetingRoomId(null);
-            toast({
-                title: 'Meeting Ended',
-                description: 'The meeting session has been closed.',
-            });
-        } catch(error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Error ending meeting',
-                description: error.message,
-            });
-        }
+        localStorage.removeItem("activeMeetingCode");
+        localStorage.removeItem("activeMeetingRoomId");
+        setMeetingCode(null);
+        setMeetingRoomId(null);
+        toast({
+            title: 'Meeting Ended',
+            description: 'The meeting session has been closed.',
+        });
     }
     
     const teacherStats = [
@@ -277,9 +250,7 @@ const StudentDashboard = () => {
     const subjects = getSubjects().slice(0, 3);
     const router = useRouter();
     const { toast } = useToast();
-    const { firestore } = useFirebase();
     const [meetingCode, setMeetingCode] = React.useState('');
-
 
     const userStats = [
         {
@@ -316,28 +287,19 @@ const StudentDashboard = () => {
             return;
         }
 
-        try {
-            const meetingDocRef = doc(firestore, "meetings", meetingCode.trim().toUpperCase());
-            const meetingDoc = await getDoc(meetingDocRef);
+        const storedCode = localStorage.getItem("activeMeetingCode");
+        const storedRoomId = localStorage.getItem("activeMeetingRoomId");
 
-            if (!meetingDoc.exists() || !meetingDoc.data()?.isActive) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Invalid or Inactive Code',
-                    description: 'The meeting code is not valid or the session has not started yet.',
-                });
-                return;
-            }
-
-            const { meetingRoomId } = meetingDoc.data();
-            router.push(`/dashboard/meeting/${meetingRoomId}`);
-        } catch (error: any) {
-             toast({
+        if (meetingCode.trim().toUpperCase() !== storedCode) {
+            toast({
                 variant: 'destructive',
-                title: 'Error Joining Meeting',
-                description: error.message || 'Could not join the meeting.',
+                title: 'Invalid or Inactive Code',
+                description: 'The meeting code is not valid or the session has not started yet.',
             });
+            return;
         }
+
+        router.push(`/dashboard/meeting/${storedRoomId}`);
     };
 
     return (
@@ -466,17 +428,17 @@ const StudentDashboard = () => {
 
 
 export default function DashboardPage() {
-  const { user, isUserLoading } = useFirebase();
   const [userRole, setUserRole] = React.useState<string | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
+    // In a real app, you'd get this from an auth context
     const role = localStorage.getItem("userRole");
-    if(role) {
-        setUserRole(role);
-    }
+    setUserRole(role);
+    setIsLoading(false);
   }, []);
 
-  if (isUserLoading || !user) {
+  if (isLoading) {
       return (
         <div className="p-8">
             <div className="space-y-8">
@@ -499,5 +461,6 @@ export default function DashboardPage() {
   }
 
   // Student Dashboard View
+  // Default to student if no role or student role is set
   return <StudentDashboard />;
 }
