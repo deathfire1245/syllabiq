@@ -164,6 +164,12 @@ const Whiteboard = React.forwardRef<
         const { x, y } = getCoords(event);
         
         contextRef.current.globalCompositeOperation = isErasing ? 'destination-out' : 'source-over';
+        if (isErasing) {
+             contextRef.current.lineWidth = size * 2; // Make eraser bigger
+        } else {
+             contextRef.current.strokeStyle = color;
+             contextRef.current.lineWidth = size;
+        }
         
         contextRef.current.lineTo(x, y);
         contextRef.current.stroke();
@@ -649,4 +655,3 @@ export default function MeetingPage() {
     </div>
   );
 }
-
