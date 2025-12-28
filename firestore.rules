@@ -91,8 +91,10 @@ service cloud.firestore {
             isAdmin(request.auth.uid)
         );
 
-        // CREATE: Only students can create tickets.
-        allow create: if isStudent(request.auth.uid) && request.resource.data.studentId == request.auth.uid;
+        // CREATE: Only students can create tickets for themselves.
+        // Exception: Any user can create a ticket for the test meeting room.
+        allow create: if (isStudent(request.auth.uid) && request.resource.data.studentId == request.auth.uid)
+                      || (isSignedIn() && request.resource.data.teacherId == 'test-teacher-id');
 
         // UPDATE:
         // - Student can only update status to 'WAITING_FOR_TEACHER'.
