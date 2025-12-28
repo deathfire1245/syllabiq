@@ -96,7 +96,6 @@ const Whiteboard = React.forwardRef<
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
                  if(contextRef.current) {
-                    // Redraw logic would be needed here to preserve content on resize
                     ctx.strokeStyle = contextRef.current.strokeStyle;
                     ctx.lineWidth = contextRef.current.lineWidth;
                 }
@@ -535,27 +534,23 @@ export default function MeetingPage() {
                   </TooltipTrigger><TooltipContent><p>Eraser</p></TooltipContent></Tooltip>
                   
                   <Popover>
-                      <PopoverTrigger asChild>
-                         <Tooltip><TooltipTrigger asChild>
-                           <Button variant="outline" size="icon" className="rounded-full w-11 h-11"><Palette className="w-5 h-5"/></Button>
-                         </TooltipTrigger><TooltipContent><p>Color</p></TooltipContent></Tooltip>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-2" side="top">
-                          <div className="flex gap-1">
-                              {colors.map(c => <button key={c} onClick={() => setWbColor(c)} className="w-7 h-7 rounded-full transition-transform hover:scale-110" style={{ backgroundColor: c, border: wbColor === c ? '2px solid #64748b' : '2px solid transparent' }}/>)}
-                          </div>
-                      </PopoverContent>
+                    <PopoverTrigger asChild>
+                       <Button variant="outline" size="icon" className="rounded-full w-11 h-11"><Palette className="w-5 h-5"/></Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2" side="top">
+                        <div className="flex gap-1">
+                            {colors.map(c => <button key={c} onClick={() => setWbColor(c)} className="w-7 h-7 rounded-full transition-transform hover:scale-110" style={{ backgroundColor: c, border: wbColor === c ? '2px solid #64748b' : '2px solid transparent' }}/>)}
+                        </div>
+                    </PopoverContent>
                   </Popover>
 
                    <Popover>
                       <PopoverTrigger asChild>
-                           <Tooltip><TooltipTrigger asChild>
-                             <Button variant="outline" size="icon" className="rounded-full w-11 h-11 relative">
-                                <div className="absolute w-full h-full flex items-center justify-center">
-                                    <div className="rounded-full bg-slate-700" style={{width: wbSize/2, height: wbSize/2}}></div>
-                                </div>
-                              </Button>
-                           </TooltipTrigger><TooltipContent><p>Brush Size</p></TooltipContent></Tooltip>
+                         <Button variant="outline" size="icon" className="rounded-full w-11 h-11 relative">
+                            <div className="absolute w-full h-full flex items-center justify-center">
+                                <div className="rounded-full bg-slate-700" style={{width: wbSize/2, height: wbSize/2}}></div>
+                            </div>
+                          </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-40 p-2" side="top">
                            <Slider value={[wbSize]} onValueChange={(v) => setWbSize(v[0])} min={2} max={20} step={1} />
@@ -640,5 +635,7 @@ export default function MeetingPage() {
     </div>
   );
 }
+
+    
 
     
