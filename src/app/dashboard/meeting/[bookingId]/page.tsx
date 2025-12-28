@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { PhoneOff, VideoOff, MicOff, Users, Pencil, Eraser, Trash2, Monitor, Video, Palette, Mic, Check, Copy, Grip } from "lucide-react";
+import { PhoneOff, VideoOff, MicOff, Users, Pencil, Eraser, Trash2, Monitor, Video, Palette, Mic, Check, Copy, Grip, Square, Circle as CircleIcon, ArrowRight, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
@@ -16,6 +16,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { motion, AnimatePresence } from "framer-motion";
 
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
+type WhiteboardTool = 'pen' | 'eraser' | 'shape';
+type ShapeType = 'rectangle' | 'circle' | 'line' | 'arrow';
+
 
 interface Participant {
     uid: string;
@@ -75,11 +78,13 @@ const ParticipantVideo = ({ stream, cameraOn, micOn, name, isLocal = false, isMa
 
 const Whiteboard = React.forwardRef<
     { clear: () => void; },
-    { isActive: boolean; color: string; size: number; isErasing: boolean; }
->(({ isActive, color, size, isErasing }, ref) => {
+    { isActive: boolean; tool: WhiteboardTool; shape: ShapeType | null; color: string; size: number;}
+>(({ isActive, tool, shape, color, size }, ref) => {
     const canvasRef = React.useRef<HTMLCanvasElement>(null);
     const contextRef = React.useRef<CanvasRenderingContext2D | null>(null);
     const [isDrawing, setIsDrawing] = React.useState(false);
+    const [startPoint, setStartPoint] = React.useState<{x: number, y: number} | null>(null);
+    const [snapshot, setSnapshot] = React.useState<ImageData | null>(null);
 
     React.useEffect(() => {
         const canvas = canvasRef.current;
@@ -96,8 +101,10 @@ const Whiteboard = React.forwardRef<
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
                  if(contextRef.current) {
-                    ctx.strokeStyle = contextRef.current.strokeStyle;
-                    ctx.lineWidth = contextRef.current.lineWidth;
+                    const oldCtx = contextRef.current;
+                    ctx.strokeStyle = oldCtx.strokeStyle;
+                    ctx.lineWidth = oldCtx.lineWidth;
+                    ctx.globalCompositeOperation = oldCtx.globalCompositeOperation;
                 }
                 contextRef.current = ctx;
             }
@@ -108,6 +115,14 @@ const Whiteboard = React.forwardRef<
 
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+    
+    React.useEffect(() => {
+        if (contextRef.current) {
+            contextRef.current.strokeStyle = color;
+            contextRef.current.lineWidth = size;
+            contextRef.current.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+        }
+    }, [color, size, tool]);
 
     const getCoords = (event: React.MouseEvent | React.TouchEvent) => {
         if (!canvasRef.current) return { x: 0, y: 0 };
@@ -134,31 +149,83 @@ const Whiteboard = React.forwardRef<
         const ctx = contextRef.current;
         if (!ctx || !isActive) return;
 
-        ctx.globalCompositeOperation = isErasing ? 'destination-out' : 'source-over';
-        ctx.strokeStyle = color;
-        ctx.lineWidth = isErasing ? size * 2 : size;
-        
         const { x, y } = getCoords(event);
+        setIsDrawing(true);
+        setStartPoint({x, y});
+
+        // For shape drawing, we need a snapshot of the canvas to redraw on each mouse move
+        if (tool === 'shape') {
+            const canvas = canvasRef.current!;
+            setSnapshot(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        }
+        
         ctx.beginPath();
         ctx.moveTo(x, y);
-        setIsDrawing(true);
     };
 
     const finishDrawing = (event: React.MouseEvent | React.TouchEvent) => {
         event.preventDefault();
-        if (!contextRef.current || !isActive) return;
-        contextRef.current.closePath();
+        if (!isDrawing || !contextRef.current) return;
+        
+        if (tool === 'shape' && startPoint) {
+            const { x, y } = getCoords(event);
+            drawShape(startPoint.x, startPoint.y, x, y);
+        } else {
+            contextRef.current.closePath();
+        }
+        
         setIsDrawing(false);
+        setStartPoint(null);
+        setSnapshot(null);
     };
 
     const draw = (event: React.MouseEvent | React.TouchEvent) => {
         event.preventDefault();
-        if (!isDrawing || !contextRef.current || !isActive) return;
+        if (!isDrawing || !contextRef.current) return;
         const { x, y } = getCoords(event);
-        contextRef.current.lineTo(x, y);
-        contextRef.current.stroke();
+
+        if (tool === 'pen' || tool === 'eraser') {
+            contextRef.current.lineTo(x, y);
+            contextRef.current.stroke();
+        } else if (tool === 'shape' && startPoint && snapshot) {
+            contextRef.current.putImageData(snapshot, 0, 0); // Restore canvas to pre-shape state
+            drawShape(startPoint.x, startPoint.y, x, y); // Draw the current shape preview
+        }
     };
     
+    const drawShape = (startX: number, startY: number, endX: number, endY: number) => {
+        const ctx = contextRef.current;
+        if (!ctx || !shape) return;
+
+        ctx.beginPath();
+        switch (shape) {
+            case 'rectangle':
+                ctx.rect(startX, startY, endX - startX, endY - startY);
+                break;
+            case 'circle':
+                const radiusX = Math.abs(endX - startX) / 2;
+                const radiusY = Math.abs(endY - startY) / 2;
+                const centerX = startX + (endX - startX) / 2;
+                const centerY = startY + (endY - startY) / 2;
+                ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+                break;
+            case 'line':
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                break;
+            case 'arrow':
+                const headlen = 10 + size; // length of head in pixels
+                const angle = Math.atan2(endY - startY, endX - startX);
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI / 6), endY - headlen * Math.sin(angle - Math.PI / 6));
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI / 6), endY - headlen * Math.sin(angle + Math.PI / 6));
+                break;
+        }
+        ctx.stroke();
+    };
+
     React.useImperativeHandle(ref, () => ({
         clear: () => {
             const canvas = canvasRef.current;
@@ -265,9 +332,10 @@ export default function MeetingPage() {
   const [isMicMuted, setIsMicMuted] = React.useState(false);
   const [isCameraOff, setIsCameraOff] = React.useState(false);
 
+  const [wbTool, setWbTool] = React.useState<WhiteboardTool>('pen');
+  const [wbShape, setWbShape] = React.useState<ShapeType>('rectangle');
   const [wbColor, setWbColor] = React.useState("#1e293b");
   const [wbSize, setWbSize] = React.useState(5);
-  const [isErasing, setIsErasing] = React.useState(false);
   
   const [participants, setParticipants] = React.useState<Participant[]>([]);
   const [mainViewParticipant, setMainViewParticipant] = React.useState<Participant | null>(null);
@@ -394,8 +462,23 @@ export default function MeetingPage() {
   const handleParticipantClick = (participant: Participant) => {
     setMainViewParticipant(participant);
   };
+  
+  const handleWbToolChange = (tool: WhiteboardTool) => {
+    setWbTool(tool);
+  };
+
+  const handleShapeSelect = (shape: ShapeType) => {
+    setWbTool('shape');
+    setWbShape(shape);
+  }
 
   const colors = ["#1e293b", "#ef4444", "#3b82f6", "#22c55e", "#f97316"];
+  const shapes = [
+    { type: 'rectangle', icon: Square },
+    { type: 'circle', icon: CircleIcon },
+    { type: 'line', icon: Minus },
+    { type: 'arrow', icon: ArrowRight }
+  ] as const;
 
   if (!meetingRoomId) {
     return <div className="fixed inset-0 bg-white flex items-center justify-center">Loading meeting...</div>;
@@ -452,7 +535,14 @@ export default function MeetingPage() {
                     className="w-full h-full"
                 >
                   {viewMode === 'whiteboard' ? (
-                      <Whiteboard ref={whiteboardRef} isActive={isTeacher} color={wbColor} size={wbSize} isErasing={isErasing} />
+                      <Whiteboard 
+                        ref={whiteboardRef} 
+                        isActive={isTeacher} 
+                        tool={wbTool}
+                        shape={wbShape}
+                        color={wbColor} 
+                        size={wbSize} 
+                      />
                   ) : mainViewParticipant ? (
                     <div className="w-full h-full">
                       <ParticipantVideo 
@@ -527,12 +617,34 @@ export default function MeetingPage() {
               >
                   <TooltipProvider>
                   <Tooltip><TooltipTrigger asChild>
-                    <Button variant={isErasing ? "outline" : "secondary"} size="icon" className="rounded-full w-11 h-11" onClick={() => setIsErasing(false)}> <Pencil className="w-5 h-5"/> </Button>
+                    <Button variant={wbTool === 'pen' ? "secondary" : "outline"} size="icon" className="rounded-full w-11 h-11" onClick={() => handleWbToolChange('pen')}> <Pencil className="w-5 h-5"/> </Button>
                   </TooltipTrigger><TooltipContent><p>Pen</p></TooltipContent></Tooltip>
                   <Tooltip><TooltipTrigger asChild>
-                    <Button variant={isErasing ? "secondary" : "outline"} size="icon" className="rounded-full w-11 h-11" onClick={() => setIsErasing(true)}> <Eraser className="w-5 h-5"/> </Button>
+                    <Button variant={wbTool === 'eraser' ? "secondary" : "outline"} size="icon" className="rounded-full w-11 h-11" onClick={() => handleWbToolChange('eraser')}> <Eraser className="w-5 h-5"/> </Button>
                   </TooltipTrigger><TooltipContent><p>Eraser</p></TooltipContent></Tooltip>
                   
+                  <Popover>
+                    <PopoverTrigger asChild>
+                       <Button variant={wbTool === 'shape' ? "secondary" : "outline"} size="icon" className="rounded-full w-11 h-11"><Square className="w-5 h-5"/></Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2" side="top">
+                        <div className="flex gap-1">
+                            {shapes.map(({type, icon: Icon}) => (
+                              <Tooltip key={type}>
+                                <TooltipTrigger asChild>
+                                  <Button variant={wbShape === type ? 'secondary' : 'ghost'} size="icon" onClick={() => handleShapeSelect(type)}>
+                                    <Icon className="w-5 h-5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>{type.charAt(0).toUpperCase() + type.slice(1)}</p></TooltipContent>
+                              </Tooltip>
+                            ))}
+                        </div>
+                    </PopoverContent>
+                  </Popover>
+
+                  <div className="h-6 w-px bg-gray-300 mx-1"></div>
+
                   <Popover>
                     <PopoverTrigger asChild>
                        <Button variant="outline" size="icon" className="rounded-full w-11 h-11"><Palette className="w-5 h-5"/></Button>
@@ -548,7 +660,7 @@ export default function MeetingPage() {
                       <PopoverTrigger asChild>
                          <Button variant="outline" size="icon" className="rounded-full w-11 h-11 relative">
                             <div className="absolute w-full h-full flex items-center justify-center">
-                                <div className="rounded-full bg-slate-700" style={{width: wbSize/2, height: wbSize/2}}></div>
+                                <div className="rounded-full bg-slate-700" style={{width: wbSize, height: wbSize}}></div>
                             </div>
                           </Button>
                       </PopoverTrigger>
@@ -635,7 +747,3 @@ export default function MeetingPage() {
     </div>
   );
 }
-
-    
-
-    
