@@ -7,11 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { PhoneOff, VideoOff, MicOff, Users, Pencil, Eraser, Trash2, Monitor, Video, Palette, Mic } from "lucide-react";
+import { PhoneOff, VideoOff, MicOff, Users, Pencil, Eraser, Trash2, Monitor, Video, Palette, Mic, Check, Copy, Grip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { motion, AnimatePresence } from "framer-motion";
 
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
 
@@ -25,7 +27,7 @@ interface Participant {
     stream: MediaStream | null;
 }
 
-const ParticipantVideo = ({ stream, cameraOn, micOn, name, isLocal = false }: { stream: MediaStream | null, cameraOn: boolean, micOn: boolean, name: string, isLocal?: boolean }) => {
+const ParticipantVideo = ({ stream, cameraOn, micOn, name, isLocal = false, isMainView = false }: { stream: MediaStream | null, cameraOn: boolean, micOn: boolean, name: string, isLocal?: boolean, isMainView?: boolean }) => {
     const videoRef = React.useRef<HTMLVideoElement>(null);
 
     React.useEffect(() => {
@@ -35,23 +37,39 @@ const ParticipantVideo = ({ stream, cameraOn, micOn, name, isLocal = false }: { 
     }, [stream]);
     
     return (
-        <div className="aspect-video bg-gray-800 rounded-lg overflow-hidden relative group cursor-pointer">
-            <video ref={videoRef} className={cn("w-full h-full object-cover", { 'hidden': !cameraOn })} autoPlay playsInline muted={isLocal} />
+        <motion.div 
+          layout
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ duration: 0.3 }}
+          className={cn(
+            "aspect-video bg-gray-100 rounded-2xl overflow-hidden relative group cursor-pointer shadow-lg border border-gray-200/50",
+            isMainView ? "w-full h-full" : ""
+          )}
+        >
+            <video ref={videoRef} className={cn("w-full h-full object-cover transition-opacity duration-300", { 'opacity-0': !cameraOn })} autoPlay playsInline muted={isLocal} />
              {!cameraOn && (
-                <div className="w-full h-full flex items-center justify-center bg-gray-700">
-                    <Avatar className="w-16 h-16">
+                <div className="w-full h-full flex flex-col items-center justify-center bg-gray-200/50">
+                    <Avatar className={cn("border-4 border-white/50 shadow-md", isMainView ? "w-24 h-24" : "w-16 h-16")}>
                        <AvatarImage src={`https://picsum.photos/seed/${name}/100`} />
                        <AvatarFallback>{name.charAt(0)}</AvatarFallback>
                     </Avatar>
+                    {!isMainView && <p className="mt-2 text-xs text-gray-500 font-medium">{name}</p>}
                 </div>
             )}
-            <div className="absolute bottom-0 left-0 bg-black/50 px-2 py-1 rounded-tr-lg">
-                <span className="text-sm text-white">{name} {isLocal && '(You)'}</span>
+            {isMainView && (
+              <div className="absolute bottom-4 left-4 bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <span className="text-sm font-semibold text-white">{name} {isLocal && '(You)'}</span>
+              </div>
+            )}
+            <div className={cn("absolute top-3 right-3 transition-opacity duration-300", isMainView ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
+                {!micOn ? 
+                  <MicOff className="w-5 h-5 text-white bg-red-500 rounded-full p-1" /> : 
+                  <Mic className="w-5 h-5 text-white bg-green-500/50 backdrop-blur-sm rounded-full p-1" />
+                }
             </div>
-            <div className="absolute top-2 right-2">
-                {!micOn ? <MicOff className="w-5 h-5 text-red-500 bg-black/50 rounded-full p-1" /> : <Mic className="w-5 h-5 text-green-500 bg-black/50 rounded-full p-1" />}
-            </div>
-        </div>
+        </motion.div>
     );
 };
 
@@ -78,8 +96,11 @@ const Whiteboard = React.forwardRef<
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
                  if(contextRef.current) {
-                    ctx.strokeStyle = contextRef.current.strokeStyle;
-                    ctx.lineWidth = contextRef.current.lineWidth;
+                    const oldStrokeStyle = contextRef.current.strokeStyle;
+                    const oldLineWidth = contextRef.current.lineWidth;
+                    // Redraw logic would be needed here to preserve content
+                    ctx.strokeStyle = oldStrokeStyle;
+                    ctx.lineWidth = oldLineWidth;
                 }
                 contextRef.current = ctx;
             }
@@ -169,7 +190,7 @@ const Whiteboard = React.forwardRef<
             onTouchStart={startDrawing}
             onTouchEnd={finishDrawing}
             onTouchMove={draw}
-            className={cn("w-full h-full bg-white rounded-lg", isActive ? "touch-none" : "pointer-events-none")}
+            className={cn("w-full h-full bg-white rounded-2xl shadow-inner border border-gray-200/80", isActive ? "touch-none" : "pointer-events-none")}
         />
     );
 });
@@ -216,16 +237,16 @@ const MicIndicator = ({ stream, isMuted }: { stream: MediaStream | null, isMuted
     }, [stream, isMuted]);
 
     return (
-        <div className="flex items-center gap-2 bg-gray-800/50 p-2 rounded-lg">
+        <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm p-2 rounded-xl shadow-sm border border-gray-200/50">
             {isMuted ? <MicOff className="w-5 h-5 text-red-500" /> : <Mic className="w-5 h-5 text-green-500" />}
             <div className="flex items-end gap-1 h-6">
                 {[...Array(8)].map((_, i) => (
                     <div
                         key={i}
-                        className="w-1 bg-gray-600 rounded-full transition-all duration-75"
+                        className="w-1 bg-gray-300 rounded-full transition-all duration-75"
                         style={{
                             height: `${Math.max(5, (isMuted ? 0 : volume) * 100 * ((i + 1) / 8))}%`,
-                            backgroundColor: isMuted ? 'rgb(107 114 128)' : `hsl(120, 100%, ${25 + volume * 50}%)`,
+                            backgroundColor: isMuted ? '#d1d5db' : `hsl(140, 70%, ${60 - volume * 30}%)`,
                         }}
                     />
                 ))}
@@ -246,6 +267,7 @@ export default function MeetingPage() {
   const whiteboardRef = React.useRef<{ clear: () => void }>(null);
   
   const [viewMode, setViewMode] = React.useState<ViewMode>('camera');
+  const [showParticipants, setShowParticipants] = React.useState(true);
 
   const localStreamRef = React.useRef<MediaStream | null>(null);
   const screenStreamRef = React.useRef<MediaStream | null>(null);
@@ -253,7 +275,7 @@ export default function MeetingPage() {
   const [isMicMuted, setIsMicMuted] = React.useState(false);
   const [isCameraOff, setIsCameraOff] = React.useState(false);
 
-  const [wbColor, setWbColor] = React.useState("#000000");
+  const [wbColor, setWbColor] = React.useState("#1e293b");
   const [wbSize, setWbSize] = React.useState(5);
   const [isErasing, setIsErasing] = React.useState(false);
   
@@ -271,7 +293,6 @@ export default function MeetingPage() {
     }
     setMeetingRoomId(roomId);
     
-    // Mock user for testing
     const role = localStorage.getItem('userRole') || 'Student';
     setUserRole(role);
 
@@ -291,7 +312,17 @@ export default function MeetingPage() {
           stream: stream
         };
 
-        setParticipants([localUser]);
+        const teacherUser: Participant = {
+            uid: `user-teacher-${Date.now()}`,
+            name: "Teacher",
+            role: "Teacher",
+            cameraOn: true,
+            micOn: true,
+            isLocal: false,
+            stream: null
+        }
+
+        setParticipants([localUser, teacherUser]);
         setMainViewParticipant(localUser);
 
       } catch (error) {
@@ -374,10 +405,10 @@ export default function MeetingPage() {
     setMainViewParticipant(participant);
   };
 
-  const colors = ["#000000", "#ef4444", "#3b82f6", "#22c55e", "#f97316"];
+  const colors = ["#1e293b", "#ef4444", "#3b82f6", "#22c55e", "#f97316"];
 
   if (!meetingRoomId) {
-    return <div className="fixed inset-0 bg-gray-900 text-white flex items-center justify-center">Loading meeting...</div>;
+    return <div className="fixed inset-0 bg-white flex items-center justify-center">Loading meeting...</div>;
   }
 
   const isTeacher = userRole === 'Teacher';
@@ -387,47 +418,72 @@ export default function MeetingPage() {
         ? screenStreamRef.current 
         : mainViewParticipant?.stream;
 
+  const meetingCode = localStorage.getItem("activeMeetingCode");
+
   return (
-    <div className="fixed inset-0 bg-gray-900 text-white flex flex-col z-50">
-     <div className="flex flex-col md:flex-row flex-1 min-h-0">
-        <main className="flex-1 flex flex-col p-4 gap-4 min-h-0">
-          <header className="flex justify-between items-center flex-shrink-0">
-            <div>
-                <h1 className="text-xl font-bold">Meeting Room</h1>
-                <p className="text-xs text-muted-foreground font-mono">Room ID: {meetingRoomId}</p>
-                 <p className="text-xs text-muted-foreground font-mono">Code: {localStorage.getItem("activeMeetingCode")}</p>
-                 <p className="text-xs text-muted-foreground font-mono">Participants: {participants.length}</p>
-            </div>
-            <div className="flex items-center gap-4">
-                <div className="hidden md:flex items-center gap-2 bg-gray-800/50 px-3 py-1.5 rounded-lg">
-                  <Users className="w-5 h-5 text-primary"/>
-                  <span className="font-mono text-lg">{participants.length}</span>
+    <div className="fixed inset-0 bg-white text-slate-800 flex flex-col z-50 p-4 gap-4 font-sans">
+      <header className="flex justify-between items-center flex-shrink-0">
+        <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold text-slate-900">SyllabiQ Meeting</h1>
+             {meetingCode && (
+                 <div className="hidden md:flex items-center gap-2">
+                    <TooltipProvider>
+                       <Tooltip>
+                           <TooltipTrigger asChild>
+                              <Button variant="ghost" size="sm" onClick={() => { navigator.clipboard.writeText(meetingCode); toast({ title: "Copied!", description: "Meeting code copied to clipboard."})}}>
+                                <span className="font-mono text-slate-600">{meetingCode}</span>
+                                <Copy className="w-4 h-4 ml-2 text-slate-500"/>
+                              </Button>
+                           </TooltipTrigger>
+                           <TooltipContent><p>Copy Code</p></TooltipContent>
+                       </Tooltip>
+                    </TooltipProvider>
                 </div>
-                {localParticipant && <MicIndicator stream={localStreamRef.current} isMuted={!localParticipant.micOn} />}
-            </div>
-          </header>
-          
-          <div className="flex-grow bg-black rounded-lg overflow-hidden relative flex items-center justify-center">
-              {viewMode === 'whiteboard' ? (
-                  <Whiteboard ref={whiteboardRef} isActive={isTeacher} color={wbColor} size={wbSize} isErasing={isErasing} />
-              ) : mainViewParticipant ? (
-                <div className="w-full h-full">
-                  <ParticipantVideo 
-                      stream={currentMainViewStream}
-                      cameraOn={mainViewParticipant.cameraOn}
-                      micOn={mainViewParticipant.micOn}
-                      name={mainViewParticipant.name}
-                      isLocal={mainViewParticipant.isLocal}
-                  />
-                </div>
-              ): (
-                   <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800">
-                      <p>Select a participant to view</p>
-                   </div>
-              )}
+            )}
+        </div>
+        <div className="flex items-center gap-4">
+            {localParticipant && <MicIndicator stream={localStreamRef.current} isMuted={!localParticipant.micOn} />}
+            <Button variant="outline" size="icon" className="rounded-full h-11 w-11" onClick={() => setShowParticipants(!showParticipants)}>
+              <Users className="w-5 h-5"/>
+            </Button>
+        </div>
+      </header>
+     
+      <div className="flex-1 flex gap-4 min-h-0">
+        <main className="flex-1 flex flex-col min-h-0">
+          <div className="flex-grow bg-gray-100 rounded-2xl overflow-hidden relative flex items-center justify-center shadow-inner">
+              <AnimatePresence mode="wait">
+                <motion.div
+                    key={viewMode}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.3 }}
+                    className="w-full h-full"
+                >
+                  {viewMode === 'whiteboard' ? (
+                      <Whiteboard ref={whiteboardRef} isActive={isTeacher} color={wbColor} size={wbSize} isErasing={isErasing} />
+                  ) : mainViewParticipant ? (
+                    <div className="w-full h-full">
+                      <ParticipantVideo 
+                          stream={currentMainViewStream}
+                          cameraOn={mainViewParticipant.cameraOn}
+                          micOn={mainViewParticipant.micOn}
+                          name={mainViewParticipant.name}
+                          isLocal={mainViewParticipant.isLocal}
+                          isMainView={true}
+                      />
+                    </div>
+                  ): (
+                       <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100">
+                          <p className="text-slate-500">Select a participant to view</p>
+                       </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
               
               {!hasPermission && viewMode === 'camera' && !isCameraOff &&(
-                   <Alert variant="destructive" className="max-w-md absolute">
+                   <Alert variant="destructive" className="max-w-md absolute bg-white/80 backdrop-blur-md">
                       <VideoOff className="h-4 w-4"/>
                       <AlertTitle>Camera Access Required</AlertTitle>
                       <AlertDescription>
@@ -435,106 +491,162 @@ export default function MeetingPage() {
                       </AlertDescription>
                   </Alert>
               )}
-              
-              {isTeacher && viewMode === 'whiteboard' && (
-                <div className="absolute top-4 right-4 flex flex-col gap-2 bg-gray-800/70 p-2 rounded-lg z-10">
-                    <Button variant={isErasing ? "secondary" : "default"} size="icon" onClick={() => setIsErasing(false)}> <Pencil className="w-5 h-5"/> </Button>
-                    <Button variant={isErasing ? "default" : "secondary"} size="icon" onClick={() => setIsErasing(true)}> <Eraser className="w-5 h-5"/> </Button>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="secondary" size="icon"><Palette className="w-5 h-5"/></Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-2" side="left">
-                            <div className="flex gap-1">
-                                {colors.map(c => <button key={c} onClick={() => setWbColor(c)} className="w-6 h-6 rounded-full" style={{ backgroundColor: c, border: wbColor === c ? '2px solid white' : 'none' }}/>)}
-                            </div>
-                        </PopoverContent>
-                    </Popover>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="secondary" size="icon" className="relative">
-                              <div className="absolute w-full h-full flex items-center justify-center">
-                                  <div className="rounded-full bg-current" style={{width: wbSize, height: wbSize}}></div>
-                              </div>
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-40 p-2" side="left">
-                             <Slider value={[wbSize]} onValueChange={(v) => setWbSize(v[0])} min={2} max={20} step={1} />
-                        </PopoverContent>
-                    </Popover>
-                     <Button variant="destructive" size="icon" onClick={handleClearWhiteboard}> <Trash2 className="w-5 h-5"/> </Button>
-                </div>
-              )}
-
-               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 sm:gap-4 bg-gray-800/50 p-2 rounded-full z-10">
-                  {localParticipant && (
-                    <>
-                      <Button 
-                          variant="secondary"
-                          size="icon" 
-                          className={cn("rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20", !localParticipant.micOn && "bg-red-500 hover:bg-red-600")}
-                          onClick={handleToggleMic}
-                      >
-                          {!localParticipant.micOn ? <MicOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Mic className="w-5 h-5 sm:w-6 sm:h-6" />}
-                      </Button>
-                       <Button 
-                          variant="secondary"
-                          size="icon"
-                          className={cn("rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20", !localParticipant.cameraOn && "bg-red-500 hover:bg-red-600")}
-                          onClick={handleToggleCamera}
-                       >
-                           {!localParticipant.cameraOn ? <VideoOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Video className="w-5 h-5 sm:w-6 sm:h-6" />}
-                       </Button>
-                    </>
-                  )}
-                   <Button variant="destructive" size="icon" className="rounded-full h-14 w-14 sm:h-16 sm:w-16" onClick={handleLeave}>
-                      <PhoneOff className="w-6 h-6 sm:w-7 sm:h-7"/>
-                  </Button>
-                  {isTeacher && (
-                    <>
-                      <Button 
-                        variant="secondary"
-                        size="icon" 
-                        className={cn("rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20", viewMode === 'screen' && "bg-blue-500 hover:bg-blue-600")}
-                        onClick={handleToggleScreenShare}
-                      >
-                        <Monitor className="w-5 h-5 sm:w-6 sm:h-6"/>
-                      </Button>
-                       <Button 
-                        variant="secondary"
-                        size="icon" 
-                        className={cn("rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-white/10 hover:bg-white/20", viewMode === 'whiteboard' && "bg-green-500 hover:bg-green-600")}
-                        onClick={() => setViewMode(viewMode === 'whiteboard' ? 'camera' : 'whiteboard')}
-                      >
-                        <Pencil className="w-5 h-5 sm:w-6 sm:h-6"/>
-                      </Button>
-                    </>
-                  )}
-              </div>
           </div>
         </main>
         
-        <aside className="w-full md:w-80 bg-gray-800/50 p-4 flex flex-col gap-4 border-l border-gray-700/50">
-           <Card className="bg-transparent border-0 text-white flex-1 min-h-0">
-            <CardHeader className="p-0 pb-4">
-              <CardTitle className="flex items-center gap-2 text-base"><Users className="w-5 h-5"/> Participants ({participants.length})</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0 space-y-4 overflow-y-auto h-full">
-              {participants.map(p => (
-                <div key={p.uid} onClick={() => handleParticipantClick(p)}>
-                    <ParticipantVideo 
-                        stream={p.stream}
-                        cameraOn={p.cameraOn}
-                        micOn={p.micOn}
-                        name={p.name}
-                        isLocal={p.isLocal}
-                    />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </aside>
-     </div>
+        <AnimatePresence>
+          {showParticipants && (
+            <motion.aside 
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="bg-gray-50/80 backdrop-blur-xl rounded-2xl p-4 flex flex-col gap-4 border border-gray-200/60"
+            >
+              <div className="flex justify-between items-center flex-shrink-0">
+                <h3 className="font-bold text-slate-800">Participants ({participants.length})</h3>
+                <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" onClick={() => setShowParticipants(false)}><Grip className="w-4 h-4" /></Button>
+              </div>
+              <div className="flex-1 space-y-4 overflow-y-auto pr-1">
+                <AnimatePresence>
+                  {participants.map(p => (
+                    <div key={p.uid} onClick={() => handleParticipantClick(p)}>
+                        <ParticipantVideo 
+                            stream={p.stream}
+                            cameraOn={p.cameraOn}
+                            micOn={p.micOn}
+                            name={p.name}
+                            isLocal={p.isLocal}
+                        />
+                    </div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
+      </div>
+
+       <footer className="flex-shrink-0 flex justify-between items-center mt-2">
+         <div className="flex items-center gap-2">
+            {isTeacher && viewMode === 'whiteboard' && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-2 bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-md border border-gray-200/50"
+              >
+                  <TooltipProvider>
+                  <Tooltip><TooltipTrigger asChild>
+                    <Button variant={isErasing ? "outline" : "secondary"} size="icon" className="rounded-full w-11 h-11" onClick={() => setIsErasing(false)}> <Pencil className="w-5 h-5"/> </Button>
+                  </TooltipTrigger><TooltipContent><p>Pen</p></TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger asChild>
+                    <Button variant={isErasing ? "secondary" : "outline"} size="icon" className="rounded-full w-11 h-11" onClick={() => setIsErasing(true)}> <Eraser className="w-5 h-5"/> </Button>
+                  </TooltipTrigger><TooltipContent><p>Eraser</p></TooltipContent></Tooltip>
+                  
+                  <Popover>
+                      <PopoverTrigger asChild>
+                         <Tooltip><TooltipTrigger asChild>
+                           <Button variant="outline" size="icon" className="rounded-full w-11 h-11"><Palette className="w-5 h-5"/></Button>
+                         </TooltipTrigger><TooltipContent><p>Color</p></TooltipContent></Tooltip>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-2" side="top">
+                          <div className="flex gap-1">
+                              {colors.map(c => <button key={c} onClick={() => setWbColor(c)} className="w-7 h-7 rounded-full transition-transform hover:scale-110" style={{ backgroundColor: c, border: wbColor === c ? '2px solid #64748b' : '2px solid transparent' }}/>)}
+                          </div>
+                      </PopoverContent>
+                  </Popover>
+
+                   <Popover>
+                      <PopoverTrigger asChild>
+                           <Tooltip><TooltipTrigger asChild>
+                             <Button variant="outline" size="icon" className="rounded-full w-11 h-11 relative">
+                                <div className="absolute w-full h-full flex items-center justify-center">
+                                    <div className="rounded-full bg-slate-700" style={{width: wbSize/2, height: wbSize/2}}></div>
+                                </div>
+                              </Button>
+                           </TooltipTrigger><TooltipContent><p>Brush Size</p></TooltipContent></Tooltip>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-40 p-2" side="top">
+                           <Slider value={[wbSize]} onValueChange={(v) => setWbSize(v[0])} min={2} max={20} step={1} />
+                      </PopoverContent>
+                  </Popover>
+
+                  <div className="h-6 w-px bg-gray-300 mx-2"></div>
+
+                   <Tooltip><TooltipTrigger asChild>
+                      <Button variant="destructive" size="icon" className="rounded-full w-11 h-11" onClick={handleClearWhiteboard}> <Trash2 className="w-5 h-5"/> </Button>
+                   </TooltipTrigger><TooltipContent><p>Clear Whiteboard</p></TooltipContent></Tooltip>
+                  </TooltipProvider>
+              </motion.div>
+            )}
+         </div>
+         <div className="flex items-center gap-3 bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-md border border-gray-200/50">
+            <TooltipProvider>
+                {localParticipant && (
+                  <>
+                     <Tooltip><TooltipTrigger asChild>
+                        <Button 
+                            variant="secondary"
+                            size="icon" 
+                            className={cn("rounded-full h-12 w-12 transition-all", !localParticipant.micOn && "bg-red-100 text-red-600 hover:bg-red-200")}
+                            onClick={handleToggleMic}
+                        >
+                            {!localParticipant.micOn ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                        </Button>
+                     </TooltipTrigger><TooltipContent><p>{!localParticipant.micOn ? "Unmute" : "Mute"}</p></TooltipContent></Tooltip>
+
+                     <Tooltip><TooltipTrigger asChild>
+                         <Button 
+                            variant="secondary"
+                            size="icon"
+                            className={cn("rounded-full h-12 w-12 transition-all", !localParticipant.cameraOn && "bg-red-100 text-red-600 hover:bg-red-200")}
+                            onClick={handleToggleCamera}
+                         >
+                             {!localParticipant.cameraOn ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
+                         </Button>
+                      </TooltipTrigger><TooltipContent><p>{!localParticipant.cameraOn ? "Start Camera" : "Stop Camera"}</p></TooltipContent></Tooltip>
+                  </>
+                )}
+
+                 {isTeacher && (
+                  <>
+                     <div className="h-8 w-px bg-gray-300 mx-1"></div>
+                      <Tooltip><TooltipTrigger asChild>
+                        <Button 
+                          variant="secondary"
+                          size="icon" 
+                          className={cn("rounded-full h-12 w-12 transition-all", viewMode === 'screen' && "bg-blue-100 text-blue-600 hover:bg-blue-200")}
+                          onClick={handleToggleScreenShare}
+                        >
+                          <Monitor className="w-6 h-6"/>
+                        </Button>
+                      </TooltipTrigger><TooltipContent><p>{viewMode === 'screen' ? "Stop Sharing" : "Share Screen"}</p></TooltipContent></Tooltip>
+
+                      <Tooltip><TooltipTrigger asChild>
+                         <Button 
+                          variant="secondary"
+                          size="icon" 
+                          className={cn("rounded-full h-12 w-12 transition-all", viewMode === 'whiteboard' && "bg-green-100 text-green-600 hover:bg-green-200")}
+                          onClick={() => setViewMode(viewMode === 'whiteboard' ? 'camera' : 'whiteboard')}
+                        >
+                          <Pencil className="w-6 h-6"/>
+                        </Button>
+                      </TooltipTrigger><TooltipContent><p>{viewMode === 'whiteboard' ? "Exit Whiteboard" : "Open Whiteboard"}</p></TooltipContent></Tooltip>
+                  </>
+                )}
+
+                <div className="h-8 w-px bg-gray-300 mx-1"></div>
+                
+                 <Tooltip><TooltipTrigger asChild>
+                   <Button variant="destructive" size="icon" className="rounded-full h-14 w-14" onClick={handleLeave}>
+                        <PhoneOff className="w-6 h-6"/>
+                    </Button>
+                </TooltipTrigger><TooltipContent><p>Leave Meeting</p></TooltipContent></Tooltip>
+            </TooltipProvider>
+        </div>
+        <div className="w-48"></div>
+      </footer>
     </div>
   );
 }
+
