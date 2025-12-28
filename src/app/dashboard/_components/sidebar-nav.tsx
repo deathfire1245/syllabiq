@@ -3,12 +3,13 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { BookMarked, Home, Compass, CalendarClock, PlusCircle, User, Video, GraduationCap, Briefcase } from "lucide-react";
+import { BookMarked, Home, Compass, CalendarClock, PlusCircle, User, Video, GraduationCap, Briefcase, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
 import { useUser } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 
 const studentNavItems = [
@@ -25,7 +26,14 @@ const studentNavItems = [
 const teacherNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/create", icon: PlusCircle, label: "Create" },
-  { href: "/dashboard/subjects", icon: Compass, label: "All Subjects" },
+  { type: 'collapsible', 
+    label: "Browse", 
+    icon: Compass, 
+    subItems: [
+        { href: "/dashboard/courses", icon: GraduationCap, label: "Courses" },
+        { href: "/dashboard/tutors", icon: Briefcase, label: "Tutors" },
+    ]
+  },
   { href: "/dashboard/bookmarks", icon: BookMarked, label: "Bookmarks" },
   { href: "/dashboard/profile", icon: User, label: "Profile" },
 ];
@@ -70,19 +78,54 @@ export function SidebarNav({ isMobile = false }: { isMobile?: boolean }) {
       )}
       <div className="flex-1 overflow-y-auto">
         <div className="flex flex-col gap-1 p-4">
-          {navItems.map(({ href, icon: Icon, label }) => {
-            const isActive = pathname.startsWith(href) && (href !== '/dashboard' || pathname === '/dashboard');
+          {navItems.map((item, index) => {
+            if (item.type === 'collapsible') {
+                const isAnySubItemActive = item.subItems.some(subItem => pathname.startsWith(subItem.href));
+                return (
+                    <Collapsible key={index} defaultOpen={isAnySubItemActive}>
+                        <CollapsibleTrigger className="w-full">
+                           <div className={cn(
+                                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary",
+                                isAnySubItemActive && "bg-primary/10 text-primary font-medium"
+                            )}>
+                                <item.icon className="h-5 w-5" />
+                                {item.label}
+                                <ChevronDown className="ml-auto h-4 w-4 transition-transform data-[state=open]:rotate-180"/>
+                            </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pl-6 pt-2 space-y-1">
+                            {item.subItems.map(subItem => {
+                                 const isActive = pathname.startsWith(subItem.href);
+                                 return (
+                                     <Link
+                                        key={subItem.href}
+                                        href={subItem.href}
+                                        className={cn(
+                                        "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary",
+                                        isActive && "text-primary font-medium"
+                                        )}
+                                    >
+                                        <subItem.icon className="h-5 w-5" />
+                                        {subItem.label}
+                                    </Link>
+                                 )
+                            })}
+                        </CollapsibleContent>
+                    </Collapsible>
+                )
+            }
+            const isActive = pathname.startsWith(item.href!) && (item.href !== '/dashboard' || pathname === '/dashboard');
             return (
               <Link
-                key={href}
-                href={href}
+                key={item.href}
+                href={item.href!}
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary",
                   isActive && "bg-primary/10 text-primary font-medium"
                 )}
               >
-                <Icon className="h-5 w-5" />
-                {label}
+                <item.icon className="h-5 w-5" />
+                {item.label}
               </Link>
             );
           })}
