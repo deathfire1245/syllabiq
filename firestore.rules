@@ -80,10 +80,16 @@ service cloud.firestore {
         // READ: Student who owns it, teacher assigned to it, or an admin can read.
         allow get: if isSignedIn() && (isOwner(resource.data.studentId) || isOwner(resource.data.teacherId) || isAdmin(request.auth.uid));
 
-        // LIST: Students can list their own tickets. Teachers their own. Admins all.
-        allow list: if (isStudent(request.auth.uid) && request.query.where.studentId == request.auth.uid)
-                    || (isTeacher(request.auth.uid) && request.query.where.teacherId == request.auth.uid)
-                    || isAdmin(request.auth.uid);
+        // LIST: 
+        // - Students can list their own tickets.
+        // - Teachers can list tickets assigned to them.
+        // - Admins can list all tickets.
+        allow list: if isSignedIn() && 
+                    (
+                      (isStudent(request.auth.uid) && request.query.studentId == request.auth.uid) ||
+                      (isTeacher(request.auth.uid) && request.query.teacherId == request.auth.uid) ||
+                      isAdmin(request.auth.uid)
+                    );
 
         // CREATE: Only students can create tickets.
         allow create: if isStudent(request.auth.uid) && request.resource.data.studentId == request.auth.uid;
@@ -93,7 +99,7 @@ service cloud.firestore {
         // - Teacher can only update status to 'ACTIVE' or 'COMPLETED'.
         // - Admins can update anything.
         allow update: if (isStudent(request.auth.uid) && isOwner(resource.data.studentId) && request.resource.data.status == 'WAITING_FOR_TEACHER')
-                      || (isTeacher(request.auth.uid) && isOwner(resource.data.teacherId) && (request.resource.data.status == 'ACTIVE' || request.resource.data.status == 'COMPLETED'))
+                      || (isTeacher(request.auth.uid) && isOwner(resource.data.teacherId) && (request.resource.data.status == 'ACTIVE' || request.resource.data.status == 'COMPLETED' || request.resource.data.status == 'CANCELLED'))
                       || isAdmin(request.auth.uid);
 
         // DELETE: No one can delete tickets, for auditing.

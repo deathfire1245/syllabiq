@@ -70,12 +70,17 @@ const TeacherDashboard = () => {
 
     const ticketsQuery = useMemoFirebase(() => {
         if (!user || !firestore) return null;
-        return query(collection(firestore, "tickets"), where("teacherId", "==", user.uid), where("status", "in", ["WAITING_FOR_TEACHER"]));
+        return query(
+            collection(firestore, "tickets"), 
+            where("teacherId", "==", user.uid), 
+            where("status", "==", "WAITING_FOR_TEACHER")
+        );
     }, [user, firestore]);
     
     const { data: waitingTickets } = useCollection(ticketsQuery);
     
     const handleJoinSession = async (ticketId: string) => {
+        if (!firestore) return;
         const ticketRef = doc(firestore, 'tickets', ticketId);
         try {
             await updateDoc(ticketRef, {
