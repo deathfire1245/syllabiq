@@ -13,7 +13,7 @@ import {
   Users,
   BookOpen,
   Calendar,
-  Flask,
+  FlaskRound,
 } from "lucide-react";
 import { getSubjects } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -406,7 +406,7 @@ export default function DashboardPage() {
   return (
     <>
       <Button onClick={handleTestMeeting} variant="destructive" className="fixed bottom-20 right-8 z-50">
-        <Flask className="mr-2 h-4 w-4" /> Test Meeting Room
+        <FlaskRound className="mr-2 h-4 w-4" /> Test Meeting Room
       </Button>
       {userRole === "teacher" ? <TeacherDashboard /> : <StudentDashboard />}
     </>
