@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebase } from "@/firebase";
 import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, getDoc, updateDoc } from "firebase/firestore";
 import { getFirebaseErrorMessage } from "@/lib/firebase-errors";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -48,11 +48,18 @@ export default function SignupPage() {
 
     if (userDoc.exists()) {
       // User already exists, treat as login
-      localStorage.setItem("userRole", userDoc.data().role);
+      const userData = userDoc.data();
+      await updateDoc(userDocRef, { lastLogin: serverTimestamp() });
+      localStorage.setItem("userRole", userData.role);
+      toast({
+        title: "Welcome Back!",
+        description: `Signed in as ${userData.name || user.email}.`,
+      });
       router.push('/dashboard');
       return;
     }
 
+    // New user, create the document
     await setDoc(userDocRef, {
       uid: user.uid,
       name: name,
