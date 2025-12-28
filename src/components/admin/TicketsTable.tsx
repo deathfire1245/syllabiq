@@ -38,7 +38,7 @@ const ticketsData = [
     ticketId: "TKT-99887",
     studentName: "Emily Davis",
     teacherName: "Prof. Eleanor Vance",
-    status: "REFUNDED",
+    status: "REFUND_PROCESSED",
   },
 ];
 
@@ -47,7 +47,8 @@ const statusStyles: { [key: string]: string } = {
   ACTIVE: "bg-blue-100 text-blue-800 border-blue-200 animate-pulse",
   COMPLETED: "bg-gray-100 text-gray-800 border-gray-200",
   CANCELLED: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  REFUNDED: "bg-red-100 text-red-800 border-red-200",
+  REFUND_PROCESSED: "bg-red-100 text-red-800 border-red-200",
+  WAITING_FOR_TEACHER: "bg-purple-100 text-purple-800 border-purple-200",
 };
 
 export function TicketsTable() {
@@ -63,9 +64,10 @@ export function TicketsTable() {
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="PAID">Paid</SelectItem>
                 <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="WAITING_FOR_TEACHER">Waiting</SelectItem>
                 <SelectItem value="COMPLETED">Completed</SelectItem>
                 <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                <SelectItem value="REFUNDED">Refunded</SelectItem>
+                <SelectItem value="REFUND_PROCESSED">Refunded</SelectItem>
             </SelectContent>
         </Select>
         <Input type="date" className="w-[180px]" />
@@ -89,7 +91,7 @@ export function TicketsTable() {
                 <TableCell>{ticket.studentName}</TableCell>
                 <TableCell>{ticket.teacherName}</TableCell>
                 <TableCell className="text-center">
-                  <Badge variant="outline" className={statusStyles[ticket.status]}>{ticket.status}</Badge>
+                  <Badge variant="outline" className={statusStyles[ticket.status]}>{ticket.status.replace(/_/g, ' ')}</Badge>
                 </TableCell>
                 <TableCell className="text-center space-x-2">
                     <Button variant="outline" size="sm" className="h-8">Refund Student</Button>

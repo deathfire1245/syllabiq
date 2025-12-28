@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "../ui/button";
-import { CreditCard, DollarSign } from "lucide-react";
+import { DollarSign } from "lucide-react";
 
 // Placeholder data
 const paymentsData = [
@@ -18,7 +18,7 @@ const paymentsData = [
     amount: 60.00,
     commission: 6.00,
     netAmount: 54.00,
-    status: "PAID",
+    status: "READY_FOR_PAYOUT",
   },
   {
     paymentId: "PAY-123456",
@@ -27,7 +27,7 @@ const paymentsData = [
     amount: 55.00,
     commission: 5.50,
     netAmount: 49.50,
-    status: "PAID",
+    status: "PAID_OUT",
   },
   {
     paymentId: "PAY-789012",
@@ -36,7 +36,7 @@ const paymentsData = [
     amount: 75.00,
     commission: 7.50,
     netAmount: 67.50,
-    status: "PENDING_RELEASE",
+    status: "HELD",
   },
   {
     paymentId: "PAY-345678",
@@ -50,8 +50,9 @@ const paymentsData = [
 ];
 
 const statusStyles: { [key: string]: string } = {
-  PAID: "bg-green-100 text-green-800 border-green-200",
-  PENDING_RELEASE: "bg-blue-100 text-blue-800 border-blue-200",
+  READY_FOR_PAYOUT: "bg-green-100 text-green-800 border-green-200",
+  PAID_OUT: "bg-gray-100 text-gray-800 border-gray-200",
+  HELD: "bg-blue-100 text-blue-800 border-blue-200",
   REFUNDED: "bg-red-100 text-red-800 border-red-200",
 };
 
@@ -66,8 +67,9 @@ export function PaymentsTable() {
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="PAID">Paid</SelectItem>
-                <SelectItem value="PENDING_RELEASE">Pending</SelectItem>
+                <SelectItem value="HELD">Held</SelectItem>
+                <SelectItem value="READY_FOR_PAYOUT">Ready for Payout</SelectItem>
+                <SelectItem value="PAID_OUT">Paid Out</SelectItem>
                 <SelectItem value="REFUNDED">Refunded</SelectItem>
             </SelectContent>
         </Select>
@@ -82,7 +84,7 @@ export function PaymentsTable() {
               <TableHead>Teacher</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead className="text-right">Commission</TableHead>
-              <TableHead className="text-right">Net Amount</TableHead>
+              <TableHead className="text-right">Net Payout</TableHead>
               <TableHead className="text-center">Status</TableHead>
               <TableHead className="text-center">Actions</TableHead>
             </TableRow>
@@ -97,12 +99,12 @@ export function PaymentsTable() {
                 <TableCell className="text-right text-muted-foreground">${payment.commission.toFixed(2)}</TableCell>
                 <TableCell className="text-right font-semibold">${payment.netAmount.toFixed(2)}</TableCell>
                 <TableCell className="text-center">
-                  <Badge variant="outline" className={statusStyles[payment.status]}>{payment.status}</Badge>
+                  <Badge variant="outline" className={statusStyles[payment.status]}>{payment.status.replace(/_/g, ' ')}</Badge>
                 </TableCell>
                 <TableCell className="text-center space-x-2">
-                    {payment.status === 'PENDING_RELEASE' && (
+                    {payment.status === 'READY_FOR_PAYOUT' && (
                         <Button variant="outline" size="sm" className="h-8">
-                            <DollarSign className="w-4 h-4 mr-1" /> Release
+                            <DollarSign className="w-4 h-4 mr-1" /> Mark as Paid
                         </Button>
                     )}
                 </TableCell>

@@ -10,7 +10,7 @@ import { Video, CalendarX2, Ticket, Clock, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,9 +21,10 @@ interface Ticket {
   teacherName: string;
   studentName: string;
   slot: { day: string; time: string };
-  status: 'PAID' | 'WAITING_FOR_TEACHER' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  status: 'PAID' | 'WAITING_FOR_TEACHER' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'REFUND_PROCESSED';
   createdAt: any;
   activatedAt?: any;
+  waitingSince?: any;
 }
 
 const Countdown = ({ targetDate, onTimeout }: { targetDate: Date, onTimeout: () => void }) => {
@@ -70,12 +71,14 @@ const TicketCard = ({ ticket }: { ticket: Ticket }) => {
     const [isWaiting, setIsWaiting] = React.useState(false);
 
     const handleEnterWaitingRoom = async () => {
+        if(!firestore) return;
         setIsWaiting(true);
         const ticketRef = doc(firestore, 'tickets', ticket.id);
         try {
             await updateDoc(ticketRef, { 
                 status: 'WAITING_FOR_TEACHER',
-                waitingSince: new Date(),
+                waitingSince: serverTimestamp(),
+                updatedAt: serverTimestamp()
             });
             // The listener on the page will handle showing the waiting room UI
         } catch (error) {
@@ -116,8 +119,9 @@ const WaitingRoomView = ({ ticket }: { ticket: Ticket }) => {
     const { toast } = useToast();
 
     const handleTimeout = async () => {
+        if (!firestore) return;
         const ticketRef = doc(firestore, 'tickets', ticket.id);
-        await updateDoc(ticketRef, { status: 'CANCELLED' });
+        await updateDoc(ticketRef, { status: 'CANCELLED', updatedAt: serverTimestamp() });
         toast({
             variant: "destructive",
             title: "Session Cancelled",
@@ -192,9 +196,9 @@ export default function MyBookingsPage() {
     }, [activeTicket, router]);
 
     const handleResetCancelled = async () => {
-        if (!cancelledTicket) return;
+        if (!cancelledTicket || !firestore) return;
         const ticketRef = doc(firestore, 'tickets', cancelledTicket.id);
-        await updateDoc(ticketRef, { status: 'REFUND_PROCESSED' }); // Example of final state
+        await updateDoc(ticketRef, { status: 'REFUND_PROCESSED', updatedAt: serverTimestamp() }); // Example of final state
     }
 
 

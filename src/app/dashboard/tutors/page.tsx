@@ -94,6 +94,7 @@ export default function TutorsPage() {
         duration: 60, // minutes
         commissionPercent: 10,
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         slot,
         studentName: user.displayName, // Denormalized for easier display
         teacherName: tutor.name, // Denormalized for easier display

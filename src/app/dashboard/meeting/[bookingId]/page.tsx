@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { PhoneOff, VideoOff, MicOff, Users, Pencil, Eraser, Trash2, Monitor, Video, Palette, Mic, Check, Copy, Grip, Square, Circle as CircleIcon, ArrowRight, Minus } from "lucide-react";
+import { PhoneOff, VideoOff, MicOff, Users, Pencil, Eraser, Trash2, Monitor, Video, Palette, Mic, Check, Copy, Grip, Square, Circle as CircleIcon, ArrowRight, Minus, MousePointer2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
@@ -16,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { motion, AnimatePresence } from "framer-motion";
 
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
-type WhiteboardTool = 'pen' | 'eraser' | 'shape';
+type WhiteboardTool = 'pen' | 'eraser' | 'shape' | 'text';
 type ShapeType = 'rectangle' | 'circle' | 'line' | 'arrow';
 
 
@@ -153,8 +153,7 @@ const Whiteboard = React.forwardRef<
         setIsDrawing(true);
         setStartPoint({x, y});
 
-        // For shape drawing, we need a snapshot of the canvas to redraw on each mouse move
-        if (tool === 'shape') {
+        if (tool === 'shape' || tool === 'text') {
             const canvas = canvasRef.current!;
             setSnapshot(ctx.getImageData(0, 0, canvas.width, canvas.height));
         }
@@ -170,6 +169,13 @@ const Whiteboard = React.forwardRef<
         if (tool === 'shape' && startPoint) {
             const { x, y } = getCoords(event);
             drawShape(startPoint.x, startPoint.y, x, y);
+        } else if (tool === 'text' && startPoint) {
+            const text = prompt("Enter text:");
+            if (text) {
+                contextRef.current.fillStyle = color;
+                contextRef.current.font = `${size * 3}px sans-serif`;
+                contextRef.current.fillText(text, startPoint.x, startPoint.y);
+            }
         } else {
             contextRef.current.closePath();
         }
@@ -247,7 +253,7 @@ const Whiteboard = React.forwardRef<
             onTouchStart={startDrawing}
             onTouchEnd={finishDrawing}
             onTouchMove={draw}
-            className={cn("w-full h-full bg-white rounded-2xl shadow-inner border border-gray-200/80", isActive ? "touch-none" : "pointer-events-none")}
+            className={cn("w-full h-full bg-white rounded-2xl shadow-inner border border-gray-200/80", isActive ? "touch-none" : "pointer-events-none", tool === 'text' && "cursor-text")}
         />
     );
 });
@@ -370,17 +376,17 @@ export default function MeetingPage() {
           stream: stream
         };
 
-        const teacherUser: Participant = {
-            uid: `user-teacher-${Date.now()}`,
-            name: "Teacher",
-            role: "Teacher",
+        const otherUser: Participant = {
+            uid: `user-other-${Date.now()}`,
+            name: role === 'Student' ? "Teacher" : "Student",
+            role: role === 'Student' ? "Teacher" : "Student",
             cameraOn: true,
             micOn: true,
             isLocal: false,
             stream: null
         }
 
-        setParticipants([localUser, teacherUser]);
+        setParticipants([localUser, otherUser]);
         setMainViewParticipant(localUser);
 
       } catch (error) {
@@ -622,6 +628,9 @@ export default function MeetingPage() {
                   <Tooltip><TooltipTrigger asChild>
                     <Button variant={wbTool === 'eraser' ? "secondary" : "outline"} size="icon" className="rounded-full w-11 h-11" onClick={() => handleWbToolChange('eraser')}> <Eraser className="w-5 h-5"/> </Button>
                   </TooltipTrigger><TooltipContent><p>Eraser</p></TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger asChild>
+                     <Button variant={wbTool === 'text' ? "secondary" : "outline"} size="icon" className="rounded-full w-11 h-11" onClick={() => handleWbToolChange('text')}> <MousePointer2 className="w-5 h-5"/> </Button>
+                  </TooltipTrigger><TooltipContent><p>Text</p></TooltipContent></Tooltip>
                   
                   <Popover>
                     <PopoverTrigger asChild>
@@ -742,7 +751,7 @@ export default function MeetingPage() {
                 </TooltipTrigger><TooltipContent><p>Leave Meeting</p></TooltipContent></Tooltip>
             </TooltipProvider>
         </div>
-        <div className="w-48"></div>
+        <div className="w-48 hidden md:block"></div>
       </footer>
     </div>
   );

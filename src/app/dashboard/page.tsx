@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -86,6 +87,7 @@ const TeacherDashboard = () => {
             await updateDoc(ticketRef, {
                 status: 'ACTIVE',
                 activatedAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
             });
             router.push(`/dashboard/meeting/${ticketId}`);
         } catch (error) {

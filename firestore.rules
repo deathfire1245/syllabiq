@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -84,19 +85,18 @@ service cloud.firestore {
         // - Students can list their own tickets.
         // - Teachers can list tickets assigned to them.
         // - Admins can list all tickets.
-        allow list: if isSignedIn() && 
-                    (
-                      (isStudent(request.auth.uid) && request.query.studentId == request.auth.uid) ||
-                      (isTeacher(request.auth.uid) && request.query.teacherId == request.auth.uid) ||
-                      isAdmin(request.auth.uid)
-                    );
+        allow list: if isSignedIn() && (
+            (isStudent(request.auth.uid) && request.query.where[0][2] == request.auth.uid) ||
+            (isTeacher(request.auth.uid) && request.query.where[0][2] == request.auth.uid) ||
+            isAdmin(request.auth.uid)
+        );
 
         // CREATE: Only students can create tickets.
         allow create: if isStudent(request.auth.uid) && request.resource.data.studentId == request.auth.uid;
 
         // UPDATE:
         // - Student can only update status to 'WAITING_FOR_TEACHER'.
-        // - Teacher can only update status to 'ACTIVE' or 'COMPLETED'.
+        // - Teacher can only update status to 'ACTIVE', 'COMPLETED', or 'CANCELLED'.
         // - Admins can update anything.
         allow update: if (isStudent(request.auth.uid) && isOwner(resource.data.studentId) && request.resource.data.status == 'WAITING_FOR_TEACHER')
                       || (isTeacher(request.auth.uid) && isOwner(resource.data.teacherId) && (request.resource.data.status == 'ACTIVE' || request.resource.data.status == 'COMPLETED' || request.resource.data.status == 'CANCELLED'))
