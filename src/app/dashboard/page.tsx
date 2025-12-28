@@ -13,6 +13,7 @@ import {
   Users,
   BookOpen,
   Calendar,
+  Flask,
 } from "lucide-react";
 import { getSubjects } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -28,7 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { doc, setDoc, getDoc, serverTimestamp, updateDoc, collection, query, where } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp, updateDoc, collection, query, where, addDoc } from "firebase/firestore";
 
 const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?: string, suffix?: string }) => {
   const ref = React.useRef<HTMLSpanElement>(null);
@@ -359,12 +360,31 @@ const StudentDashboard = () => {
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const [userRole, setUserRole] = React.useState<string | null>(null);
+  const router = useRouter();
+  const { firestore } = useFirebase();
 
   React.useEffect(() => {
     if (isUserLoading) return;
     const role = localStorage.getItem("userRole");
     setUserRole(role);
   }, [isUserLoading]);
+
+  const handleTestMeeting = async () => {
+    if (!user || !firestore) return;
+    try {
+        const docRef = await addDoc(collection(firestore, "tickets"), {
+            studentId: user.uid,
+            teacherId: "test-teacher-id",
+            status: "ACTIVE",
+            createdAt: serverTimestamp(),
+            studentName: user.displayName || "Test Student",
+            teacherName: "Test Teacher"
+        });
+        router.push(`/dashboard/meeting/${docRef.id}`);
+    } catch(e) {
+        console.error("Could not create test meeting", e);
+    }
+  }
 
   if (isUserLoading) {
       return (
@@ -383,9 +403,14 @@ export default function DashboardPage() {
       )
   }
 
-  if (userRole === "teacher") {
-    return <TeacherDashboard />;
-  }
-
-  return <StudentDashboard />;
+  return (
+    <>
+      <Button onClick={handleTestMeeting} variant="destructive" className="fixed bottom-20 right-8 z-50">
+        <Flask className="mr-2 h-4 w-4" /> Test Meeting Room
+      </Button>
+      {userRole === "teacher" ? <TeacherDashboard /> : <StudentDashboard />}
+    </>
+  )
 }
+
+    
