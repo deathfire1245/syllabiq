@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebase } from "@/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { getFirebaseErrorMessage } from "@/lib/firebase-errors";
 
 const loginSchema = z.object({
@@ -37,6 +37,8 @@ export default function LoginPage() {
   });
 
   const handleUserLogin = async (user: any) => {
+    if (!firestore) throw new Error("Firestore is not available");
+    
     const userDocRef = doc(firestore, "users", user.uid);
     const userDoc = await getDoc(userDocRef);
 
@@ -48,13 +50,13 @@ export default function LoginPage() {
     const userData = userDoc.data();
     
     // Update last login time
-    await updateDoc(userDocRef, { lastLogin: new Date() });
+    await updateDoc(userDocRef, { lastLoginAt: serverTimestamp() });
 
     localStorage.setItem('userRole', userData.role);
 
     toast({
       title: "Login Successful",
-      description: `Welcome back, ${userData.name || 'user'}!`,
+      description: `Welcome back, ${userData.fullName || 'user'}!`,
     });
 
     if (userData.role === 'admin') {
@@ -67,6 +69,7 @@ export default function LoginPage() {
   const onSubmit = async (values: z.infer<typeof loginSchema>) => {
     setIsLoading(true);
     try {
+      if (!auth) throw new Error("Authentication service is not available");
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       await handleUserLogin(userCredential.user);
     } catch (error: any) {

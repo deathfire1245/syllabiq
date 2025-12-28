@@ -32,6 +32,7 @@ export default function OnboardingPage() {
       setUserRole(role);
       setLoading(false);
     } else {
+      // If role is missing, something is wrong, go back to login.
       router.replace('/login');
     }
   }, [router, user, isUserLoading]);
@@ -56,10 +57,13 @@ export default function OnboardingPage() {
     );
   }
 
-  return (
-    <div>
-      {userRole === "student" && <StudentOnboarding onComplete={handleOnboardingComplete} />}
-      {userRole === "teacher" && <TeacherOnboarding onComplete={handleOnboardingComplete} />}
-    </div>
-  );
+  if (userRole === "student") {
+    return <StudentOnboarding onComplete={handleOnboardingComplete} />;
+  }
+
+  if (userRole === "teacher") {
+    return <TeacherOnboarding onComplete={handleOnboardingComplete} />;
+  }
+
+  return null;
 }

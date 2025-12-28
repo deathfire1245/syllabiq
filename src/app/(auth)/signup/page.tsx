@@ -13,15 +13,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebase } from "@/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc, serverTimestamp, getDoc, updateDoc } from "firebase/firestore";
+import { createUserWithEmailAndPassword, User } from "firebase/auth";
+import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { getFirebaseErrorMessage } from "@/lib/firebase-errors";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { GraduationCap, Briefcase } from "lucide-react";
 
 const signupSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  fullName: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
@@ -36,41 +36,45 @@ export default function SignupPage() {
   const form = useForm<z.infer<typeof signupSchema>>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
-      name: "",
+      fullName: "",
       email: "",
       password: "",
     },
   });
 
-  const handleNewUser = async (user: any, role: string, name: string) => {
+  const handleNewUser = async (user: User, role: string, fullName: string) => {
+    if (!firestore) throw new Error("Firestore not available");
+    
     const userDocRef = doc(firestore, "users", user.uid);
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
-      // User already exists, treat as login
+      // This case should ideally not happen in a normal signup flow,
+      // but as a safeguard, we treat it as a login.
       const userData = userDoc.data();
-      await updateDoc(userDocRef, { lastLogin: serverTimestamp() });
       localStorage.setItem("userRole", userData.role);
       toast({
         title: "Welcome Back!",
-        description: `Signed in as ${userData.name || user.email}.`,
+        description: `Signed in as ${userData.fullName || user.email}.`,
       });
-      router.push('/dashboard');
+      router.push(userData.role === 'admin' ? '/locked' : '/dashboard');
       return;
     }
 
-    // New user, create the document
+    // New user, create their profile document
     await setDoc(userDocRef, {
       uid: user.uid,
-      name: name,
+      fullName,
       email: user.email,
       role: role,
       createdAt: serverTimestamp(),
-      lastLogin: serverTimestamp(),
-      isActive: true
+      lastLoginAt: serverTimestamp(),
+      isActive: true,
+      profilePicture: user.photoURL || null,
     });
 
     localStorage.setItem("userRole", role);
+    // Direct user to onboarding to collect role-specific profile info
     localStorage.setItem("onboardingStatus", "pending");
 
     toast({
@@ -82,11 +86,15 @@ export default function SignupPage() {
   }
 
   const onSubmit = async (values: z.infer<typeof signupSchema>) => {
-    if (!selectedRole) return;
+    if (!selectedRole) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please select a role.'});
+      return;
+    }
     setIsLoading(true);
     try {
+      if (!auth) throw new Error("Auth service not available");
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      await handleNewUser(userCredential.user, selectedRole, values.name);
+      await handleNewUser(userCredential.user, selectedRole, values.fullName);
     } catch (error: any) {
        toast({
         variant: "destructive",
@@ -134,7 +142,7 @@ export default function SignupPage() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="name"
+                  name="fullName"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-white">Full Name</FormLabel>
@@ -173,7 +181,7 @@ export default function SignupPage() {
                 />
 
                 <Button type="submit" className="w-full h-11" disabled={isLoading}>
-                  {isLoading ? "Creating Account..." : "Sign Up"}
+                  {isLoading ? "Creating Account..." : `Sign Up as a ${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}`}
                 </Button>
               </form>
             </FormProvider>

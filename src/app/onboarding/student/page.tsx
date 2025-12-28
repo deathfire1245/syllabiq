@@ -7,39 +7,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ArrowLeft, ArrowRight, Check, Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import { useUser, useFirebase } from "@/firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { Textarea } from "@/components/ui/textarea";
 
 const steps = [
   { id: 1, title: "Welcome to SyllabiQ!" },
   { id: 2, title: "Tell us about your studies" },
   { id: 3, title: "What are your goals?" },
-  { id: 4, title: "Just for fun..." },
-  { id: 5, title: "All set!" },
+  { id: 4, title: "All set!" },
 ];
 
-const subjects = ["Mathematics", "Science", "History", "Literature", "Art", "Music"];
-const goals = ["Ace my exams", "Understand concepts better", "Quick revision", "Homework help"];
-const hobbies = ["Reading", "Gaming", "Sports", "Coding", "Movies", "Drawing"];
+const subjects = ["Mathematics", "Science", "History", "Literature", "Art", "Music", "Computer Science"];
+const interests = ["Reading", "Gaming", "Sports", "Coding", "Movies", "Drawing", "Traveling"];
 
 export default function StudentOnboarding({ onComplete }: { onComplete: () => void }) {
   const [currentStep, setCurrentStep] = React.useState(1);
   const [formData, setFormData] = React.useState({
-    grade: "",
-    school: "",
-    favoriteSubjects: [] as string[],
-    studyGoals: [] as string[],
-    hobbies: [] as string[],
-    studyTime: "Morning",
+    gradeLevel: "",
+    schoolBoard: "",
+    preferredSubjects: [] as string[],
+    learningGoals: "",
+    interests: [] as string[],
   });
   const { toast } = useToast();
+  const { user } = useUser();
+  const { firestore } = useFirebase();
+  const [isSaving, setIsSaving] = React.useState(false);
+
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, steps.length));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
-  const handleMultiSelect = (field: "favoriteSubjects" | "studyGoals" | "hobbies", value: string) => {
+  const handleMultiSelect = (field: "preferredSubjects" | "interests", value: string) => {
     setFormData((prev) => {
       const currentValues = prev[field];
       if (currentValues.includes(value)) {
@@ -50,13 +52,28 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
     });
   };
   
-  const handleFinish = () => {
-    localStorage.setItem('onboardingData', JSON.stringify(formData));
-    toast({
-        title: "Profile setup complete!",
-        description: "Welcome to your personalized dashboard.",
-    });
-    onComplete();
+  const handleFinish = async () => {
+    if (!user || !firestore) {
+        toast({ title: 'Error', description: 'Could not save profile. User not found.', variant: 'destructive' });
+        return;
+    }
+    setIsSaving(true);
+    try {
+        const userDocRef = doc(firestore, 'users', user.uid);
+        await updateDoc(userDocRef, {
+            studentProfile: formData,
+        });
+        toast({
+            title: "Profile setup complete!",
+            description: "Welcome to your personalized dashboard.",
+        });
+        onComplete();
+    } catch (error) {
+        console.error("Failed to save student profile:", error);
+        toast({ title: 'Error', description: 'Failed to save your profile. Please try again.', variant: 'destructive' });
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   const renderStepContent = () => {
@@ -72,23 +89,25 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
       case 2:
         return (
           <>
-            <div className="space-y-2 mb-6">
-              <Label htmlFor="grade">What grade are you in?</Label>
-              <Input id="grade" placeholder="e.g., Grade 10" value={formData.grade} onChange={(e) => setFormData({...formData, grade: e.target.value})} />
-            </div>
-             <div className="space-y-2 mb-6">
-              <Label htmlFor="school">What's your school name? (Optional)</Label>
-              <Input id="school" placeholder="e.g., Northwood High" value={formData.school} onChange={(e) => setFormData({...formData, school: e.target.value})}/>
+            <div className="grid sm:grid-cols-2 gap-4 mb-6">
+                <div className="space-y-2">
+                    <Label htmlFor="gradeLevel">What grade are you in?</Label>
+                    <Input id="gradeLevel" placeholder="e.g., Grade 10" value={formData.gradeLevel} onChange={(e) => setFormData({...formData, gradeLevel: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="schoolBoard">School Board (Optional)</Label>
+                    <Input id="schoolBoard" placeholder="e.g., CBSE, ICSE" value={formData.schoolBoard} onChange={(e) => setFormData({...formData, schoolBoard: e.target.value})}/>
+                </div>
             </div>
             <div className="space-y-3">
-              <Label>Which are your favorite subjects?</Label>
+              <Label>Which are your preferred subjects?</Label>
               <div className="flex flex-wrap gap-2">
                 {subjects.map(subject => (
                   <Badge 
                     key={subject}
-                    variant={formData.favoriteSubjects.includes(subject) ? "default" : "outline"}
+                    variant={formData.preferredSubjects.includes(subject) ? "default" : "outline"}
                     className="cursor-pointer text-base py-1 px-3"
-                    onClick={() => handleMultiSelect("favoriteSubjects", subject)}
+                    onClick={() => handleMultiSelect("preferredSubjects", subject)}
                   >
                     {subject}
                   </Badge>
@@ -100,59 +119,28 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
       case 3:
         return (
            <div className="space-y-6">
-            <div className="space-y-3">
-              <Label>What are your main study goals?</Label>
-              <div className="flex flex-wrap gap-2">
-                 {goals.map(goal => (
-                  <Badge 
-                    key={goal}
-                    variant={formData.studyGoals.includes(goal) ? "default" : "outline"}
-                    className="cursor-pointer text-base py-1 px-3"
-                    onClick={() => handleMultiSelect("studyGoals", goal)}
-                  >
-                    {goal}
-                  </Badge>
-                ))}
-              </div>
+            <div className="space-y-2">
+              <Label>What are your main learning goals?</Label>
+              <Textarea placeholder="e.g., Score 90% in Math, understand Physics concepts better..." value={formData.learningGoals} onChange={(e) => setFormData({...formData, learningGoals: e.target.value})}/>
             </div>
-             <div className="space-y-3">
-              <Label>When do you prefer to study?</Label>
-              <RadioGroup value={formData.studyTime} onValueChange={(value) => setFormData({...formData, studyTime: value})} className="flex gap-4">
-                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Morning" id="time-morning" />
-                  <Label htmlFor="time-morning">Morning</Label>
+            <div className="space-y-3">
+                <Label>What are some of your interests or hobbies?</Label>
+                <div className="flex flex-wrap gap-2">
+                    {interests.map(interest => (
+                    <Badge 
+                        key={interest}
+                        variant={formData.interests.includes(interest) ? "default" : "outline"}
+                        className="cursor-pointer text-base py-1 px-3"
+                        onClick={() => handleMultiSelect("interests", interest)}
+                    >
+                        {interest}
+                    </Badge>
+                    ))}
                 </div>
-                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Evening" id="time-evening" />
-                  <Label htmlFor="time-evening">Evening</Label>
-                </div>
-                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Night" id="time-night" />
-                  <Label htmlFor="time-night">Night</Label>
-                </div>
-              </RadioGroup>
             </div>
            </div>
         );
-       case 4:
-        return (
-          <div className="space-y-3">
-            <Label>What are some of your hobbies and interests?</Label>
-            <div className="flex flex-wrap gap-2">
-              {hobbies.map(hobby => (
-                <Badge 
-                  key={hobby}
-                  variant={formData.hobbies.includes(hobby) ? "default" : "outline"}
-                  className="cursor-pointer text-base py-1 px-3"
-                  onClick={() => handleMultiSelect("hobbies", hobby)}
-                >
-                  {hobby}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        );
-      case 5:
+      case 4:
         return (
            <div className="text-center">
              <Check className="mx-auto h-16 w-16 text-green-500 bg-green-100 rounded-full p-3 mb-6" />
@@ -210,8 +198,8 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
             </Button>
           )}
           {currentStep === steps.length && (
-            <Button onClick={handleFinish} size="lg">
-              Go to Dashboard
+            <Button onClick={handleFinish} size="lg" disabled={isSaving}>
+              {isSaving ? "Saving..." : "Go to Dashboard"}
             </Button>
           )}
         </div>

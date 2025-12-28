@@ -8,54 +8,91 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, ArrowRight, Check, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUser, useFirebase } from "@/firebase";
+import { doc, updateDoc } from "firebase/firestore";
 
 const steps = [
   { id: 1, title: "Welcome, Educator!" },
   { id: 2, title: "Your Expertise" },
-  { id: 3, title: "Teaching Style & Rate" },
-  { id: 4, title: "Final Touches" },
+  { id: 3, title: "Final Touches" },
 ];
 
 const subjects = ["Mathematics", "Science", "History", "Literature", "Computer Science", "Physics", "Chemistry", "Biology"];
-const teachingStyles = ["Concept-based", "Exam-focused", "Practical & Hands-on", "Student-led"];
+const qualifications = ["Bachelor's Degree", "Master's Degree", "PhD", "Teaching Certification"];
+const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function TeacherOnboarding({ onComplete }: { onComplete: () => void }) {
   const [currentStep, setCurrentStep] = React.useState(1);
-   const [formData, setFormData] = React.useState({
+  const [formData, setFormData] = React.useState({
     subjects: [] as string[],
-    qualification: "",
-    experience: "",
-    teachingStyle: "",
-    teachingMode: "Online",
-    hourlyRate: "50",
+    qualifications: [] as string[],
+    experienceYears: 0,
+    hourlyRate: 50,
     bio: "",
+    availability: {
+      days: [] as string[],
+      timeSlots: [] as string[], // Placeholder for now
+    },
   });
   const { toast } = useToast();
+  const { user } = useUser();
+  const { firestore } = useFirebase();
+  const [isSaving, setIsSaving] = React.useState(false);
+
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, steps.length));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
-  const handleMultiSelect = (field: "subjects", value: string) => {
-    setFormData((prev) => {
-      const currentValues = prev[field];
-      if (currentValues.includes(value)) {
-        return { ...prev, [field]: currentValues.filter((v) => v !== value) };
-      } else {
-        return { ...prev, [field]: [...currentValues, value] };
-      }
-    });
+  const handleMultiSelect = (field: "subjects" | "qualifications" | "availability.days", value: string) => {
+    if (field === 'availability.days') {
+        setFormData(prev => {
+            const currentDays = prev.availability.days;
+            const newDays = currentDays.includes(value)
+                ? currentDays.filter(d => d !== value)
+                : [...currentDays, value];
+            return { ...prev, availability: { ...prev.availability, days: newDays }};
+        });
+    } else {
+        setFormData((prev) => {
+            const currentValues = prev[field as "subjects" | "qualifications"];
+            if (currentValues.includes(value)) {
+                return { ...prev, [field]: currentValues.filter((v) => v !== value) };
+            } else {
+                return { ...prev, [field]: [...currentValues, value] };
+            }
+        });
+    }
   };
 
-  const handleFinish = () => {
-    localStorage.setItem('onboardingData', JSON.stringify(formData));
-    toast({
-        title: "Profile setup complete!",
-        description: "Welcome to your teacher dashboard.",
-    });
-    onComplete();
+  const handleFinish = async () => {
+    if (!user || !firestore) {
+        toast({ title: 'Error', description: 'Could not save profile. User not found.', variant: 'destructive' });
+        return;
+    }
+    setIsSaving(true);
+    try {
+        const userDocRef = doc(firestore, 'users', user.uid);
+        await updateDoc(userDocRef, {
+            teacherProfile: {
+                ...formData,
+                isVerified: false,
+                totalSessions: 0,
+                rating: 0,
+            },
+        });
+        toast({
+            title: "Profile setup complete!",
+            description: "Welcome to your teacher dashboard.",
+        });
+        onComplete();
+    } catch (error) {
+        console.error("Failed to save teacher profile:", error);
+        toast({ title: 'Error', description: 'Failed to save your profile. Please try again.', variant: 'destructive' });
+    } finally {
+        setIsSaving(false);
+    }
   };
 
 
@@ -86,63 +123,55 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
                 ))}
               </div>
             </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="qualification">Your Highest Qualification</Label>
-                    <Input id="qualification" placeholder="e.g., PhD in Physics" value={formData.qualification} onChange={(e) => setFormData({...formData, qualification: e.target.value})} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="experience">Years of Teaching Experience</Label>
-                    <Input id="experience" type="number" placeholder="e.g., 5" value={formData.experience} onChange={(e) => setFormData({...formData, experience: e.target.value})} />
-                </div>
+            <div className="space-y-3">
+              <Label>Your Qualifications</Label>
+              <div className="flex flex-wrap gap-2">
+                {qualifications.map(q => (
+                  <Badge 
+                    key={q}
+                    variant={formData.qualifications.includes(q) ? "default" : "outline"}
+                    className="cursor-pointer text-base py-1 px-3"
+                    onClick={() => handleMultiSelect("qualifications", q)}
+                  >
+                    {q}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="experience">Years of Teaching Experience</Label>
+                <Input id="experience" type="number" placeholder="e.g., 5" value={formData.experienceYears || ''} onChange={(e) => setFormData({...formData, experienceYears: parseInt(e.target.value, 10) || 0 })} />
             </div>
           </div>
         );
       case 3:
         return (
           <div className="space-y-6">
-             <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="teaching-style">Primary Teaching Style</Label>
-                     <Select value={formData.teachingStyle} onValueChange={(value) => setFormData({...formData, teachingStyle: value})}>
-                        <SelectTrigger><SelectValue placeholder="Select a style" /></SelectTrigger>
-                        <SelectContent>
-                            {teachingStyles.map(style => <SelectItem key={style} value={style}>{style}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="space-y-2">
-                    <Label>Preferred Teaching Mode</Label>
-                    <Select value={formData.teachingMode} onValueChange={(value) => setFormData({...formData, teachingMode: value})}>
-                        <SelectTrigger><SelectValue placeholder="Select a mode" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Online">Online</SelectItem>
-                            <SelectItem value="Hybrid">Hybrid (Online/In-person)</SelectItem>
-                             <SelectItem value="In-person">In-person Only</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
             <div className="space-y-2">
-                <Label htmlFor="hourly-rate">Your Hourly Teaching Rate (USD)</Label>
-                <div className="relative max-w-xs">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input id="hourly-rate" type="number" placeholder="50" className="pl-10" value={formData.hourlyRate} onChange={(e) => setFormData({...formData, hourlyRate: e.target.value})}/>
-                </div>
-            </div>
-          </div>
-        );
-       case 4:
-        return (
-          <div className="space-y-4 text-center">
-            <div className="space-y-2 text-left">
               <Label htmlFor="bio">Your Bio / Introduction</Label>
               <Textarea id="bio" placeholder="Tell students a bit about yourself, your passion for teaching, and what they can expect from your classes." className="min-h-[120px]" value={formData.bio} onChange={(e) => setFormData({...formData, bio: e.target.value})}/>
             </div>
-             <div className="pt-4">
-                <Check className="mx-auto h-16 w-16 text-green-500 bg-green-100 rounded-full p-3 mb-4" />
-                <h2 className="text-2xl font-bold">Your profile is ready!</h2>
-                <p className="text-muted-foreground">You can always edit these details later from your profile page.</p>
+             <div className="space-y-2">
+                <Label htmlFor="hourly-rate">Your Hourly Teaching Rate (USD)</Label>
+                <div className="relative max-w-xs">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input id="hourly-rate" type="number" placeholder="50" className="pl-10" value={formData.hourlyRate} onChange={(e) => setFormData({...formData, hourlyRate: parseInt(e.target.value, 10) || 0})}/>
+                </div>
+            </div>
+            <div className="space-y-3">
+              <Label>Your Weekly Availability</Label>
+              <div className="flex flex-wrap gap-2">
+                {days.map(day => (
+                  <Badge 
+                    key={day}
+                    variant={formData.availability.days.includes(day) ? "default" : "outline"}
+                    className="cursor-pointer text-base py-1 px-3"
+                    onClick={() => handleMultiSelect("availability.days", day)}
+                  >
+                    {day}
+                  </Badge>
+                ))}
+              </div>
             </div>
           </div>
         );
@@ -167,8 +196,9 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
             </div>
           </div>
           <CardTitle className="text-2xl">{steps[currentStep - 1].title}</CardTitle>
+          {currentStep === 3 && <CardDescription>This information will be displayed on your public profile.</CardDescription>}
         </CardHeader>
-        <CardContent className="min-h-[250px] flex flex-col justify-center">
+        <CardContent className="min-h-[300px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
@@ -191,8 +221,8 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
             </Button>
           )}
           {currentStep === steps.length && (
-            <Button onClick={handleFinish} size="lg">
-                Complete Setup & Go to Dashboard
+            <Button onClick={handleFinish} size="lg" disabled={isSaving}>
+                {isSaving ? "Saving Profile..." : "Complete Setup & Go to Dashboard"}
             </Button>
           )}
         </div>
