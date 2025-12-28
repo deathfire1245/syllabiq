@@ -81,8 +81,8 @@ service cloud.firestore {
         allow get: if isSignedIn() && (isOwner(resource.data.studentId) || isOwner(resource.data.teacherId) || isAdmin(request.auth.uid));
 
         // LIST: Students can list their own tickets. Teachers their own. Admins all.
-        allow list: if (isStudent(request.auth.uid) && request.query.get("studentId") == request.auth.uid)
-                    || (isTeacher(request.auth.uid) && request.query.get("teacherId") == request.auth.uid)
+        allow list: if (isStudent(request.auth.uid) && request.query.where.studentId == request.auth.uid)
+                    || (isTeacher(request.auth.uid) && request.query.where.teacherId == request.auth.uid)
                     || isAdmin(request.auth.uid);
 
         // CREATE: Only students can create tickets.
