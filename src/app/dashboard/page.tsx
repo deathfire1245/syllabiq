@@ -501,5 +501,3 @@ export default function DashboardPage() {
   // Student Dashboard View
   return <StudentDashboard />;
 }
-
-    
