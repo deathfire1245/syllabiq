@@ -13,7 +13,7 @@ export default function DashboardLayout({
   const isMobile = useIsMobile();
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-secondary/30 text-foreground">
       {!isMobile && <SidebarNav />}
 
       <main

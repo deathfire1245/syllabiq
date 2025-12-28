@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { BookmarkProvider } from "@/contexts/BookmarkContext";
 import "./globals.css";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
+import { GeistSans } from "geist/font/sans";
 
 export const metadata: Metadata = {
   title: "SyllabiQ",
@@ -15,7 +16,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={GeistSans.className} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

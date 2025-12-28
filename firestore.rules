@@ -26,13 +26,17 @@ service cloud.firestore {
     function isTeacher(uid) {
       return isRole(uid, 'teacher');
     }
+
+    function isStudent(uid) {
+      return isRole(uid, 'student');
+    }
     
     //----------------------------------------------------------------------
     //  USER PROFILE RULES
     //----------------------------------------------------------------------
     match /users/{uid} {
-      // READ: Users can read their own profile. Admins can read any profile.
-      allow get: if isOwner(uid) || isAdmin(request.auth.uid);
+      // READ: Users can read their own profile. Admins can read any profile. Teachers can read student profiles (for sessions).
+      allow get: if isOwner(uid) || isAdmin(request.auth.uid) || (isTeacher(request.auth.uid));
       
       // LIST: Only admins can list all users.
       allow list: if isAdmin(request.auth.uid);
@@ -40,11 +44,10 @@ service cloud.firestore {
       // CREATE: A user can only create their own profile document.
       // - The UID must match the authenticated user.
       // - The role must be 'student' or 'teacher' (admins are created manually).
-      // - The user cannot set admin-only fields like 'isActive' or 'isVerified' on creation.
       allow create: if isOwner(uid) 
                     && request.resource.data.uid == request.auth.uid
-                    && (request.resource.data.role == 'student' || request.resource.data.role == 'teacher')
-                    && !('isVerified' in request.resource.data.keys());
+                    && (request.resource.data.role == 'student' || request.resource.data.role == 'teacher');
+                    
 
       // UPDATE:
       // - Users can update their own profile.
@@ -62,13 +65,42 @@ service cloud.firestore {
     }
     
     //----------------------------------------------------------------------
-    //  MEETING & TICKET RULES (Placeholders for future implementation)
+    //  MEETING RULES
     //----------------------------------------------------------------------
     match /meetings/{meetingId} {
-      allow read, write: if isTeacher(request.auth.uid) || isAdmin(request.auth.uid);
+      // Teachers/Admins can create/update meetings. Signed-in users can read.
+      allow read: if isSignedIn();
+      allow write: if isTeacher(request.auth.uid) || isAdmin(request.auth.uid);
     }
     
+    //----------------------------------------------------------------------
+    //  TICKET RULES
+    //----------------------------------------------------------------------
     match /tickets/{ticketId} {
+        // READ: Student who owns it, teacher assigned to it, or an admin can read.
+        allow get: if isSignedIn() && (isOwner(resource.data.studentId) || isOwner(resource.data.teacherId) || isAdmin(request.auth.uid));
+
+        // LIST: Students can list their own tickets. Teachers their own. Admins all.
+        allow list: if (isStudent(request.auth.uid) && request.query.filters[0][2] == request.auth.uid)
+                    || (isTeacher(request.auth.uid) && request.query.filters[0][2] == request.auth.uid)
+                    || isAdmin(request.auth.uid);
+
+        // CREATE: Only students can create tickets.
+        allow create: if isStudent(request.auth.uid) && request.resource.data.studentId == request.auth.uid;
+
+        // UPDATE:
+        // - Student can only update status to 'WAITING_FOR_TEACHER'.
+        // - Teacher can only update status to 'ACTIVE' or 'COMPLETED'.
+        // - Admins can update anything.
+        allow update: if (isStudent(request.auth.uid) && isOwner(resource.data.studentId) && request.resource.data.status == 'WAITING_FOR_TEACHER')
+                      || (isTeacher(request.auth.uid) && isOwner(resource.data.teacherId) && (request.resource.data.status == 'ACTIVE' || request.resource.data.status == 'COMPLETED'))
+                      || isAdmin(request.auth.uid);
+
+        // DELETE: No one can delete tickets, for auditing.
+        allow delete: if false;
+    }
+
+    match /participants/{meetingRoomId}/{presence=**} {
       allow read, write: if isSignedIn();
     }
   }

@@ -20,6 +20,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
+import { useUser, useFirebase } from "@/firebase";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
 // Mock data for available tutors
 const tutors = [
@@ -70,30 +72,45 @@ const tutors = [
 export default function TutorsPage() {
   const { toast } = useToast();
   const router = useRouter();
+  const { user } = useUser();
+  const { firestore } = useFirebase();
 
-  const handleBookSession = (tutor: (typeof tutors)[0], slot: { day: string, time: string }) => {
-    // In a real app, this would involve a payment flow.
-    // For this simulation, we'll store the booking in localStorage.
-    const booking = {
-      id: `booking-${tutor.id}-${Date.now()}`, // Create a unique booking ID
-      tutorId: tutor.id,
-      tutorName: tutor.name,
-      tutorAvatar: tutor.avatar,
-      slot,
-      cost: tutor.costPerHour,
-      bookedAt: new Date().toISOString(),
-    };
+  const handleBookSession = async (tutor: (typeof tutors)[0], slot: { day: string, time: string }) => {
+    if (!user || !firestore) {
+      toast({ variant: 'destructive', title: "Error", description: "You must be logged in to book a session." });
+      return;
+    }
 
-    const existingBookings = JSON.parse(localStorage.getItem("userBookings") || "[]");
-    localStorage.setItem("userBookings", JSON.stringify([...existingBookings, booking]));
+    // This is placeholder logic. In a real app, this would involve a payment flow.
+    const ticketCode = `TKT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-    toast({
-      title: "Session Booked!",
-      description: `Your session with ${tutor.name} on ${slot.day} at ${slot.time} is confirmed.`,
-    });
-    
-    // Redirect to the bookings page to see the countdown
-    router.push('/dashboard/bookings');
+    try {
+      await addDoc(collection(firestore, 'tickets'), {
+        ticketCode,
+        studentId: user.uid,
+        teacherId: tutor.id, // In a real app, this ID would come from the teacher's profile in Firestore
+        status: 'PAID',
+        price: tutor.costPerHour,
+        duration: 60, // minutes
+        commissionPercent: 10,
+        createdAt: serverTimestamp(),
+        slot,
+        studentName: user.displayName, // Denormalized for easier display
+        teacherName: tutor.name, // Denormalized for easier display
+      });
+
+      toast({
+        title: "Ticket Purchased!",
+        description: `Your session with ${tutor.name} is booked. Your code is ${ticketCode}.`,
+      });
+
+      // Redirect to the bookings page to see the new ticket
+      router.push('/dashboard/bookings');
+
+    } catch (error) {
+      console.error("Error creating ticket:", error);
+      toast({ variant: 'destructive', title: "Booking Failed", description: "Could not create your ticket. Please try again." });
+    }
   };
 
   return (
@@ -101,7 +118,7 @@ export default function TutorsPage() {
       <ScrollReveal>
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Find a Tutor</h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Book live one-on-one sessions with our expert teachers.
+          Book a live one-on-one session by purchasing a lecture ticket.
         </p>
       </ScrollReveal>
 
@@ -144,15 +161,15 @@ export default function TutorsPage() {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Confirm Booking</AlertDialogTitle>
+                                <AlertDialogTitle>Confirm Ticket Purchase</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to book a 1-hour session with {tutor.name} on {slot.day} at {slot.time} for ${tutor.costPerHour}?
+                                  Purchase a ticket for a 1-hour session with {tutor.name} on {slot.day} at {slot.time} for ${tutor.costPerHour}?
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                                 <AlertDialogAction onClick={() => handleBookSession(tutor, slot)}>
-                                  Book & Pay
+                                  Buy Ticket
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>

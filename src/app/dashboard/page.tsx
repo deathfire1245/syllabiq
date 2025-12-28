@@ -26,8 +26,8 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useUser, useFirebase } from "@/firebase";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { doc, setDoc, getDoc, serverTimestamp, updateDoc, collection, query, where } from "firebase/firestore";
 
 const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?: string, suffix?: string }) => {
   const ref = React.useRef<HTMLSpanElement>(null);
@@ -65,73 +65,27 @@ const iconMap: { [key:string]: React.ElementType } = {
 const TeacherDashboard = () => {
     const router = useRouter();
     const { toast } = useToast();
-    const { user } = useUser();
+    const { user, isUserLoading } = useUser();
     const { firestore } = useFirebase();
-    const [meetingCode, setMeetingCode] = React.useState<string | null>(null);
-    const [meetingRoomId, setMeetingRoomId] = React.useState<string | null>(null);
-    const [isCreatingMeeting, setIsCreatingMeeting] = React.useState(false);
 
-    const generateMeetingCode = async () => {
-        if (!user || !firestore) return;
-        setIsCreatingMeeting(true);
-
-        const code = `SYL-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-        const newMeetingRoomId = crypto.randomUUID();
-        
+    const ticketsQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return query(collection(firestore, "tickets"), where("teacherId", "==", user.uid), where("status", "in", ["WAITING_FOR_TEACHER"]));
+    }, [user, firestore]);
+    
+    const { data: waitingTickets } = useCollection(ticketsQuery);
+    
+    const handleJoinSession = async (ticketId: string) => {
+        const ticketRef = doc(firestore, 'tickets', ticketId);
         try {
-            const meetingDocRef = doc(firestore, 'meetings', code);
-            await setDoc(meetingDocRef, {
-                meetingCode: code,
-                meetingRoomId: newMeetingRoomId,
-                hostUid: user.uid,
-                isActive: true,
-                createdAt: serverTimestamp(),
+            await updateDoc(ticketRef, {
+                status: 'ACTIVE',
+                activatedAt: serverTimestamp(),
             });
-
-            setMeetingCode(code);
-            setMeetingRoomId(newMeetingRoomId);
-            toast({
-                title: 'Meeting Code Generated!',
-                description: `Your new meeting code is ${code}`,
-            });
+            router.push(`/dashboard/meeting/${ticketId}`);
         } catch (error) {
-            console.error("Error creating meeting: ", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not create meeting.'});
-        } finally {
-            setIsCreatingMeeting(false);
+            toast({ variant: 'destructive', title: "Error", description: "Could not start the session." });
         }
-    };
-
-    const startMeeting = () => {
-        if (!meetingRoomId) {
-            toast({
-                variant: 'destructive',
-                title: 'No Meeting Room',
-                description: 'Please generate a code first.',
-            });
-            return;
-        }
-        router.push(`/dashboard/meeting/${meetingRoomId}`);
-    };
-
-    const copyCode = () => {
-        if (!meetingCode) return;
-        navigator.clipboard.writeText(meetingCode);
-        toast({
-            title: 'Code Copied!',
-            description: 'The meeting code has been copied to your clipboard.',
-        });
-    };
-
-    const endMeeting = async () => {
-        if (!meetingCode) return;
-        // In a real app, you'd update the meeting doc to `isActive: false`
-        setMeetingCode(null);
-        setMeetingRoomId(null);
-        toast({
-            title: 'Meeting Ended',
-            description: 'The meeting session has been closed.',
-        });
     }
     
     const teacherStats = [
@@ -147,53 +101,39 @@ const TeacherDashboard = () => {
         { title: "The Periodic Table", type: "Topic", date: "1 week ago" },
     ];
 
+    if (isUserLoading) return <div>Loading...</div>
 
     return (
         <div className="space-y-8">
              <ScrollReveal>
                 <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Teacher Dashboard</h1>
-                <p className="text-muted-foreground mt-2 text-lg">Welcome back! Here's your teaching overview.</p>
+                <p className="text-muted-foreground mt-2 text-lg">Welcome back, {user?.displayName}! Here's your teaching overview.</p>
             </ScrollReveal>
             
-            <ScrollReveal delay={0.1}>
-                <Card className="bg-primary/10 border-primary shadow-lg">
-                    <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                            <CardTitle className="text-2xl flex items-center gap-2"><Video className="w-6 h-6"/> Host a Live Session</CardTitle>
-                            <CardDescription>Generate a code to start a live class and share it with your students.</CardDescription>
-                        </div>
-                         {meetingCode && (
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                                <p className="text-lg font-bold font-mono tracking-widest p-2 bg-background rounded-lg border">{meetingCode}</p>
-                                <Button variant="outline" size="icon" onClick={copyCode}><Copy className="w-4 h-4"/></Button>
-                            </div>
-                        )}
-                    </CardHeader>
-                    <CardContent className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        {!meetingCode ? (
-                             <Button 
-                                size="lg" 
-                                onClick={generateMeetingCode}
-                                disabled={isCreatingMeeting}
-                                className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow transform hover:scale-105"
-                            >
-                                <PlusCircle className="mr-2 h-5 w-5" />
-                                {isCreatingMeeting ? "Generating..." : "Generate New Meeting Code"}
-                            </Button>
-                        ) : (
-                            <div className="flex flex-wrap items-center justify-center gap-4">
-                                <Button size="lg" onClick={startMeeting}>
-                                    <Video className="mr-2 h-5 w-5" />
-                                    Jump Into Meeting
-                                </Button>
-                                 <Button variant="destructive" onClick={endMeeting}>
-                                    End Session
-                                </Button>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </ScrollReveal>
+            {waitingTickets && waitingTickets.length > 0 && (
+                <ScrollReveal delay={0.1}>
+                    <Card className="bg-blue-50 border-blue-200 shadow-lg">
+                        <CardHeader>
+                            <CardTitle className="text-2xl flex items-center gap-2 text-blue-800"><Video className="w-6 h-6"/> Student is Waiting!</CardTitle>
+                            <CardDescription className="text-blue-700">A student has entered the waiting room for their session.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {waitingTickets.map((ticket: any) => (
+                                <div key={ticket.id} className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white rounded-lg border">
+                                    <div>
+                                        <p className="font-semibold">Student: {ticket.studentName}</p>
+                                        <p className="text-sm text-muted-foreground">Ticket: {ticket.ticketCode}</p>
+                                    </div>
+                                    <Button onClick={() => handleJoinSession(ticket.id)}>
+                                        <Video className="mr-2 h-5 w-5" />
+                                        Join Session Now
+                                    </Button>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                </ScrollReveal>
+            )}
 
             {/* Quick Stats */}
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -268,11 +208,6 @@ const TeacherDashboard = () => {
 
 const StudentDashboard = () => {
     const subjects = getSubjects().slice(0, 3);
-    const router = useRouter();
-    const { toast } = useToast();
-    const { firestore } = useFirebase();
-    const [meetingCode, setMeetingCode] = React.useState('');
-    const [isJoining, setIsJoining] = React.useState(false);
 
     const userStats = [
         {
@@ -299,42 +234,6 @@ const StudentDashboard = () => {
     
     const recentTopics = getSubjects().flatMap(s => s.topics).slice(0,3);
 
-    const handleJoinMeeting = async () => {
-        const code = meetingCode.trim().toUpperCase();
-        if (!code) {
-            toast({
-                variant: 'destructive',
-                title: 'Meeting Code Required',
-                description: 'Please enter a valid meeting code to join.',
-            });
-            return;
-        }
-
-        setIsJoining(true);
-        try {
-            const meetingDocRef = doc(firestore, 'meetings', code);
-            const meetingDoc = await getDoc(meetingDocRef);
-
-            if (!meetingDoc.exists() || !meetingDoc.data().isActive) {
-                 toast({
-                    variant: 'destructive',
-                    title: 'Invalid or Inactive Code',
-                    description: 'The meeting code is not valid or the session has not started yet.',
-                });
-                return;
-            }
-            
-            const { meetingRoomId } = meetingDoc.data();
-            router.push(`/dashboard/meeting/${meetingRoomId}`);
-
-        } catch (error) {
-            console.error("Error joining meeting:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not join meeting.'});
-        } finally {
-            setIsJoining(false);
-        }
-    };
-
     return (
         <div className="space-y-8">
             <ScrollReveal>
@@ -343,26 +242,15 @@ const StudentDashboard = () => {
             </ScrollReveal>
 
             <ScrollReveal delay={0.1}>
-                <Card className="bg-primary/10 border-primary shadow-lg">
+                 <Card className="bg-primary/10 border-primary/20 shadow-lg">
                     <CardHeader>
                         <CardTitle className="text-2xl flex items-center gap-2"><Video className="w-6 h-6"/> Join a Live Session</CardTitle>
-                        <CardDescription>Enter the meeting code provided by your teacher to jump into the class.</CardDescription>
+                        <CardDescription>Have a ticket? Go to 'My Bookings' to enter the waiting room for your session.</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <Input 
-                            placeholder="Enter code (e.g., SYL-ABCD)" 
-                            className="text-lg h-12 max-w-sm bg-background"
-                            value={meetingCode}
-                            onChange={(e) => setMeetingCode(e.target.value)}
-                        />
-                        <Button 
-                            size="lg" 
-                            onClick={handleJoinMeeting}
-                            disabled={isJoining}
-                            className="w-full sm:w-auto"
-                        >
-                            {isJoining ? "Joining..." : "Join Meeting"}
-                        </Button>
+                    <CardContent>
+                         <Button asChild size="lg">
+                            <Link href="/dashboard/bookings">Go to My Bookings</Link>
+                         </Button>
                     </CardContent>
                 </Card>
             </ScrollReveal>
