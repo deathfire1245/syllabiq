@@ -71,10 +71,10 @@ export function SidebarNav({ isMobile = false }: { isMobile?: boolean }) {
   const navClass = isMobile ? "flex flex-col gap-2 p-4" : "fixed top-0 left-0 h-full w-64 bg-card border-r z-50 hidden md:flex md:flex-col";
 
   return (
-    <nav className={cn(navClass, "bg-sidebar text-sidebar-foreground")}>
+    <nav className={cn(navClass)}>
       {!isMobile && (
-        <div className="flex items-center h-16 border-b px-6 border-sidebar-border">
-          <Logo className="text-sidebar-foreground" />
+        <div className="flex items-center h-16 border-b px-6">
+          <Logo />
         </div>
       )}
       <div className="flex-1 overflow-y-auto">
@@ -86,8 +86,8 @@ export function SidebarNav({ isMobile = false }: { isMobile?: boolean }) {
                     <Collapsible key={index} defaultOpen={isAnySubItemActive}>
                         <CollapsibleTrigger className="w-full">
                            <div className={cn(
-                                "flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/80 transition-all hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                                isAnySubItemActive && "bg-sidebar-accent text-sidebar-foreground font-medium"
+                                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary",
+                                isAnySubItemActive && "bg-primary/10 text-primary font-medium"
                             )}>
                                 <item.icon className="h-5 w-5" />
                                 {item.label}
@@ -102,8 +102,8 @@ export function SidebarNav({ isMobile = false }: { isMobile?: boolean }) {
                                         key={subItem.href}
                                         href={subItem.href}
                                         className={cn(
-                                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/70 transition-all hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                                        isActive && "text-sidebar-foreground font-medium"
+                                        "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary",
+                                        isActive && "bg-primary/10 text-primary font-medium"
                                         )}
                                     >
                                         <subItem.icon className="h-5 w-5" />
@@ -121,8 +121,8 @@ export function SidebarNav({ isMobile = false }: { isMobile?: boolean }) {
                 key={item.href}
                 href={item.href!}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/80 transition-all hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                  isActive && "bg-sidebar-accent text-sidebar-foreground font-medium"
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary",
+                  isActive && "bg-primary/10 text-primary font-medium"
                 )}
               >
                 <item.icon className="h-5 w-5" />
