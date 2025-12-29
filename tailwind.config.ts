@@ -20,9 +20,10 @@ export default {
         'radial-gradient-spotlight': 'radial-gradient(circle at var(--mouse-x) var(--mouse-y), hsl(var(--primary) / 0.4), hsl(var(--primary) / 0) 20%)',
       },
       fontFamily: {
-        body: ['"PT Sans"', 'sans-serif'],
-        headline: ['"PT Sans"', 'sans-serif'],
+        body: ['var(--font-pt-sans)', 'sans-serif'],
+        headline: ['var(--font-pt-sans)', 'sans-serif'],
         code: ['monospace'],
+        sans: ['var(--font-geist-sans)'],
       },
       colors: {
         background: 'hsl(var(--background))',
