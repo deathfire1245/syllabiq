@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -9,6 +10,7 @@ import { useUser } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Logo } from "@/components/Logo";
 
 
 const studentNavItems = [
