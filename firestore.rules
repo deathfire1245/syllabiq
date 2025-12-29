@@ -87,8 +87,9 @@ service cloud.firestore {
         // - Admins can list all tickets.
         allow list: if isSignedIn() && 
                     (
-                      (request.query.keys().hasAny(['studentId'])) ||
-                      (request.query.keys().hasAny(['teacherId'])) ||
+                      (request.query.where.size() == 1 && request.query.where[0][0] == 'studentId' && request.query.where[0][2] == request.auth.uid) ||
+                      (request.query.where.size() == 1 && request.query.where[0][0] == 'teacherId' && request.query.where[0][2] == request.auth.uid) ||
+                      (request.query.where.size() == 2 && request.query.where[0][0] == 'teacherId' && request.query.where[0][2] == request.auth.uid && request.query.where[1][0] == 'status' && request.query.where[1][2] == 'WAITING_FOR_TEACHER') ||
                       isAdmin(request.auth.uid)
                     );
 
@@ -116,8 +117,8 @@ service cloud.firestore {
     //----------------------------------------------------------------------
     //  WHITEBOARD RULES
     //----------------------------------------------------------------------
-    match /whiteboards/{meetingId}/{documents=**} {
-      allow read, write: if isSignedIn(); // Allow any authenticated user in the meeting to interact
+    match /whiteboards/{meetingId}/strokes/{strokeId} {
+      allow read, write: if isSignedIn(); 
     }
   }
 }
