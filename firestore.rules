@@ -85,9 +85,10 @@ service cloud.firestore {
         // - Students can list their own tickets by their studentId.
         // - Teachers can list tickets for waiting students.
         // - Admins can list all tickets.
-        allow list: if isSignedIn() && (
+       allow list: if isSignedIn() && (
           (request.query.where.size() > 0 && request.query.where[0][0] == 'studentId' && request.query.where[0][2] == request.auth.uid) ||
           (request.query.where.size() > 0 && request.query.where[0][0] == 'teacherId' && request.query.where[0][2] == request.auth.uid) ||
+          (isTeacher(request.auth.uid) && request.query.where[0][0] == 'teacherId' && request.query.where[0][2] == request.auth.uid && request.query.where[1][0] == 'status' && request.query.where[1][2] == 'WAITING_FOR_TEACHER') ||
           isAdmin(request.auth.uid)
         );
 

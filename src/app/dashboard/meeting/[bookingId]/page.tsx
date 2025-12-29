@@ -235,7 +235,8 @@ const Whiteboard = React.forwardRef<
             tool,
             shape,
             color,
-            size
+            size,
+            timestamp: serverTimestamp(),
         });
         
         setIsDrawing(false);
@@ -300,6 +301,7 @@ const Whiteboard = React.forwardRef<
                 shape: null,
                 color: '#ffffff',
                 size: 9999,
+                timestamp: serverTimestamp(),
             });
         }
     }));
@@ -532,7 +534,7 @@ export default function MeetingPage() {
     router.replace('/dashboard');
   };
 
-   const handleStroke = async (stroke: Omit<Stroke, 'id'>) => {
+   const handleStroke = async (stroke: Omit<Stroke, 'id' | 'timestamp'> & {timestamp: any}) => {
         if (!strokesCollectionRef) return;
         
         if (stroke.tool === 'eraser' && stroke.size === 9999) {
@@ -643,7 +645,7 @@ export default function MeetingPage() {
                   {viewMode === 'whiteboard' ? (
                       <Whiteboard 
                         ref={whiteboardRef} 
-                        isActive={isTeacher} 
+                        isActive={true} 
                         tool={wbTool}
                         shape={wbShape}
                         color={wbColor} 
@@ -718,7 +720,7 @@ export default function MeetingPage() {
 
        <footer className="flex-shrink-0 flex justify-between items-center mt-2">
          <div className="flex items-center gap-2">
-            {isTeacher && viewMode === 'whiteboard' && (
+            {viewMode === 'whiteboard' && (
               <motion.div 
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -818,7 +820,7 @@ export default function MeetingPage() {
                   </>
                 )}
 
-                 {isTeacher && (
+                 
                   <>
                      <div className="h-8 w-px bg-gray-300 mx-1"></div>
                       <Tooltip><TooltipTrigger asChild>
@@ -827,6 +829,7 @@ export default function MeetingPage() {
                           size="icon" 
                           className={cn("rounded-full h-12 w-12 transition-all", viewMode === 'screen' && "bg-blue-100 text-blue-600 hover:bg-blue-200")}
                           onClick={handleToggleScreenShare}
+                          disabled={!isTeacher}
                         >
                           <Monitor className="w-6 h-6"/>
                         </Button>
@@ -843,7 +846,7 @@ export default function MeetingPage() {
                         </Button>
                       </TooltipTrigger><TooltipContent><p>{viewMode === 'whiteboard' ? "Exit Whiteboard" : "Open Whiteboard"}</p></TooltipContent></Tooltip>
                   </>
-                )}
+                
 
                 <div className="h-8 w-px bg-gray-300 mx-1"></div>
                 
@@ -860,4 +863,3 @@ export default function MeetingPage() {
   );
 }
 
-    
