@@ -6,19 +6,21 @@ import { ScrollReveal } from "@/components/ScrollReveal";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Video, CalendarX2, Ticket, Clock, AlertTriangle } from "lucide-react";
+import { Video, CalendarX2, Ticket, Clock, AlertTriangle, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { format } from 'date-fns';
 
 interface Ticket {
   id: string;
   ticketCode: string;
   teacherId: string;
   teacherName: string;
+  studentId: string;
   studentName: string;
   slot: { day: string; time: string };
   status: 'PAID' | 'WAITING_FOR_TEACHER' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'REFUND_PROCESSED';
@@ -64,7 +66,7 @@ const Countdown = ({ targetDate, onTimeout }: { targetDate: Date, onTimeout: () 
   );
 };
 
-const TicketCard = ({ ticket }: { ticket: Ticket }) => {
+const StudentTicketCard = ({ ticket }: { ticket: Ticket }) => {
     const router = useRouter();
     const { firestore } = useFirebase();
     const { toast } = useToast();
@@ -171,18 +173,68 @@ const CancelledSessionView = ({ onBack }: { onBack: () => void }) => (
     </div>
 )
 
+const TeacherBookingsView = ({ tickets }: { tickets: Ticket[] | null}) => {
+    if (!tickets || tickets.length === 0) {
+        return (
+             <ScrollReveal className="flex flex-col items-center justify-center h-[60vh] text-center">
+                <Ticket className="w-16 h-16 text-muted-foreground mb-4" />
+                <h2 className="text-2xl font-bold">No Upcoming Bookings</h2>
+                <p className="text-muted-foreground mt-2">
+                    You have no sessions booked by students yet.
+                </p>
+            </ScrollReveal>
+        )
+    }
 
-export default function MyBookingsPage() {
-    const { user, isUserLoading } = useUser();
-    const { firestore } = useFirebase();
+    const upcomingSessions = tickets.filter(t => t.status === 'PAID' || t.status === 'WAITING_FOR_TEACHER');
+
+     return (
+        <div className="space-y-8">
+            <ScrollReveal>
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight">My Bookings</h1>
+                <p className="text-muted-foreground mt-2 text-lg">
+                    Here are your upcoming scheduled sessions with students.
+                </p>
+            </ScrollReveal>
+             <Card>
+                <CardHeader>
+                    <CardTitle>Upcoming Sessions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        {upcomingSessions.length > 0 ? upcomingSessions.map(ticket => (
+                            <div key={ticket.id} className="flex items-center justify-between p-4 border rounded-lg bg-secondary/50">
+                                <div className="flex items-center gap-4">
+                                     <Avatar>
+                                        <AvatarImage src={`https://picsum.photos/seed/${ticket.studentName}/100`} />
+                                        <AvatarFallback>{ticket.studentName.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="font-semibold">{ticket.studentName}</p>
+                                        <p className="text-sm text-muted-foreground">{ticket.slot.day} @ {ticket.slot.time}</p>
+                                    </div>
+                                </div>
+                                {ticket.status === 'WAITING_FOR_TEACHER' ? (
+                                    <Button size="sm" asChild>
+                                        <Link href={`/dashboard/meeting/${ticket.id}`}>Join Now</Link>
+                                    </Button>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">Scheduled</p>
+                                )}
+                            </div>
+                        )) : (
+                            <p className="text-muted-foreground text-center py-4">No upcoming sessions.</p>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
+const StudentBookingsView = ({ tickets }: { tickets: Ticket[] | null }) => {
     const router = useRouter();
-
-    const ticketsQuery = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
-        return query(collection(firestore, "tickets"), where("studentId", "==", user.uid));
-    }, [user, firestore]);
-    
-    const { data: tickets, isLoading: areTicketsLoading } = useCollection<Ticket>(ticketsQuery);
+    const { firestore } = useFirebase();
 
     const paidTickets = React.useMemo(() => tickets?.filter(t => t.status === 'PAID') || [], [tickets]);
     const waitingTicket = React.useMemo(() => tickets?.find(t => t.status === 'WAITING_FOR_TEACHER'), [tickets]);
@@ -198,20 +250,7 @@ export default function MyBookingsPage() {
     const handleResetCancelled = async () => {
         if (!cancelledTicket || !firestore) return;
         const ticketRef = doc(firestore, 'tickets', cancelledTicket.id);
-        await updateDoc(ticketRef, { status: 'REFUND_PROCESSED', updatedAt: serverTimestamp() }); // Example of final state
-    }
-
-
-    if (areTicketsLoading || isUserLoading) {
-        return (
-            <div className="space-y-8">
-                <Skeleton className="h-10 w-1/3" />
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    <Skeleton className="h-64 w-full" />
-                    <Skeleton className="h-64 w-full" />
-                </div>
-            </div>
-        );
+        await updateDoc(ticketRef, { status: 'REFUND_PROCESSED', updatedAt: serverTimestamp() });
     }
     
     if (waitingTicket) {
@@ -249,10 +288,48 @@ export default function MyBookingsPage() {
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {paidTickets.map((ticket, index) => (
             <ScrollReveal key={ticket.id} delay={index * 0.1}>
-              <TicketCard ticket={ticket} />
+              <StudentTicketCard ticket={ticket} />
             </ScrollReveal>
         ))}
       </div>
     </div>
   );
+}
+
+
+export default function MyBookingsPage() {
+    const { user, isUserLoading } = useUser();
+    const { firestore } = useFirebase();
+    const [userRole, setUserRole] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        const role = localStorage.getItem("userRole");
+        setUserRole(role);
+    }, []);
+
+    const ticketsQuery = useMemoFirebase(() => {
+        if (!user || !firestore || !userRole) return null;
+        
+        const filterField = userRole === 'student' ? 'studentId' : 'teacherId';
+        return query(collection(firestore, "tickets"), where(filterField, "==", user.uid));
+
+    }, [user, firestore, userRole]);
+    
+    const { data: tickets, isLoading: areTicketsLoading } = useCollection<Ticket>(ticketsQuery);
+
+    if (areTicketsLoading || isUserLoading || !userRole) {
+        return (
+            <div className="space-y-8">
+                <Skeleton className="h-10 w-1/3" />
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <Skeleton className="h-64 w-full" />
+                    <Skeleton className="h-64 w-full" />
+                </div>
+            </div>
+        );
+    }
+    
+    return userRole === 'teacher' 
+        ? <TeacherBookingsView tickets={tickets} />
+        : <StudentBookingsView tickets={tickets} />;
 }
