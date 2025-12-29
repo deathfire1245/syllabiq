@@ -405,12 +405,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <Button onClick={handleTestMeeting} variant="destructive" className="fixed bottom-20 right-8 z-50">
-        <FlaskRound className="mr-2 h-4 w-4" /> Test Meeting Room
-      </Button>
       {userRole === "teacher" ? <TeacherDashboard /> : <StudentDashboard />}
     </>
   )
 }
-
-    
