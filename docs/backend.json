@@ -131,6 +131,30 @@
         "refundEligible": { "type": "boolean", "description": "Indicates if the ticket is eligible for a refund." }
       },
       "required": ["ticketCode", "studentId", "teacherId", "status", "price", "duration", "createdAt"]
+    },
+    "WhiteboardStroke": {
+      "title": "Whiteboard Stroke",
+      "description": "A single drawing action on a whiteboard.",
+      "type": "object",
+      "properties": {
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" }
+            },
+            "required": ["x", "y"]
+          }
+        },
+        "tool": { "type": "string", "enum": ["pen", "eraser", "shape", "text"] },
+        "shape": { "type": "string", "enum": ["rectangle", "circle", "line", "arrow", null] },
+        "color": { "type": "string" },
+        "size": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["points", "tool", "color", "size", "timestamp"]
     }
   },
   "auth": {
@@ -205,7 +229,29 @@
             }
           ]
         }
+      },
+      {
+        "path": "/whiteboards/{meetingId}/strokes/{strokeId}",
+        "definition": {
+          "entityName": "WhiteboardStroke",
+          "schema": {
+            "$ref": "#/backend/entities/WhiteboardStroke"
+          },
+          "description": "Stores individual drawing strokes for a meeting's whiteboard.",
+          "params": [
+            {
+              "name": "meetingId",
+              "description": "The unique identifier of the meeting."
+            },
+            {
+              "name": "strokeId",
+              "description": "The unique identifier of the whiteboard stroke."
+            }
+          ]
+        }
       }
     ]
   }
 }
+
+    

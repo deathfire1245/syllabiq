@@ -85,7 +85,12 @@ service cloud.firestore {
         // - Students can list their own tickets.
         // - Teachers can list tickets assigned to them.
         // - Admins can list all tickets.
-        allow list: if isSignedIn();
+        allow list: if isSignedIn() && 
+                    (
+                      (isStudent(request.auth.uid) && request.query.where.studentId == request.auth.uid) ||
+                      (isTeacher(request.auth.uid) && request.query.where.teacherId == request.auth.uid) ||
+                      isAdmin(request.auth.uid)
+                    );
 
         // CREATE: Only students can create tickets for themselves.
         // Exception: Any user can create a ticket for the test meeting room.
@@ -107,5 +112,14 @@ service cloud.firestore {
     match /participants/{meetingRoomId}/{presence=**} {
       allow read, write: if isSignedIn();
     }
+    
+    //----------------------------------------------------------------------
+    //  WHITEBOARD RULES
+    //----------------------------------------------------------------------
+    match /whiteboards/{meetingId}/{documents=**} {
+      allow read, write: if isSignedIn(); // Allow any authenticated user in the meeting to interact
+    }
   }
 }
+
+    

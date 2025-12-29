@@ -14,10 +14,21 @@ import { Slider } from "@/components/ui/slider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
+import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, doc, addDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
 type WhiteboardTool = 'pen' | 'eraser' | 'shape' | 'text';
 type ShapeType = 'rectangle' | 'circle' | 'line' | 'arrow';
+
+interface Stroke {
+    id: string;
+    points: {x: number, y: number}[];
+    tool: WhiteboardTool;
+    shape: ShapeType | null;
+    color: string;
+    size: number;
+}
 
 
 interface Participant {
@@ -78,13 +89,61 @@ const ParticipantVideo = ({ stream, cameraOn, micOn, name, isLocal = false, isMa
 
 const Whiteboard = React.forwardRef<
     { clear: () => void; },
-    { isActive: boolean; tool: WhiteboardTool; shape: ShapeType | null; color: string; size: number;}
->(({ isActive, tool, shape, color, size }, ref) => {
+    { 
+        isActive: boolean; 
+        tool: WhiteboardTool; 
+        shape: ShapeType | null; 
+        color: string; 
+        size: number;
+        onStroke: (stroke: Omit<Stroke, 'id'>) => void;
+        initialStrokes: Stroke[];
+        clearStrokesSignal: number;
+    }
+>(({ isActive, tool, shape, color, size, onStroke, initialStrokes, clearStrokesSignal }, ref) => {
     const canvasRef = React.useRef<HTMLCanvasElement>(null);
     const contextRef = React.useRef<CanvasRenderingContext2D | null>(null);
     const [isDrawing, setIsDrawing] = React.useState(false);
-    const [startPoint, setStartPoint] = React.useState<{x: number, y: number} | null>(null);
+    const [currentPoints, setCurrentPoints] = React.useState<{x: number, y: number}[]>([]);
     const [snapshot, setSnapshot] = React.useState<ImageData | null>(null);
+
+    const drawAllStrokes = React.useCallback((strokes: Stroke[]) => {
+        const ctx = contextRef.current;
+        const canvas = canvasRef.current;
+        if (!ctx || !canvas) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+
+        strokes.forEach(stroke => {
+            ctx.strokeStyle = stroke.color;
+            ctx.lineWidth = stroke.size;
+            ctx.globalCompositeOperation = stroke.tool === 'eraser' ? 'destination-out' : 'source-over';
+            
+            ctx.beginPath();
+            if (stroke.points.length > 0) {
+                 ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+            }
+
+            if (stroke.tool === 'pen' || stroke.tool === 'eraser') {
+                stroke.points.forEach(point => ctx.lineTo(point.x, point.y));
+            } else if (stroke.tool === 'shape' && stroke.points.length > 1) {
+                const start = stroke.points[0];
+                const end = stroke.points[stroke.points.length - 1];
+                drawShape(ctx, stroke.shape, start.x, start.y, end.x, end.y, stroke.size);
+            }
+            ctx.stroke();
+        });
+    }, []);
+
+    React.useEffect(() => {
+        drawAllStrokes(initialStrokes);
+    }, [initialStrokes, drawAllStrokes]);
+    
+     React.useEffect(() => {
+        if(clearStrokesSignal > 0) {
+            drawAllStrokes([]);
+        }
+    }, [clearStrokesSignal, drawAllStrokes]);
 
     React.useEffect(() => {
         const canvas = canvasRef.current;
@@ -93,6 +152,10 @@ const Whiteboard = React.forwardRef<
         const handleResize = () => {
             const dpr = window.devicePixelRatio || 1;
             const rect = canvas.getBoundingClientRect();
+            
+            // Preserve drawing buffer
+            const tempSnapshot = contextRef.current?.getImageData(0, 0, canvas.width, canvas.height);
+
             canvas.width = rect.width * dpr;
             canvas.height = rect.height * dpr;
             const ctx = canvas.getContext('2d');
@@ -100,13 +163,12 @@ const Whiteboard = React.forwardRef<
                 ctx.scale(dpr, dpr);
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
-                 if(contextRef.current) {
-                    const oldCtx = contextRef.current;
-                    ctx.strokeStyle = oldCtx.strokeStyle;
-                    ctx.lineWidth = oldCtx.lineWidth;
-                    ctx.globalCompositeOperation = oldCtx.globalCompositeOperation;
-                }
                 contextRef.current = ctx;
+
+                // Restore drawing buffer and redraw strokes
+                if (tempSnapshot) {
+                    drawAllStrokes(initialStrokes);
+                }
             }
         };
 
@@ -114,7 +176,7 @@ const Whiteboard = React.forwardRef<
         handleResize();
 
         return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    }, [initialStrokes, drawAllStrokes]);
     
     React.useEffect(() => {
         if (contextRef.current) {
@@ -149,9 +211,9 @@ const Whiteboard = React.forwardRef<
         const ctx = contextRef.current;
         if (!ctx || !isActive) return;
 
-        const { x, y } = getCoords(event);
+        const point = getCoords(event);
         setIsDrawing(true);
-        setStartPoint({x, y});
+        setCurrentPoints([point]);
 
         if (tool === 'shape' || tool === 'text') {
             const canvas = canvasRef.current!;
@@ -159,52 +221,51 @@ const Whiteboard = React.forwardRef<
         }
         
         ctx.beginPath();
-        ctx.moveTo(x, y);
+        ctx.moveTo(point.x, point.y);
     };
 
     const finishDrawing = (event: React.MouseEvent | React.TouchEvent) => {
         event.preventDefault();
-        if (!isDrawing || !contextRef.current) return;
+        if (!isDrawing || !contextRef.current || currentPoints.length === 0) return;
         
-        if (tool === 'shape' && startPoint) {
-            const { x, y } = getCoords(event);
-            drawShape(startPoint.x, startPoint.y, x, y);
-        } else if (tool === 'text' && startPoint) {
-            const text = prompt("Enter text:");
-            if (text) {
-                contextRef.current.fillStyle = color;
-                contextRef.current.font = `${size * 3}px sans-serif`;
-                contextRef.current.fillText(text, startPoint.x, startPoint.y);
-            }
-        } else {
-            contextRef.current.closePath();
-        }
+        const finalPoints = [...currentPoints, getCoords(event)];
+        
+        onStroke({
+            points: finalPoints,
+            tool,
+            shape,
+            color,
+            size
+        });
         
         setIsDrawing(false);
-        setStartPoint(null);
+        setCurrentPoints([]);
         setSnapshot(null);
     };
 
     const draw = (event: React.MouseEvent | React.TouchEvent) => {
         event.preventDefault();
         if (!isDrawing || !contextRef.current) return;
-        const { x, y } = getCoords(event);
+        const point = getCoords(event);
+        
+        setCurrentPoints(prev => [...prev, point]);
 
         if (tool === 'pen' || tool === 'eraser') {
-            contextRef.current.lineTo(x, y);
+            contextRef.current.lineTo(point.x, point.y);
             contextRef.current.stroke();
-        } else if (tool === 'shape' && startPoint && snapshot) {
+        } else if (tool === 'shape' && currentPoints.length > 0 && snapshot) {
             contextRef.current.putImageData(snapshot, 0, 0); // Restore canvas to pre-shape state
-            drawShape(startPoint.x, startPoint.y, x, y); // Draw the current shape preview
+            const startPoint = currentPoints[0];
+            drawShape(contextRef.current, shape, startPoint.x, startPoint.y, point.x, point.y, size); // Draw the current shape preview
+            contextRef.current.stroke();
         }
     };
     
-    const drawShape = (startX: number, startY: number, endX: number, endY: number) => {
-        const ctx = contextRef.current;
-        if (!ctx || !shape) return;
+    const drawShape = (ctx: CanvasRenderingContext2D, currentShape: ShapeType | null, startX: number, startY: number, endX: number, endY: number, currentSize: number) => {
+        if (!ctx || !currentShape) return;
 
         ctx.beginPath();
-        switch (shape) {
+        switch (currentShape) {
             case 'rectangle':
                 ctx.rect(startX, startY, endX - startX, endY - startY);
                 break;
@@ -220,7 +281,7 @@ const Whiteboard = React.forwardRef<
                 ctx.lineTo(endX, endY);
                 break;
             case 'arrow':
-                const headlen = 10 + size; // length of head in pixels
+                const headlen = 10 + currentSize; // length of head in pixels
                 const angle = Math.atan2(endY - startY, endX - startX);
                 ctx.moveTo(startX, startY);
                 ctx.lineTo(endX, endY);
@@ -229,16 +290,17 @@ const Whiteboard = React.forwardRef<
                 ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI / 6), endY - headlen * Math.sin(angle + Math.PI / 6));
                 break;
         }
-        ctx.stroke();
     };
 
     React.useImperativeHandle(ref, () => ({
         clear: () => {
-            const canvas = canvasRef.current;
-            if (canvas && contextRef.current) {
-                const dpr = window.devicePixelRatio || 1;
-                contextRef.current.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-            }
+            onStroke({
+                points: [],
+                tool: 'eraser',
+                shape: null,
+                color: '#ffffff',
+                size: 9999,
+            });
         }
     }));
 
@@ -323,6 +385,7 @@ export default function MeetingPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
+  const { firestore } = useFirebase();
   
   const [meetingRoomId, setMeetingRoomId] = React.useState<string | null>(null);
   const [userRole, setUserRole] = React.useState<string | null>(null);
@@ -345,6 +408,14 @@ export default function MeetingPage() {
   
   const [participants, setParticipants] = React.useState<Participant[]>([]);
   const [mainViewParticipant, setMainViewParticipant] = React.useState<Participant | null>(null);
+
+  const strokesCollectionRef = useMemoFirebase(() => {
+    if (!firestore || !meetingRoomId) return null;
+    return collection(firestore, 'whiteboards', meetingRoomId, 'strokes');
+  }, [firestore, meetingRoomId]);
+
+  const { data: strokes } = useCollection<Omit<Stroke, 'id'>>(strokesCollectionRef);
+  const [clearStrokesSignal, setClearStrokesSignal] = React.useState(0);
   
   const peerConnections = React.useRef<Map<string, any>>(new Map());
 
@@ -461,9 +532,38 @@ export default function MeetingPage() {
     router.replace('/dashboard');
   };
 
-  const handleClearWhiteboard = () => {
-    whiteboardRef.current?.clear();
-  };
+   const handleStroke = async (stroke: Omit<Stroke, 'id'>) => {
+        if (!strokesCollectionRef) return;
+        
+        if (stroke.tool === 'eraser' && stroke.size === 9999) {
+            // This is the clear signal
+            await addDoc(strokesCollectionRef, { type: 'clear', timestamp: serverTimestamp() });
+        } else {
+            await addDoc(strokesCollectionRef, { ...stroke, timestamp: serverTimestamp() });
+        }
+    };
+
+    const handleClearWhiteboard = () => {
+        if (!strokesCollectionRef) return;
+         addDoc(strokesCollectionRef, { type: 'clear', timestamp: serverTimestamp() });
+    };
+
+    const processedStrokes = React.useMemo(() => {
+        if (!strokes) return [];
+        let currentStrokes: Stroke[] = [];
+        // The `useCollection` hook does not guarantee order, so we need to sort by timestamp if available
+        const sortedEvents = strokes.sort((a: any, b: any) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+
+        for (const event of sortedEvents) {
+            if (event.type === 'clear') {
+                currentStrokes = [];
+            } else {
+                currentStrokes.push(event as Stroke);
+            }
+        }
+        return currentStrokes;
+    }, [strokes]);
+
   
   const handleParticipantClick = (participant: Participant) => {
     setMainViewParticipant(participant);
@@ -547,7 +647,10 @@ export default function MeetingPage() {
                         tool={wbTool}
                         shape={wbShape}
                         color={wbColor} 
-                        size={wbSize} 
+                        size={wbSize}
+                        onStroke={handleStroke}
+                        initialStrokes={processedStrokes}
+                        clearStrokesSignal={clearStrokesSignal}
                       />
                   ) : mainViewParticipant ? (
                     <div className="w-full h-full">
@@ -756,3 +859,5 @@ export default function MeetingPage() {
     </div>
   );
 }
+
+    
