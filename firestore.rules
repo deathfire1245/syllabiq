@@ -84,11 +84,7 @@ service cloud.firestore {
         // LIST: 
         // A user can list tickets if their UID is on the ticket as either student or teacher.
         // Admins can list all tickets.
-       allow list: if (isSignedIn() && request.query.where.size() > 0 && 
-                      ((request.query.where[0][0] == 'studentId' && request.query.where[0][2] == request.auth.uid) ||
-                       (request.query.where[0][0] == 'teacherId' && request.query.where[0][2] == request.auth.uid)
-                      )
-                    ) || isAdmin(request.auth.uid);
+       allow list: if (isSignedIn() && request.query.where[0][0] == 'studentId' && request.query.where[0][2] == request.auth.uid) || (isSignedIn() && request.query.where[0][0] == 'teacherId' && request.query.where[0][2] == request.auth.uid) || isAdmin(request.auth.uid);
 
         // CREATE: Only students can create tickets for themselves.
         // Exception: Any user can create a ticket for the test meeting room.
