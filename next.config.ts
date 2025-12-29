@@ -30,10 +30,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {
-    // Allow any origin for development purposes to enable multi-device testing.
-    allowedDevOrigins: ["**"]
-  },
 };
 
 export default nextConfig;
