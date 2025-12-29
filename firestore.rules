@@ -85,8 +85,8 @@ service cloud.firestore {
         // Allows queries like 'where("studentId", "==", uid)' or 'where("teacherId", "==", uid)'.
         // Also allows teachers to query for their waiting students. Admins can list everything.
        allow list: if (isSignedIn() && (
-                        request.query.get("studentId") == request.auth.uid ||
-                        request.query.get("teacherId") == request.auth.uid
+                        (request.query.get("studentId") == request.auth.uid && isStudent(request.auth.uid)) ||
+                        (request.query.get("teacherId") == request.auth.uid && isTeacher(request.auth.uid))
                      )) || isAdmin(request.auth.uid);
 
 
