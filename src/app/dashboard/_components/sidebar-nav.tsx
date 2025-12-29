@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { BookMarked, Home, Compass, CalendarClock, PlusCircle, User, Video, GraduationCap, Briefcase, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Logo } from "@/components/Logo";
 import { useUser } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";

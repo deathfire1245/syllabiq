@@ -164,7 +164,7 @@ export default function TutorsPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Confirm Ticket Purchase</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Purchase a ticket for a 1-hour session with {tutor.name} on {slot.day} at {slot.time} for ${tutor.costPerHour}?
+                                  Purchase a ticket for a 1-hour session with ${tutor.name} on ${slot.day} at ${slot.time} for ${tutor.costPerHour}?
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>

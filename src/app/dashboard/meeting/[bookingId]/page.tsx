@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, doc, addDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, serverTimestamp } from 'firebase/firestore';
 
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
 type WhiteboardTool = 'pen' | 'eraser' | 'shape' | 'text';
@@ -557,7 +557,7 @@ export default function MeetingPage() {
         const sortedEvents = strokes.sort((a: any, b: any) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
 
         for (const event of sortedEvents) {
-            if (event.type === 'clear') {
+            if ((event as any).type === 'clear') {
                 currentStrokes = [];
             } else {
                 currentStrokes.push(event as Stroke);
@@ -862,4 +862,3 @@ export default function MeetingPage() {
     </div>
   );
 }
-
