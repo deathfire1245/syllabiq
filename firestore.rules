@@ -82,14 +82,13 @@ service cloud.firestore {
         allow get: if isSignedIn() && (isOwner(resource.data.studentId) || isOwner(resource.data.teacherId) || isAdmin(request.auth.uid));
 
         // LIST: 
-        // - Students can list their own tickets.
-        // - Teachers can list their own tickets. They can also specifically query for waiting students.
+        // - Students can list their own tickets by their studentId.
+        // - Teachers can list their own tickets by their teacherId.
         // - Admins can list all tickets.
         allow list: if isSignedIn() && 
                     (
-                      (isStudent(request.auth.uid) && request.query.where.studentId == request.auth.uid) ||
-                      (isTeacher(request.auth.uid) && request.query.where.teacherId == request.auth.uid) ||
-                      (isTeacher(request.auth.uid) && request.query.where.teacherId == request.auth.uid && request.query.where.status == 'WAITING_FOR_TEACHER') ||
+                      (request.query.keys().hasAny(['studentId'])) ||
+                      (request.query.keys().hasAny(['teacherId'])) ||
                       isAdmin(request.auth.uid)
                     );
 
