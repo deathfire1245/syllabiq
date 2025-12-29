@@ -97,11 +97,11 @@ export function useCollection<T = any>(
           path,
         })
 
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
+        setError(contextualError); // Set local state for UI feedback if needed
+        setData(null);
+        setIsLoading(false);
 
-        // trigger global error propagation
+        // trigger global error propagation for developer overlay
         errorEmitter.emit('permission-error', contextualError);
       }
     );
