@@ -78,30 +78,69 @@ service cloud.firestore {
     //  TICKET RULES
     //----------------------------------------------------------------------
     match /tickets/{ticketId} {
-        // READ: Student who owns it, teacher assigned to it, or an admin can read.
-        allow get: if isSignedIn() && (isOwner(resource.data.studentId) || isOwner(resource.data.teacherId) || isAdmin(request.auth.uid));
+        // READ: Student who owns it or teacher assigned to it can read, but only within the valid time window. Admins can read anytime.
+        allow get: if isSignedIn() && 
+                    (
+                      (isOwner(resource.data.studentId) || isOwner(resource.data.teacherId))
+                       && request.time >= resource.data.validFrom 
+                       && request.time <= resource.data.validTill
+                    ) 
+                    || isAdmin(request.auth.uid);
 
-        // LIST: 
-        // Allows queries like 'where("studentId", "==", uid)' or 'where("teacherId", "==", uid)'.
-        // Also allows teachers to query for their waiting students. Admins can list everything.
+        // LIST: Allows queries like 'where("studentId", "==", uid)' or 'where("teacherId", "==", uid)'. Admins can list everything.
        allow list: if (isSignedIn() && (
                         (request.query.get("studentId") == request.auth.uid && isStudent(request.auth.uid)) ||
                         (request.query.get("teacherId") == request.auth.uid && isTeacher(request.auth.uid))
                      )) || isAdmin(request.auth.uid);
 
-
         // CREATE: Only students can create tickets for themselves.
-        // Exception: Any user can create a ticket for the test meeting room.
-        allow create: if (isStudent(request.auth.uid) && request.resource.data.studentId == request.auth.uid)
-                      || (isSignedIn() && request.resource.data.teacherId == 'test-teacher-id');
+        allow create: if isStudent(request.auth.uid) && request.resource.data.studentId == request.auth.uid;
 
         // UPDATE:
-        // - Student can only update status to 'WAITING_FOR_TEACHER'.
-        // - Teacher can only update status to 'ACTIVE', 'COMPLETED', or 'CANCELLED'.
+        // - Student can update status to 'WAITING_FOR_TEACHER' and perform the one-time 'check-in' (setting 'used' to true).
+        // - Teacher can update status to 'ACTIVE', 'COMPLETED', or 'CANCELLED'.
         // - Admins can update anything.
-        allow update: if (isStudent(request.auth.uid) && isOwner(resource.data.studentId) && request.resource.data.status == 'WAITING_FOR_TEACHER')
-                      || (isTeacher(request.auth.uid) && isOwner(resource.data.teacherId) && (request.resource.data.status == 'ACTIVE' || request.resource.data.status == 'COMPLETED' || request.resource.data.status == 'CANCELLED'))
-                      || isAdmin(request.auth.uid);
+        // - Core fields like IDs, timestamps, and order details are immutable after creation.
+        allow update: if 
+          // Student actions
+          (
+            isStudent(request.auth.uid) && isOwner(resource.data.studentId) &&
+            (
+              // Allow entering waiting room
+              (request.resource.data.status == 'WAITING_FOR_TEACHER' && resource.data.status == 'PAID')
+              ||
+              // Allow the one-time check-in (atomic transaction)
+              (
+                request.resource.data.used == true && resource.data.used == false && 
+                request.resource.data.checkInTime != null
+              )
+            ) &&
+            // Immutable fields for student
+            request.resource.data.studentId == resource.data.studentId &&
+            request.resource.data.teacherId == resource.data.teacherId &&
+            request.resource.data.createdAt == resource.data.createdAt &&
+            request.resource.data.orderId == resource.data.orderId
+          )
+        || 
+          // Teacher actions
+          (
+            isTeacher(request.auth.uid) && isOwner(resource.data.teacherId) && 
+            (
+              request.resource.data.status == 'ACTIVE' || 
+              request.resource.data.status == 'COMPLETED' || 
+              request.resource.data.status == 'CANCELLED'
+            ) &&
+            // Immutable fields for teacher
+            request.resource.data.studentId == resource.data.studentId &&
+            request.resource.data.teacherId == resource.data.teacherId &&
+            request.resource.data.createdAt == resource.data.createdAt &&
+            request.resource.data.orderId == resource.data.orderId &&
+            request.resource.data.used == resource.data.used
+          ) 
+        || 
+          // Admin can do anything
+          isAdmin(request.auth.uid);
+
 
         // DELETE: No one can delete tickets, for auditing.
         allow delete: if false;

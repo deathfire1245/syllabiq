@@ -10,7 +10,7 @@ import { Video, CalendarX2, Ticket, Clock, AlertTriangle, User } from "lucide-re
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, doc, updateDoc, serverTimestamp, runTransaction, getDoc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
@@ -27,6 +27,7 @@ interface Ticket {
   createdAt: any;
   activatedAt?: any;
   waitingSince?: any;
+  used: boolean;
 }
 
 const Countdown = ({ targetDate, onTimeout }: { targetDate: Date, onTimeout: () => void }) => {
@@ -66,6 +67,46 @@ const Countdown = ({ targetDate, onTimeout }: { targetDate: Date, onTimeout: () 
   );
 };
 
+
+/**
+ * Performs an atomic transaction to "check-in" the student, marking the ticket as used.
+ * This is an idempotent operation; it will only succeed once.
+ */
+const joinMeetingAndCheckIn = async (firestore: any, ticketId: string) => {
+    const ticketRef = doc(firestore, 'tickets', ticketId);
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const ticketDoc = await transaction.get(ticketRef);
+            if (!ticketDoc.exists()) {
+                throw "Ticket does not exist!";
+            }
+
+            const ticketData = ticketDoc.data();
+            // Only proceed if the ticket has not been used yet
+            if (ticketData.used) {
+                // If already used, we can just proceed to the waiting room without changing the DB.
+                console.log("Ticket already used, proceeding to waiting room.");
+                return; 
+            }
+
+            // Perform the check-in: mark as used and timestamp it.
+            transaction.update(ticketRef, { 
+                used: true,
+                checkInTime: serverTimestamp(),
+                status: 'WAITING_FOR_TEACHER', // Also update status here atomically
+                waitingSince: serverTimestamp(),
+                updatedAt: serverTimestamp() 
+            });
+        });
+        console.log("Transaction successfully committed!");
+        return true;
+    } catch (error) {
+        console.error("Transaction failed: ", error);
+        return false;
+    }
+}
+
+
 const StudentTicketCard = ({ ticket }: { ticket: Ticket }) => {
     const router = useRouter();
     const { firestore } = useFirebase();
@@ -75,18 +116,15 @@ const StudentTicketCard = ({ ticket }: { ticket: Ticket }) => {
     const handleEnterWaitingRoom = async () => {
         if(!firestore) return;
         setIsWaiting(true);
-        const ticketRef = doc(firestore, 'tickets', ticket.id);
-        try {
-            await updateDoc(ticketRef, { 
-                status: 'WAITING_FOR_TEACHER',
-                waitingSince: serverTimestamp(),
-                updatedAt: serverTimestamp()
-            });
-            // The listener on the page will handle showing the waiting room UI
-        } catch (error) {
-            toast({ variant: 'destructive', title: "Error", description: "Could not enter waiting room." });
+        
+        // The new atomic check-in function
+        const success = await joinMeetingAndCheckIn(firestore, ticket.id);
+
+        if (!success) {
+            toast({ variant: 'destructive', title: "Error", description: "Could not enter waiting room. Please try again." });
             setIsWaiting(false);
         }
+        // If successful, the real-time listener on the page will handle showing the waiting room UI
     }
 
     return (

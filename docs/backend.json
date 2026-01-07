@@ -115,6 +115,7 @@
       "description": "Represents a paid ticket for a one-on-one session.",
       "properties": {
         "ticketCode": { "type": "string", "description": "Unique human-readable code for the ticket." },
+        "orderId": { "type": "string", "description": "Idempotent unique identifier for the transaction (e.g., from a payment gateway)." },
         "studentId": { "type": "string", "description": "UID of the student who bought the ticket." },
         "teacherId": { "type": "string", "description": "UID of the teacher for whom the ticket is valid." },
         "status": { 
@@ -126,11 +127,15 @@
         "duration": { "type": "number", "description": "Session duration in minutes." },
         "commissionPercent": { "type": "number", "description": "Platform commission percentage." },
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of ticket creation." },
+        "validFrom": { "type": "string", "format": "date-time", "description": "The timestamp from which the ticket is valid (session start - 15m)." },
+        "validTill": { "type": "string", "format": "date-time", "description": "The timestamp until which the ticket is valid (session end + 30m)." },
+        "used": { "type": "boolean", "description": "Indicates if the ticket has been consumed to join a meeting." },
+        "checkInTime": { "type": "string", "format": "date-time", "description": "Timestamp when the student checked into the meeting." },
         "activatedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the session became active." },
         "endedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the session ended." },
         "refundEligible": { "type": "boolean", "description": "Indicates if the ticket is eligible for a refund." }
       },
-      "required": ["ticketCode", "studentId", "teacherId", "status", "price", "duration", "createdAt"]
+      "required": ["ticketCode", "orderId", "studentId", "teacherId", "status", "price", "duration", "createdAt", "validFrom", "validTill", "used"]
     },
     "WhiteboardStroke": {
       "title": "Whiteboard Stroke",
@@ -253,5 +258,3 @@
     ]
   }
 }
-
-    

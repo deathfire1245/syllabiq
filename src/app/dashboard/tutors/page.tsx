@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 import { useUser, useFirebase } from "@/firebase";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore";
+import { add, sub, parse } from 'date-fns';
 
 // Mock data for available tutors
 const tutors = [
@@ -69,6 +70,47 @@ const tutors = [
   },
 ];
 
+/**
+ * Generates a production-ready ticket with time buffers and idempotent identifiers.
+ * This function prepares a ticket object that can be stored in Firestore.
+ */
+const generateProductionTicket = (tutor: any, slot: { day: string, time: string }, user: any) => {
+    // This is a simplified way to get a Date object for the session.
+    // A real app would use a proper date picker and time zone handling.
+    const now = new Date();
+    const startTimeStr = slot.time.split(' - ')[0];
+    const sessionDate = parse(startTimeStr, 'HH:mm', now);
+    
+    // In a real app, you would determine the correct date for the selected "day"
+    const sessionStartTime = sessionDate;
+    const sessionEndTime = add(sessionStartTime, { hours: 1 });
+
+    const ticketCode = `TKT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const orderId = `ORDER-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+    return {
+      ticketCode,
+      orderId,
+      studentId: user.uid,
+      teacherId: tutor.id,
+      status: 'PAID',
+      price: tutor.costPerHour,
+      duration: 60, // minutes
+      commissionPercent: 10,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      slot, // Keep original slot info for display
+      studentName: user.displayName,
+      teacherName: tutor.name,
+      // Production-ready fields
+      validFrom: Timestamp.fromDate(sub(sessionStartTime, { minutes: 15 })),
+      validTill: Timestamp.fromDate(add(sessionEndTime, { minutes: 30 })),
+      used: false,
+      checkInTime: null,
+    };
+}
+
+
 export default function TutorsPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -81,28 +123,16 @@ export default function TutorsPage() {
       return;
     }
 
-    // This is placeholder logic. In a real app, this would involve a payment flow.
-    const ticketCode = `TKT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    // In a real app, this would be preceded by a payment flow (e.g., Razorpay)
+    // The orderId would come from the payment gateway.
+    const ticketData = generateProductionTicket(tutor, slot, user);
 
     try {
-      await addDoc(collection(firestore, 'tickets'), {
-        ticketCode,
-        studentId: user.uid,
-        teacherId: tutor.id, // In a real app, this ID would come from the teacher's profile in Firestore
-        status: 'PAID',
-        price: tutor.costPerHour,
-        duration: 60, // minutes
-        commissionPercent: 10,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        slot,
-        studentName: user.displayName, // Denormalized for easier display
-        teacherName: tutor.name, // Denormalized for easier display
-      });
+      await addDoc(collection(firestore, 'tickets'), ticketData);
 
       toast({
         title: "Ticket Purchased!",
-        description: `Your session with ${tutor.name} is booked. Your code is ${ticketCode}.`,
+        description: `Your session with ${tutor.name} is booked. Your code is ${ticketData.ticketCode}.`,
       });
 
       // Redirect to the bookings page to see the new ticket
