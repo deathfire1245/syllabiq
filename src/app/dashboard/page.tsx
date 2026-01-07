@@ -29,7 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { doc, setDoc, getDoc, serverTimestamp, updateDoc, collection, query, where, addDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp, updateDoc, collection, query, where, addDoc, getDocs } from "firebase/firestore";
 
 const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?: string, suffix?: string }) => {
   const ref = React.useRef<HTMLSpanElement>(null);
@@ -81,16 +81,46 @@ const TeacherDashboard = () => {
     
     const { data: waitingTickets } = useCollection(ticketsQuery);
     
-    const handleJoinSession = async (ticketId: string) => {
-        if (!firestore) return;
-        const ticketRef = doc(firestore, 'tickets', ticketId);
+    const handleJoinSession = async (ticket: any) => {
+        if (!firestore || !user) return;
+        
+        const meetingId = ticket.id;
+        const teacherId = user.uid;
+
+        // Idempotency Check: See if a teacher ticket for this meeting already exists.
+        const teacherTicketQuery = query(
+            collection(firestore, "tickets"),
+            where("meetingId", "==", meetingId),
+            where("userId", "==", teacherId),
+            where("role", "==", "teacher")
+        );
+
+        const existingTeacherTickets = await getDocs(teacherTicketQuery);
+
+        if (existingTeacherTickets.empty) {
+            // No existing ticket, create one.
+            const teacherTicketData = {
+                userId: teacherId,
+                teacherId: teacherId,
+                meetingId: meetingId,
+                sessionId: meetingId, // Assuming sessionId is the same as the ticket/meeting ID
+                role: "teacher",
+                status: "ACTIVE",
+                paymentStatus: "FREE",
+                price: 0,
+                createdAt: serverTimestamp(),
+            };
+            await addDoc(collection(firestore, "tickets"), teacherTicketData);
+        }
+        
+        const ticketRef = doc(firestore, 'tickets', ticket.id);
         try {
             await updateDoc(ticketRef, {
                 status: 'ACTIVE',
                 activatedAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
             });
-            router.push(`/dashboard/meeting/${ticketId}`);
+            router.push(`/dashboard/meeting/${ticket.id}`);
         } catch (error) {
             toast({ variant: 'destructive', title: "Error", description: "Could not start the session." });
         }
@@ -132,7 +162,7 @@ const TeacherDashboard = () => {
                                         <p className="font-semibold">Student: {ticket.studentName}</p>
                                         <p className="text-sm text-muted-foreground">Ticket: {ticket.ticketCode}</p>
                                     </div>
-                                    <Button onClick={() => handleJoinSession(ticket.id)}>
+                                    <Button onClick={() => handleJoinSession(ticket)}>
                                         <Video className="mr-2 h-5 w-5" />
                                         Join Session Now
                                     </Button>
@@ -392,3 +422,5 @@ export default function DashboardPage() {
     </>
   )
 }
+
+    

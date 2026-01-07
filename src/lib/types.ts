@@ -1,3 +1,4 @@
+
 export type Topic = {
   id: string;
   subjectId: string;
@@ -33,3 +34,17 @@ export type Grade = {
   name: string;
   subjects: Subject[];
 };
+
+export type Ticket = {
+  id: string;
+  userId: string;
+  teacherId: string;
+  meetingId: string;
+  role: 'student' | 'teacher';
+  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  paymentStatus: 'PAID' | 'FREE' | 'REFUNDED';
+  price: number;
+  createdAt: any;
+}
+
+    

@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, doc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
 type WhiteboardTool = 'pen' | 'eraser' | 'shape' | 'text';
@@ -387,7 +387,7 @@ export default function MeetingPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const { firestore } = useFirebase();
+  const { user, firestore } = useFirebase();
   
   const [meetingRoomId, setMeetingRoomId] = React.useState<string | null>(null);
   const [userRole, setUserRole] = React.useState<string | null>(null);
@@ -434,14 +434,32 @@ export default function MeetingPage() {
     setUserRole(role);
 
     const joinMeeting = async () => {
+      // Ticket validation logic
+      if (!user || !firestore) {
+          toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to join." });
+          router.replace('/login');
+          return;
+      }
+      
+      const ticketsRef = collection(firestore, "tickets");
+      const userTicketQuery = query(ticketsRef, where("meetingId", "==", roomId), where("userId", "==", user.uid));
+      const ticketSnapshot = await getDocs(userTicketQuery);
+
+      if (ticketSnapshot.empty) {
+          toast({ variant: "destructive", title: "Access Denied", description: "You do not have a valid ticket for this meeting." });
+          router.replace('/dashboard/bookings');
+          return;
+      }
+
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         localStreamRef.current = stream;
         setHasPermission(true);
 
         const localUser: Participant = {
-          uid: `user-${Date.now()}`,
-          name: role,
+          uid: user.uid,
+          name: user.displayName || role,
           role: role,
           cameraOn: true,
           micOn: true,
@@ -480,7 +498,7 @@ export default function MeetingPage() {
       localStreamRef.current?.getTracks().forEach(track => track.stop());
       screenStreamRef.current?.getTracks().forEach(track => track.stop());
     };
-  }, [params.bookingId, router, toast]);
+  }, [params.bookingId, router, toast, user, firestore]);
 
   
   const handleToggleMic = async () => {
@@ -862,3 +880,5 @@ export default function MeetingPage() {
     </div>
   );
 }
+
+    
