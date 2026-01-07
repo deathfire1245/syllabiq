@@ -15,30 +15,35 @@ const ticketsData = [
     studentName: "Alex Johnson",
     teacherName: "Dr. Evelyn Reed",
     status: "PAID",
+    refundable: false,
   },
   {
     ticketId: "TKT-67890",
     studentName: "Sam Lee",
     teacherName: "Prof. Eleanor Vance",
     status: "ACTIVE",
+    refundable: false,
   },
   {
     ticketId: "TKT-11223",
     studentName: "Jessica Wong",
     teacherName: "John Smith",
     status: "COMPLETED",
+    refundable: false,
   },
   {
     ticketId: "TKT-44556",
     studentName: "Michael Brown",
     teacherName: "Dr. Evelyn Reed",
     status: "CANCELLED",
+    refundable: true,
   },
    {
     ticketId: "TKT-99887",
     studentName: "Emily Davis",
     teacherName: "Prof. Eleanor Vance",
     status: "REFUND_PROCESSED",
+    refundable: false,
   },
 ];
 
@@ -81,6 +86,7 @@ export function TicketsTable() {
               <TableHead>Student Name</TableHead>
               <TableHead>Teacher Name</TableHead>
               <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-center">Refundable</TableHead>
               <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -93,9 +99,11 @@ export function TicketsTable() {
                 <TableCell className="text-center">
                   <Badge variant="outline" className={statusStyles[ticket.status]}>{ticket.status.replace(/_/g, ' ')}</Badge>
                 </TableCell>
+                <TableCell className="text-center">
+                    {ticket.refundable ? <Badge variant="destructive">YES</Badge> : <span className="text-muted-foreground">-</span>}
+                </TableCell>
                 <TableCell className="text-center space-x-2">
-                    <Button variant="outline" size="sm" className="h-8">Refund Student</Button>
-                    <Button variant="outline" size="sm" className="h-8">Release Payment</Button>
+                    <Button variant="outline" size="sm" className="h-8" disabled={!ticket.refundable}>Refund Student</Button>
                 </TableCell>
               </TableRow>
             ))}

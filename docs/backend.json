@@ -133,7 +133,9 @@
         "checkInTime": { "type": "string", "format": "date-time", "description": "Timestamp when the student checked into the meeting." },
         "activatedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the session became active." },
         "endedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the session ended." },
-        "refundEligible": { "type": "boolean", "description": "Indicates if the ticket is eligible for a refund." }
+        "refundable": { "type": "boolean", "description": "Indicates if the ticket is eligible for a refund." },
+        "cancelReason": { "type": "string", "enum": ["TEACHER_NO_SHOW"], "description": "Reason for cancellation, if any." },
+        "endedBy": { "type": "string", "enum": ["TEACHER", "STUDENT", "SYSTEM"], "description": "Who or what ended the session." }
       },
       "required": ["ticketCode", "orderId", "studentId", "teacherId", "status", "price", "duration", "createdAt", "validFrom", "validTill", "used"]
     },
