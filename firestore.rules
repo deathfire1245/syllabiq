@@ -90,7 +90,11 @@ service cloud.firestore {
         // LIST: Allows queries like 'where("studentId", "==", uid)' or 'where("teacherId", "==", uid)'. Admins can list everything.
        allow list: if (isSignedIn() && (
                         (request.query.get("studentId") == request.auth.uid && isStudent(request.auth.uid)) ||
-                        (request.query.get("teacherId") == request.auth.uid && isTeacher(request.auth.uid))
+                        (
+                          request.query.get("teacherId") == request.auth.uid && isTeacher(request.auth.uid) &&
+                          // This specific clause is needed for the teacher's "student is waiting" notification
+                          (request.query.get("status") == "WAITING_FOR_TEACHER" || request.query.get("status") == null)
+                        )
                      )) || isAdmin(request.auth.uid);
 
         // CREATE: Only students can create tickets for themselves.

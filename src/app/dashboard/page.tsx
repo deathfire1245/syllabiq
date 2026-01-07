@@ -369,23 +369,6 @@ export default function DashboardPage() {
     setUserRole(role);
   }, [isUserLoading]);
 
-  const handleTestMeeting = async () => {
-    if (!user || !firestore) return;
-    try {
-        const docRef = await addDoc(collection(firestore, "tickets"), {
-            studentId: user.uid,
-            teacherId: "test-teacher-id",
-            status: "ACTIVE",
-            createdAt: serverTimestamp(),
-            studentName: user.displayName || "Test Student",
-            teacherName: "Test Teacher"
-        });
-        router.push(`/dashboard/meeting/${docRef.id}`);
-    } catch(e) {
-        console.error("Could not create test meeting", e);
-    }
-  }
-
   if (isUserLoading) {
       return (
         <div className="p-8">
