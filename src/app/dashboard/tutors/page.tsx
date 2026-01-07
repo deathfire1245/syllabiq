@@ -86,23 +86,27 @@ const generateProductionTicket = (tutor: any, slot: { day: string, time: string 
     const sessionEndTime = add(sessionStartTime, { hours: 1 });
 
     const ticketCode = `TKT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    const orderId = `ORDER-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const orderId = `MOCK_ORDER_${Date.now()}`;
+    const meetingId = `MEET_${Date.now()}_${user.uid.substring(0,5)}`;
 
     return {
       ticketCode,
       orderId,
+      meetingId,
       studentId: user.uid,
       teacherId: tutor.id,
-      status: 'PAID',
+      status: 'PAID', // Initial status before check-in
+      paymentStatus: 'MOCK_PAID',
       price: tutor.costPerHour,
       duration: 60, // minutes
       commissionPercent: 10,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      activatedAt: null,
+      completedAt: null,
       slot, // Keep original slot info for display
       studentName: user.displayName,
       teacherName: tutor.name,
-      // Production-ready fields
       validFrom: Timestamp.fromDate(sub(sessionStartTime, { minutes: 15 })),
       validTill: Timestamp.fromDate(add(sessionEndTime, { minutes: 30 })),
       used: false,
@@ -123,8 +127,6 @@ export default function TutorsPage() {
       return;
     }
 
-    // In a real app, this would be preceded by a payment flow (e.g., Razorpay)
-    // The orderId would come from the payment gateway.
     const ticketData = generateProductionTicket(tutor, slot, user);
 
     try {
@@ -217,3 +219,5 @@ export default function TutorsPage() {
     </div>
   );
 }
+
+    
