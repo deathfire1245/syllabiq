@@ -4,9 +4,8 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useRouter } from "next/navigation";
-import { useUser } from "@/firebase";
-import { doc, getDoc } from "firebase/firestore";
-import { useFirestore } from "@/firebase";
+import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
+import { doc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AdminLayout({
@@ -19,41 +18,41 @@ export default function AdminLayout({
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
 
+  // Memoize the document reference to prevent re-renders
+  const userDocRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+
+  // Use the useDoc hook for real-time role checking
+  const { data: profile, isLoading: isProfileLoading } = useDoc(userDocRef);
+
   React.useEffect(() => {
-    const isAdminAuthenticated = sessionStorage.getItem("isAdminAuthenticated");
-    
-    if (isUserLoading) {
-      return; // Wait until user auth state is resolved
+    if (isUserLoading || isProfileLoading) {
+      return; // Wait until we have both user auth state and profile data
     }
 
-    if (isAdminAuthenticated !== "true" || !user) {
+    if (!user || !profile || profile.role !== 'admin') {
+      // If user is not logged in, has no profile, or is not an admin, redirect.
       router.replace("/locked");
-      return;
     }
+  }, [user, profile, isUserLoading, isProfileLoading, router]);
 
-    const verifyAdminRole = async () => {
-        if (user && firestore) {
-            const userDocRef = doc(firestore, "users", user.uid);
-            const userDoc = await getDoc(userDocRef);
-            if (!userDoc.exists() || userDoc.data().role !== 'admin') {
-                router.replace('/locked');
-            }
-        }
-    };
-    verifyAdminRole();
-
-  }, [router, user, isUserLoading, firestore]);
+  if (isUserLoading || isProfileLoading) {
+    return (
+      <div className="p-8">
+        <Skeleton className="h-16 w-full" />
+        <div className="flex gap-8 mt-8">
+          <Skeleton className="w-64 h-screen hidden md:block" />
+          <Skeleton className="flex-1 h-screen" />
+        </div>
+      </div>
+    );
+  }
   
-  if (isUserLoading) {
-      return (
-          <div className="p-8">
-              <Skeleton className="h-16 w-full" />
-              <div className="flex gap-8 mt-8">
-                <Skeleton className="w-64 h-screen hidden md:block" />
-                <Skeleton className="flex-1 h-screen" />
-              </div>
-          </div>
-      )
+  if (!profile || profile.role !== 'admin') {
+      // Render nothing while redirecting
+      return null;
   }
 
   return (

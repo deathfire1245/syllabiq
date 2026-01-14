@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebase } from "@/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, User } from "firebase/auth";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { getFirebaseErrorMessage } from "@/lib/firebase-errors";
 
@@ -36,27 +36,27 @@ export default function LoginPage() {
     },
   });
 
-  const handleUserLogin = async (user: any) => {
+  const handleUserLogin = async (user: User) => {
     if (!firestore) throw new Error("Firestore is not available");
     
     const userDocRef = doc(firestore, "users", user.uid);
     const userDoc = await getDoc(userDocRef);
 
     if (!userDoc.exists() || !userDoc.data()?.isActive) {
-      await auth.signOut();
+      if (auth) await auth.signOut(); // Ensure user is signed out if their DB record is invalid
       throw new Error("Your account does not exist or has been disabled.");
     }
     
     const userData = userDoc.data();
     
     // Update last login time
-    await updateDoc(userDocRef, { lastLoginAt: serverTimestamp() });
+    await updateDoc(userDocRef, { lastLogin: serverTimestamp() });
 
     localStorage.setItem('userRole', userData.role);
 
     toast({
       title: "Login Successful",
-      description: `Welcome back, ${userData.fullName || 'user'}!`,
+      description: `Welcome back, ${userData.name || 'user'}!`,
     });
 
     if (userData.role === 'admin') {
