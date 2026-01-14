@@ -54,7 +54,7 @@ export default function CreateCoursePage() {
     try {
       const parsedUrl = new URL(url);
       if (type === 'pdf') {
-        return parsedUrl.pathname.toLowerCase().endsWith('.pdf');
+        return parsedUrl.pathname.toLowerCase().endsWith('.pdf') || parsedUrl.hostname.includes('docs.google.com');
       }
       if (type === 'video') {
         const videoDomains = ['youtube.com', 'youtu.be', 'vimeo.com'];
@@ -74,7 +74,7 @@ export default function CreateCoursePage() {
             return;
         }
         if (!isValidUrl(content.url, content.type)) {
-            toast({ variant: 'destructive', title: "Validation Error", description: `Please provide a valid ${content.type === 'pdf' ? 'PDF' : 'video'} URL for "${content.title}".` });
+            toast({ variant: 'destructive', title: "Validation Error", description: `Please provide a valid ${content.type === 'pdf' ? 'PDF or Google Doc' : 'video'} URL for "${content.title}".` });
             return;
         }
     }
@@ -139,7 +139,7 @@ export default function CreateCoursePage() {
             <Card>
               <CardHeader>
                 <CardTitle>Course Content</CardTitle>
-                <CardDescription>Add topics by linking to PDFs or videos.</CardDescription>
+                <CardDescription>Add topics by linking to PDFs, Google Docs, or videos.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {courseContent.map((content, index) => (
@@ -160,13 +160,13 @@ export default function CreateCoursePage() {
                         </div>
                         <div className="space-y-2">
                            <Label htmlFor={`content-url-${content.id}`}>
-                                {content.type === 'pdf' ? 'PDF Link' : 'Video Link (YouTube, Vimeo)'}
+                                {content.type === 'pdf' ? 'PDF or Google Doc Link' : 'Video Link (YouTube, Vimeo)'}
                            </Label>
                            <div className="relative">
                                <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                <Input 
                                    id={`content-url-${content.id}`} 
-                                   placeholder={`https://example.com/your-file.${content.type === 'pdf' ? 'pdf' : 'mp4'}`} 
+                                   placeholder={`https://example.com/your-file...`} 
                                    value={content.url} 
                                    onChange={(e) => handleContentChange(content.id, 'url', e.target.value)}
                                    className="pl-9"
@@ -178,7 +178,7 @@ export default function CreateCoursePage() {
                 ))}
                  <div className="flex gap-4">
                      <Button variant="outline" onClick={() => handleAddContent('pdf')} className="w-full">
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add PDF Topic
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add PDF/Doc Topic
                     </Button>
                     <Button variant="outline" onClick={() => handleAddContent('video')} className="w-full">
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Video Topic
