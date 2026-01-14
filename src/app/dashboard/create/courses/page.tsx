@@ -12,6 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, Check, DollarSign, Book, Layers, PlusCircle, Trash2, Link as LinkIcon, FileText, Video } from "lucide-react";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { useFirebase, useUser } from "@/firebase";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { useRouter } from "next/navigation";
 
 const steps = [
   { id: 1, name: "Basic Info", icon: Book },
@@ -29,11 +32,23 @@ interface CourseContent {
 
 export default function CreateCoursePage() {
   const { toast } = useToast();
+  const router = useRouter();
+  const { firestore, user } = useFirebase();
+
   const [currentStep, setCurrentStep] = React.useState(1);
-  const [courseTitle, setCourseTitle] = React.useState("");
-  const [courseDescription, setCourseDescription] = React.useState("");
+  
+  const [courseData, setCourseData] = React.useState({
+      title: "",
+      description: "",
+      category: "",
+      difficulty: "",
+      price: "",
+      coverImage: "https://picsum.photos/seed/course-placeholder/600/400", // Default placeholder
+      imageHint: "course placeholder"
+  });
+
   const [courseContent, setCourseContent] = React.useState<CourseContent[]>([]);
-  const [price, setPrice] = React.useState("");
+  const [isPublishing, setIsPublishing] = React.useState(false);
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 4));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
@@ -54,7 +69,7 @@ export default function CreateCoursePage() {
     try {
       const parsedUrl = new URL(url);
       if (type === 'pdf') {
-        return parsedUrl.pathname.toLowerCase().endsWith('.pdf') || parsedUrl.hostname.includes('docs.google.com');
+        return parsedUrl.protocol === "https:" && (parsedUrl.pathname.toLowerCase().endsWith('.pdf') || parsedUrl.hostname.includes('docs.google.com'));
       }
       if (type === 'video') {
         const videoDomains = ['youtube.com', 'youtu.be', 'vimeo.com'];
@@ -66,24 +81,61 @@ export default function CreateCoursePage() {
     }
   };
   
-  const handlePublish = () => {
+  const handlePublish = async () => {
+     if (!firestore || !user) {
+        toast({ variant: 'destructive', title: "Error", description: "You must be logged in to create a course." });
+        return;
+    }
+    // Basic validation
+    if (!courseData.title || !courseData.description || !courseData.category || !courseData.difficulty || !courseData.price) {
+        toast({ variant: 'destructive', title: "Missing Information", description: "Please fill out all fields in the 'Basic Info' and 'Pricing' steps." });
+        setCurrentStep(1);
+        return;
+    }
+    if (courseContent.length === 0) {
+        toast({ variant: 'destructive', title: "No Content", description: "Please add at least one topic to your course." });
+        setCurrentStep(2);
+        return;
+    }
     // Validate content before publishing
     for (const content of courseContent) {
         if (!content.title.trim()) {
             toast({ variant: 'destructive', title: "Validation Error", description: `Please provide a title for all content items.` });
+            setCurrentStep(2);
             return;
         }
         if (!isValidUrl(content.url, content.type)) {
             toast({ variant: 'destructive', title: "Validation Error", description: `Please provide a valid ${content.type === 'pdf' ? 'PDF or Google Doc' : 'video'} URL for "${content.title}".` });
+            setCurrentStep(2);
             return;
         }
     }
+    
+    setIsPublishing(true);
 
-    toast({
-      title: "Course Published!",
-      description: `"${courseTitle}" is now live and available for students.`,
-    });
-    // Reset state or redirect
+    try {
+        await addDoc(collection(firestore, 'courses'), {
+            ...courseData,
+            authorId: user.uid,
+            author: user.displayName || "Anonymous Teacher",
+            createdAt: serverTimestamp(),
+            content: courseContent.map(({id, ...rest}) => rest), // Remove client-side ID
+            lessons: courseContent.length,
+        });
+
+        toast({
+          title: "Course Published!",
+          description: `"${courseData.title}" is now live and available for students.`,
+        });
+        
+        router.push('/dashboard/courses');
+
+    } catch (error) {
+        console.error("Error publishing course:", error);
+        toast({ variant: 'destructive', title: "Publishing Failed", description: "Could not save the course to the database. Please try again." });
+    } finally {
+        setIsPublishing(false);
+    }
   };
 
   const renderStepContent = () => {
@@ -99,27 +151,29 @@ export default function CreateCoursePage() {
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="course-title">Course Title</Label>
-                  <Input id="course-title" placeholder="e.g., Introduction to Calculus" value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} />
+                  <Input id="course-title" placeholder="e.g., Introduction to Calculus" value={courseData.title} onChange={(e) => setCourseData({...courseData, title: e.target.value})} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="course-description">Short Description</Label>
-                  <Textarea id="course-description" placeholder="Briefly explain what students will learn." value={courseDescription} onChange={(e) => setCourseDescription(e.target.value)} />
+                  <Textarea id="course-description" placeholder="Briefly explain what students will learn." value={courseData.description} onChange={(e) => setCourseData({...courseData, description: e.target.value})} />
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="category">Subject / Category</Label>
-                        <Select>
+                        <Select value={courseData.category} onValueChange={(value) => setCourseData({...courseData, category: value})}>
                             <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="math">Mathematics</SelectItem>
                                 <SelectItem value="science">Science</SelectItem>
                                 <SelectItem value="history">History</SelectItem>
+                                <SelectItem value="cs">Computer Science</SelectItem>
+                                <SelectItem value="english">English</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="difficulty">Difficulty Level</Label>
-                        <Select>
+                         <Select value={courseData.difficulty} onValueChange={(value) => setCourseData({...courseData, difficulty: value})}>
                             <SelectTrigger><SelectValue placeholder="Select a level" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="beginner">Beginner</SelectItem>
@@ -199,9 +253,9 @@ export default function CreateCoursePage() {
               <CardContent className="max-w-xs mx-auto">
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input type="number" placeholder="0.00" className="pl-10 text-xl h-12" value={price} onChange={(e) => setPrice(e.target.value)} />
+                  <Input type="number" placeholder="0.00" className="pl-10 text-xl h-12" value={courseData.price} onChange={(e) => setCourseData({...courseData, price: e.target.value})} />
                 </div>
-                 <p className="text-center text-sm text-muted-foreground mt-2">Currency is in USD.</p>
+                 <p className="text-center text-sm text-muted-foreground mt-2">Currency is in USD. Enter 0 for a free course.</p>
               </CardContent>
             </Card>
           </ScrollReveal>
@@ -215,7 +269,9 @@ export default function CreateCoursePage() {
               <CardDescription className="mt-2 mb-6">
                 Your course is ready to go live. Once published, students will be able to enroll.
               </CardDescription>
-              <Button size="lg" onClick={handlePublish}>Publish Course</Button>
+              <Button size="lg" onClick={handlePublish} disabled={isPublishing}>
+                  {isPublishing ? "Publishing..." : "Publish Course"}
+              </Button>
             </Card>
           </ScrollReveal>
         );

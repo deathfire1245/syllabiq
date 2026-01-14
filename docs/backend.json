@@ -6,115 +6,104 @@
       "type": "object",
       "description": "Represents a user within the SyllabiQ platform.",
       "properties": {
-        "uid": {
-          "type": "string",
-          "description": "Unique identifier for the User entity."
+        "uid": { "type": "string", "description": "Unique identifier for the User entity." },
+        "email": { "type": "string", "description": "Email address of the user.", "format": "email" },
+        "name": { "type": "string", "description": "Display name of the user." },
+        "role": { "type": "string", "description": "Role of the user, one of 'student', 'teacher', or 'admin'.", "enum": ["student", "teacher", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp indicating when the user was created." },
+        "lastLogin": { "type": "string", "format": "date-time", "description": "User's last login." },
+        "isActive": { "type": "boolean", "description": "Indicates if the user account is active." },
+        "profilePicture": { "type": "string", "format": "uri", "description": "URL of the user's profile picture." },
+        "studentProfile": {
+          "type": "object",
+          "properties": {
+            "gradeLevel": { "type": "string" },
+            "schoolBoard": { "type": "string" },
+            "preferredSubjects": { "type": "array", "items": { "type": "string" } },
+            "learningGoals": { "type": "string" },
+            "interests": { "type": "array", "items": { "type": "string" } }
+          }
         },
-        "email": {
-          "type": "string",
-          "description": "Email address of the user.",
-          "format": "email"
-        },
-        "name": {
-          "type": "string",
-          "description": "Display name of the user."
-        },
-        "role": {
-          "type": "string",
-          "description": "Role of the user, one of 'student', 'teacher', or 'admin'.",
-          "enum": ["student", "teacher", "admin"]
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Timestamp indicating when the user was created."
-        },
-        "lastLogin": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Timestamp indicating the user's last login."
-        },
-        "isActive": {
-          "type": "boolean",
-          "description": "Indicates if the user account is active."
-        },
-        "profilePicture": {
-            "type": "string",
-            "format": "uri",
-            "description": "URL of the user's profile picture."
+        "teacherProfile": {
+          "type": "object",
+          "properties": {
+            "subjects": { "type": "array", "items": { "type": "string" } },
+            "qualifications": { "type": "array", "items": { "type": "string" } },
+            "experienceYears": { "type": "number" },
+            "hourlyRate": { "type": "number" },
+            "bio": { "type": "string" },
+            "availability": {
+              "type": "object",
+              "properties": {
+                "days": { "type": "array", "items": { "type": "string" } },
+                "timeSlots": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "isVerified": { "type": "boolean" }
+          }
         }
       },
       "required": ["uid", "email", "role", "name", "createdAt", "isActive"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Represents a course created by a teacher.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "difficulty": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced"] },
+        "price": { "type": "string" },
+        "coverImage": { "type": "string", "format": "uri" },
+        "imageHint": { "type": "string" },
+        "authorId": { "type": "string" },
+        "author": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lessons": { "type": "number" },
+        "content": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": { "type": "string" },
+              "type": { "type": "string", "enum": ["pdf", "video"] },
+              "url": { "type": "string", "format": "uri" }
+            },
+            "required": ["title", "type", "url"]
+          }
+        }
+      },
+      "required": ["title", "description", "authorId", "author", "createdAt", "content"]
     },
     "Meeting": {
       "title": "Meeting",
       "type": "object",
       "description": "Represents a meeting session within the SyllabiQ platform.",
       "properties": {
-        "meetingCode": {
-          "type": "string",
-          "description": "Unique human-readable code for the meeting."
-        },
-        "meetingRoomId": {
-          "type": "string",
-          "description": "Unique identifier for the meeting room (UUID)."
-        },
-        "hostUid": {
-          "type": "string",
-          "description": "Reference to the User who is hosting the meeting."
-        },
-        "isActive": {
-          "type": "boolean",
-          "description": "Indicates whether the meeting is currently active."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the meeting was created.",
-          "format": "date-time"
-        }
+        "meetingCode": { "type": "string", "description": "Unique human-readable code for the meeting." },
+        "meetingRoomId": { "type": "string", "description": "Unique identifier for the meeting room (UUID)." },
+        "hostUid": { "type": "string", "description": "Reference to the User who is hosting the meeting." },
+        "isActive": { "type": "boolean", "description": "Indicates whether the meeting is currently active." },
+        "createdAt": { "type": "string", "description": "Timestamp indicating when the meeting was created.", "format": "date-time" }
       },
-      "required": [
-        "meetingCode",
-        "meetingRoomId",
-        "hostUid",
-        "isActive",
-        "createdAt"
-      ]
+      "required": ["meetingCode", "meetingRoomId", "hostUid", "isActive", "createdAt"]
     },
     "Participant": {
       "title": "Participant",
       "type": "object",
       "description": "Represents a participant in a meeting.",
       "properties": {
-        "uid": {
-          "type": "string",
-          "description": "Reference to the User participating in the meeting."
-        },
-        "name": {
-          "type": "string",
-          "description": "Display name of the participant."
-        },
-        "role": {
-          "type": "string",
-          "description": "Role of the participant (teacher or student)."
-        },
-        "joinedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the participant joined.",
-          "format": "date-time"
-        },
-        "cameraOn": {
-          "type": "boolean",
-          "description": "Indicates if the camera is on."
-        },
-        "micOn": {
-          "type": "boolean",
-          "description": "Indicates if the mic is on."
-        }
+        "uid": { "type": "string", "description": "Reference to the User participating in the meeting." },
+        "name": { "type": "string", "description": "Display name of the participant." },
+        "role": { "type": "string", "description": "Role of the participant (teacher or student)." },
+        "joinedAt": { "type": "string", "description": "Timestamp indicating when the participant joined.", "format": "date-time" },
+        "cameraOn": { "type": "boolean", "description": "Indicates if the camera is on." },
+        "micOn": { "type": "boolean", "description": "Indicates if the mic is on." }
       },
       "required": ["uid", "role", "name", "joinedAt", "cameraOn", "micOn"]
     },
-     "Ticket": {
+    "Ticket": {
       "title": "Ticket",
       "type": "object",
       "description": "Represents a paid ticket for a one-on-one session.",
@@ -123,11 +112,7 @@
         "orderId": { "type": "string", "description": "Idempotent unique identifier for the transaction (e.g., from a payment gateway)." },
         "studentId": { "type": "string", "description": "UID of the student who bought the ticket." },
         "teacherId": { "type": "string", "description": "UID of the teacher for whom the ticket is valid." },
-        "status": { 
-          "type": "string", 
-          "enum": ["PAID", "WAITING_FOR_TEACHER", "ACTIVE", "COMPLETED", "CANCELLED", "REFUND_PROCESSED"],
-          "description": "The current state of the ticket lifecycle."
-        },
+        "status": { "type": "string", "enum": ["PAID", "WAITING_FOR_TEACHER", "ACTIVE", "COMPLETED", "CANCELLED", "REFUND_PROCESSED"], "description": "The current state of the ticket lifecycle." },
         "price": { "type": "number", "description": "The cost of the ticket." },
         "duration": { "type": "number", "description": "Session duration in minutes." },
         "commissionPercent": { "type": "number", "description": "Platform commission percentage." },
@@ -151,14 +136,7 @@
       "properties": {
         "points": {
           "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "x": { "type": "number" },
-              "y": { "type": "number" }
-            },
-            "required": ["x", "y"]
-          }
+          "items": { "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" } }, "required": ["x", "y"] }
         },
         "tool": { "type": "string", "enum": ["pen", "eraser", "shape", "text"] },
         "shape": { "type": "string", "enum": ["rectangle", "circle", "line", "arrow", null] },
@@ -176,94 +154,28 @@
     "structure": [
       {
         "path": "/users/{uid}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user profile information, including their role.",
-          "params": [
-            {
-              "name": "uid",
-              "description": "The unique identifier of the user."
-            }
-          ]
-        }
+        "definition": { "entityName": "User", "schema": { "$ref": "#/backend/entities/User" }, "description": "Stores user profile information, including their role.", "params": [{ "name": "uid", "description": "The unique identifier of the user." }] }
+      },
+      {
+        "path": "/courses/{courseId}",
+        "definition": { "entityName": "Course", "schema": { "$ref": "#/backend/entities/Course" }, "description": "Stores course information created by teachers.", "params": [{ "name": "courseId", "description": "The unique identifier of the course." }] }
       },
       {
         "path": "/meetings/{meetingCode}",
-        "definition": {
-          "entityName": "Meeting",
-          "schema": {
-            "$ref": "#/backend/entities/Meeting"
-          },
-          "description": "Stores meeting metadata, linking a human-readable code to a unique room ID.",
-          "params": [
-            {
-              "name": "meetingCode",
-              "description": "The unique, human-readable meeting code."
-            }
-          ]
-        }
+        "definition": { "entityName": "Meeting", "schema": { "$ref": "#/backend/entities/Meeting" }, "description": "Stores meeting metadata, linking a human-readable code to a unique room ID.", "params": [{ "name": "meetingCode", "description": "The unique, human-readable meeting code." }] }
       },
       {
         "path": "/participants/{meetingRoomId}/users/{uid}",
-        "definition": {
-          "entityName": "Participant",
-          "schema": {
-            "$ref": "#/backend/entities/Participant"
-          },
-          "description": "Acts as a real-time presence list for each meeting room.",
-          "params": [
-            {
-              "name": "meetingRoomId",
-              "description": "The unique identifier for the meeting room (UUID)."
-            },
-            {
-              "name": "uid",
-              "description": "The unique identifier of the user participating."
-            }
-          ]
-        }
+        "definition": { "entityName": "Participant", "schema": { "$ref": "#/backend/entities/Participant" }, "description": "Acts as a real-time presence list for each meeting room.", "params": [{ "name": "meetingRoomId", "description": "The unique identifier for the meeting room (UUID)." }, { "name": "uid", "description": "The unique identifier of the user participating." }] }
       },
       {
         "path": "/tickets/{ticketId}",
-        "definition": {
-          "entityName": "Ticket",
-          "schema": {
-            "$ref": "#/backend/entities/Ticket"
-          },
-          "description": "Stores information about a paid session ticket.",
-          "params": [
-            {
-              "name": "ticketId",
-              "description": "The unique identifier of the ticket document."
-            }
-          ]
-        }
+        "definition": { "entityName": "Ticket", "schema": { "$ref": "#/backend/entities/Ticket" }, "description": "Stores information about a paid session ticket.", "params": [{ "name": "ticketId", "description": "The unique identifier of the ticket document." }] }
       },
       {
         "path": "/whiteboards/{meetingId}/strokes/{strokeId}",
-        "definition": {
-          "entityName": "WhiteboardStroke",
-          "schema": {
-            "$ref": "#/backend/entities/WhiteboardStroke"
-          },
-          "description": "Stores individual drawing strokes for a meeting's whiteboard.",
-          "params": [
-            {
-              "name": "meetingId",
-              "description": "The unique identifier of the meeting."
-            },
-            {
-              "name": "strokeId",
-              "description": "The unique identifier of the whiteboard stroke."
-            }
-          ]
-        }
+        "definition": { "entityName": "WhiteboardStroke", "schema": { "$ref": "#/backend/entities/WhiteboardStroke" }, "description": "Stores individual drawing strokes for a meeting's whiteboard.", "params": [{ "name": "meetingId", "description": "The unique identifier of the meeting." }, { "name": "strokeId", "description": "The unique identifier of the whiteboard stroke." }] }
       }
     ]
   }
 }
-
-    
