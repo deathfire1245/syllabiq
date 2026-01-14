@@ -17,6 +17,8 @@ export default function AdminLayout({
   const router = useRouter();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = React.useState(false);
+  const [isAuthCheckComplete, setIsAuthCheckComplete] = React.useState(false);
 
   // Memoize the document reference to prevent re-renders
   const userDocRef = useMemoFirebase(() => {
@@ -28,17 +30,24 @@ export default function AdminLayout({
   const { data: profile, isLoading: isProfileLoading } = useDoc(userDocRef);
 
   React.useEffect(() => {
-    if (isUserLoading || isProfileLoading) {
-      return; // Wait until we have both user auth state and profile data
+    if (typeof window !== 'undefined') {
+        const sessionAuth = sessionStorage.getItem("isAdminAuthenticated");
+        setIsAdminAuthenticated(sessionAuth === "true");
+    }
+    setIsAuthCheckComplete(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isAuthCheckComplete || isUserLoading || isProfileLoading) {
+      return; // Wait until all auth checks are complete
     }
 
-    if (!user || !profile || profile.role !== 'admin') {
-      // If user is not logged in, has no profile, or is not an admin, redirect.
+    if (!user || !profile || profile.role !== 'admin' || !isAdminAuthenticated) {
       router.replace("/locked");
     }
-  }, [user, profile, isUserLoading, isProfileLoading, router]);
+  }, [user, profile, isUserLoading, isProfileLoading, isAdminAuthenticated, isAuthCheckComplete, router]);
 
-  if (isUserLoading || isProfileLoading) {
+  if (!isAuthCheckComplete || isUserLoading || isProfileLoading || !isAdminAuthenticated || !profile || profile.role !== 'admin') {
     return (
       <div className="p-8">
         <Skeleton className="h-16 w-full" />
@@ -48,11 +57,6 @@ export default function AdminLayout({
         </div>
       </div>
     );
-  }
-  
-  if (!profile || profile.role !== 'admin') {
-      // Render nothing while redirecting
-      return null;
   }
 
   return (
