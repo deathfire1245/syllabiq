@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, Check, DollarSign, Book, Layers, PlusCircle, Trash2, Upload, FileText, Video, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, DollarSign, Book, Layers, PlusCircle, Trash2, Link as LinkIcon, FileText, Video } from "lucide-react";
 import { ScrollReveal } from "@/components/ScrollReveal";
 
 const steps = [
@@ -20,12 +20,11 @@ const steps = [
   { id: 4, name: "Publish", icon: Check },
 ];
 
-interface Lesson {
+interface CourseContent {
   id: number;
   title: string;
-  textContent: string;
-  videoUrl: string;
-  image: File | null;
+  type: 'pdf' | 'video';
+  url: string;
 }
 
 export default function CreateCoursePage() {
@@ -33,25 +32,53 @@ export default function CreateCoursePage() {
   const [currentStep, setCurrentStep] = React.useState(1);
   const [courseTitle, setCourseTitle] = React.useState("");
   const [courseDescription, setCourseDescription] = React.useState("");
-  const [lessons, setLessons] = React.useState<Lesson[]>([{ id: 1, title: "", textContent: "", videoUrl: "", image: null }]);
+  const [courseContent, setCourseContent] = React.useState<CourseContent[]>([]);
   const [price, setPrice] = React.useState("");
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 4));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
   
-  const handleAddLesson = () => {
-    setLessons([...lessons, { id: lessons.length + 1, title: "", textContent: "", videoUrl: "", image: null }]);
+  const handleAddContent = (type: 'pdf' | 'video') => {
+    setCourseContent([...courseContent, { id: Date.now(), title: "", type, url: "" }]);
   };
   
-  const handleRemoveLesson = (id: number) => {
-    setLessons(lessons.filter(lesson => lesson.id !== id));
+  const handleRemoveContent = (id: number) => {
+    setCourseContent(courseContent.filter(content => content.id !== id));
   };
   
-  const handleLessonChange = (id: number, field: keyof Lesson, value: string | File) => {
-    setLessons(lessons.map(lesson => lesson.id === id ? { ...lesson, [field]: value } : lesson));
+  const handleContentChange = (id: number, field: keyof Omit<CourseContent, 'id' | 'type'>, value: string) => {
+    setCourseContent(courseContent.map(content => content.id === id ? { ...content, [field]: value } : content));
+  };
+
+  const isValidUrl = (url: string, type: 'pdf' | 'video') => {
+    try {
+      const parsedUrl = new URL(url);
+      if (type === 'pdf') {
+        return parsedUrl.pathname.toLowerCase().endsWith('.pdf');
+      }
+      if (type === 'video') {
+        const videoDomains = ['youtube.com', 'youtu.be', 'vimeo.com'];
+        return videoDomains.some(domain => parsedUrl.hostname.includes(domain));
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
   };
   
   const handlePublish = () => {
+    // Validate content before publishing
+    for (const content of courseContent) {
+        if (!content.title.trim()) {
+            toast({ variant: 'destructive', title: "Validation Error", description: `Please provide a title for all content items.` });
+            return;
+        }
+        if (!isValidUrl(content.url, content.type)) {
+            toast({ variant: 'destructive', title: "Validation Error", description: `Please provide a valid ${content.type === 'pdf' ? 'PDF' : 'video'} URL for "${content.title}".` });
+            return;
+        }
+    }
+
     toast({
       title: "Course Published!",
       description: `"${courseTitle}" is now live and available for students.`,
@@ -112,52 +139,51 @@ export default function CreateCoursePage() {
             <Card>
               <CardHeader>
                 <CardTitle>Course Content</CardTitle>
-                <CardDescription>Add lessons to build out your course structure.</CardDescription>
+                <CardDescription>Add topics by linking to PDFs or videos.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {lessons.map((lesson, index) => (
-                  <ScrollReveal key={lesson.id} delay={index * 0.1}>
+                {courseContent.map((content, index) => (
+                  <ScrollReveal key={content.id} delay={index * 0.1}>
                     <div className="border rounded-lg p-4 space-y-4 relative bg-card">
                        <div className="flex justify-between items-center">
-                         <h4 className="font-semibold text-lg">Lesson {index + 1}</h4>
-                         {lessons.length > 1 && (
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveLesson(lesson.id)} className="text-destructive hover:bg-destructive/10">
-                                <Trash2 className="w-4 h-4" />
-                            </Button>
-                         )}
+                         <h4 className="font-semibold text-lg flex items-center gap-2">
+                           {content.type === 'pdf' ? <FileText className="w-5 h-5 text-destructive"/> : <Video className="w-5 h-5 text-blue-500" />}
+                           Topic {index + 1}
+                         </h4>
+                         <Button variant="ghost" size="icon" onClick={() => handleRemoveContent(content.id)} className="text-destructive hover:bg-destructive/10">
+                            <Trash2 className="w-4 h-4" />
+                         </Button>
                        </div>
                        <div className="space-y-2">
-                          <Label htmlFor={`lesson-title-${lesson.id}`}>Lesson Title</Label>
-                          <Input id={`lesson-title-${lesson.id}`} placeholder="e.g., What are derivatives?" value={lesson.title} onChange={(e) => handleLessonChange(lesson.id, 'title', e.target.value)} />
+                          <Label htmlFor={`content-title-${content.id}`}>Topic Title</Label>
+                          <Input id={`content-title-${content.id}`} placeholder="e.g., Chapter 1: Introduction" value={content.title} onChange={(e) => handleContentChange(content.id, 'title', e.target.value)} />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor={`lesson-content-${lesson.id}`}>Text Content</Label>
-                            <Textarea id={`lesson-content-${lesson.id}`} placeholder="Write your lesson here..." value={lesson.textContent} onChange={(e) => handleLessonChange(lesson.id, 'textContent', e.target.value)} className="min-h-[120px]"/>
-                        </div>
-                        <div className="grid sm:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor={`lesson-video-${lesson.id}`}><Video className="w-4 h-4 inline-block mr-2"/>Video URL (Placeholder)</Label>
-                                <Input id={`lesson-video-${lesson.id}`} placeholder="https://example.com/video" value={lesson.videoUrl} onChange={(e) => handleLessonChange(lesson.id, 'videoUrl', e.target.value)}/>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor={`lesson-image-${lesson.id}`}><ImageIcon className="w-4 h-4 inline-block mr-2"/>Image/Notes (Placeholder)</Label>
-                                <div className="flex items-center gap-2">
-                                    <Input id={`lesson-image-${lesson.id}`} type="file" className="hidden"/>
-                                    <Label htmlFor={`lesson-image-${lesson.id}`} className="w-full">
-                                      <div className="flex items-center justify-center w-full border-2 border-dashed rounded-lg p-3 text-sm text-muted-foreground cursor-pointer hover:bg-accent">
-                                        <Upload className="w-4 h-4 mr-2"/>
-                                        <span>{lesson.image ? (lesson.image as File).name : 'Upload File'}</span>
-                                      </div>
-                                    </Label>
-                                </div>
-                            </div>
+                           <Label htmlFor={`content-url-${content.id}`}>
+                                {content.type === 'pdf' ? 'PDF Link' : 'Video Link (YouTube, Vimeo)'}
+                           </Label>
+                           <div className="relative">
+                               <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                               <Input 
+                                   id={`content-url-${content.id}`} 
+                                   placeholder={`https://example.com/your-file.${content.type === 'pdf' ? 'pdf' : 'mp4'}`} 
+                                   value={content.url} 
+                                   onChange={(e) => handleContentChange(content.id, 'url', e.target.value)}
+                                   className="pl-9"
+                                />
+                           </div>
                         </div>
                     </div>
                   </ScrollReveal>
                 ))}
-                 <Button variant="outline" onClick={handleAddLesson} className="w-full">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Another Lesson
-                </Button>
+                 <div className="flex gap-4">
+                     <Button variant="outline" onClick={() => handleAddContent('pdf')} className="w-full">
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add PDF Topic
+                    </Button>
+                    <Button variant="outline" onClick={() => handleAddContent('video')} className="w-full">
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Video Topic
+                    </Button>
+                 </div>
               </CardContent>
             </Card>
           </ScrollReveal>
