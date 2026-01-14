@@ -20,61 +20,32 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
-import { useUser, useFirebase } from "@/firebase";
-import { addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore";
+import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { addDoc, collection, serverTimestamp, Timestamp, query, where } from "firebase/firestore";
 import { add, sub, parse } from 'date-fns';
+import { Skeleton } from "@/components/ui/skeleton";
 
-// Mock data for available tutors
-const tutors = [
-  {
-    id: "tutor-1",
-    name: "Dr. Evelyn Reed",
-    avatar: "https://picsum.photos/seed/tutor-evelyn/100",
-    subjects: ["Calculus", "Physics", "Linear Algebra"],
-    rating: 4.9,
-    reviews: 128,
-    costPerHour: 60,
-    availability: [
-      { day: "Mon", time: "10:00 - 11:00" },
-      { day: "Wed", time: "14:00 - 15:00" },
-      { day: "Fri", time: "09:00 - 10:00" },
-    ],
-  },
-  {
-    id: "tutor-2",
-    name: "John Smith",
-    avatar: "https://picsum.photos/seed/tutor-john/100",
-    subjects: ["Python", "Data Science", "Machine Learning"],
-    rating: 4.8,
-    reviews: 95,
-    costPerHour: 75,
-    availability: [
-      { day: "Tue", time: "15:00 - 16:00" },
-      { day: "Thu", time: "11:00 - 12:00" },
-    ],
-  },
-  {
-    id: "tutor-3",
-    name: "Prof. Eleanor Vance",
-    avatar: "https://picsum.photos/seed/tutor-eleanor/100",
-    subjects: ["World History", "Civics", "Sociology"],
-    rating: 5.0,
-    reviews: 210,
-    costPerHour: 55,
-    availability: [
-      { day: "Mon", time: "11:00 - 12:00" },
-      { day: "Tue", time: "14:00 - 15:00" },
-      { day: "Wed", time: "16:00 - 17:00" },
-      { day: "Fri", time: "14:00 - 15:00" },
-    ],
-  },
-];
+interface TeacherProfile {
+  id: string;
+  name: string;
+  email: string;
+  profilePicture?: string;
+  teacherProfile?: {
+    subjects: string[];
+    hourlyRate: number;
+    availability: {
+      days: string[];
+      timeSlots: string[];
+    };
+    bio: string;
+  };
+}
 
 /**
  * Generates a production-ready ticket with time buffers and idempotent identifiers.
  * This function prepares a ticket object that can be stored in Firestore.
  */
-const generateProductionTicket = (tutor: any, slot: { day: string, time: string }, user: any) => {
+const generateProductionTicket = (tutor: TeacherProfile, slot: { day: string, time: string }, user: any) => {
     // This is a simplified way to get a Date object for the session.
     // A real app would use a proper date picker and time zone handling.
     const now = new Date();
@@ -97,7 +68,7 @@ const generateProductionTicket = (tutor: any, slot: { day: string, time: string 
       teacherId: tutor.id,
       status: 'PAID', // Initial status before check-in
       paymentStatus: 'MOCK_PAID',
-      price: tutor.costPerHour,
+      price: tutor.teacherProfile?.hourlyRate || 0,
       duration: 60, // minutes
       commissionPercent: 10,
       createdAt: serverTimestamp(),
@@ -121,7 +92,14 @@ export default function TutorsPage() {
   const { user } = useUser();
   const { firestore } = useFirebase();
 
-  const handleBookSession = async (tutor: (typeof tutors)[0], slot: { day: string, time: string }) => {
+  const tutorsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "users"), where("role", "==", "teacher"));
+  }, [firestore]);
+
+  const { data: tutors, isLoading } = useCollection<TeacherProfile>(tutorsQuery);
+
+  const handleBookSession = async (tutor: TeacherProfile, slot: { day: string, time: string }) => {
     if (!user || !firestore) {
       toast({ variant: 'destructive', title: "Error", description: "You must be logged in to book a session." });
       return;
@@ -146,6 +124,27 @@ export default function TutorsPage() {
     }
   };
 
+  const getInitials = (name?: string) => {
+    if (!name) return "";
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2);
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-8">
+        <div className="space-y-2">
+            <Skeleton className="h-10 w-1/3" />
+            <Skeleton className="h-6 w-2/3" />
+        </div>
+        <div className="space-y-6">
+          {[...Array(3)].map((_, i) => (
+             <Skeleton key={i} className="h-64 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <ScrollReveal>
@@ -156,35 +155,37 @@ export default function TutorsPage() {
       </ScrollReveal>
 
       <div className="space-y-6">
-        {tutors.map((tutor, index) => (
+        {tutors && tutors.length > 0 ? tutors.map((tutor, index) => {
+            const availability = tutor.teacherProfile?.availability;
+            const availableSlots = availability?.days.flatMap(day => 
+                (availability.timeSlots || []).map(time => ({ day, time }))
+            ) || [];
+
+            return (
           <ScrollReveal key={tutor.id} delay={index * 0.1}>
             <Card className="group relative overflow-hidden transform transition-all duration-300 hover:shadow-xl">
               <CardHeader className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-6 p-6">
                 <div className="flex flex-col items-center text-center">
                   <Avatar className="w-24 h-24 mb-4 border-4 border-primary/20">
-                    <AvatarImage src={tutor.avatar} alt={tutor.name} />
-                    <AvatarFallback>{tutor.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={tutor.profilePicture} alt={tutor.name} />
+                    <AvatarFallback>{getInitials(tutor.name)}</AvatarFallback>
                   </Avatar>
                   <CardTitle className="text-xl">{tutor.name}</CardTitle>
-                  <div className="flex items-center gap-1 mt-1 text-yellow-500">
-                    <p className="font-bold">{tutor.rating}</p>
-                    <span>&#9733;</span>
-                    <p className="text-muted-foreground text-sm">({tutor.reviews} reviews)</p>
-                  </div>
-                   <p className="text-2xl font-bold text-primary mt-4">${tutor.costPerHour}<span className="text-base font-normal text-muted-foreground">/hour</span></p>
+                  <p className="text-muted-foreground text-sm mt-1">{tutor.teacherProfile?.bio || 'Experienced Educator'}</p>
+                   <p className="text-2xl font-bold text-primary mt-4">${tutor.teacherProfile?.hourlyRate || 0}<span className="text-base font-normal text-muted-foreground">/hour</span></p>
                 </div>
 
                 <div>
                     <CardDescription className="mb-4">Specializes in:</CardDescription>
                     <div className="flex flex-wrap gap-2 mb-6">
-                        {tutor.subjects.map(subject => (
+                        {(tutor.teacherProfile?.subjects || []).map(subject => (
                             <Badge key={subject} variant="secondary">{subject}</Badge>
                         ))}
                     </div>
 
                      <CardDescription className="mb-3">Available Slots for this week:</CardDescription>
                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {tutor.availability.map(slot => (
+                        {availableSlots.map(slot => (
                           <AlertDialog key={slot.day+slot.time}>
                             <AlertDialogTrigger asChild>
                               <Button variant="outline" className="h-auto flex-col py-2">
@@ -196,7 +197,7 @@ export default function TutorsPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Confirm Ticket Purchase</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Purchase a ticket for a 1-hour session with ${tutor.name} on ${slot.day} at ${slot.time} for ${tutor.costPerHour}?
+                                  Purchase a ticket for a 1-hour session with {tutor.name} on {slot.day} at {slot.time} for ${tutor.teacherProfile?.hourlyRate || 0}?
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -208,16 +209,19 @@ export default function TutorsPage() {
                             </AlertDialogContent>
                           </AlertDialog>
                         ))}
-                         {tutor.availability.length === 0 && <p className="text-sm text-muted-foreground col-span-full">No slots available this week.</p>}
+                         {availableSlots.length === 0 && <p className="text-sm text-muted-foreground col-span-full">No slots available this week.</p>}
                      </div>
                 </div>
               </CardHeader>
             </Card>
           </ScrollReveal>
-        ))}
+        )}) : (
+          <ScrollReveal className="text-center py-16">
+            <h2 className="text-2xl font-bold">No Tutors Available</h2>
+            <p className="text-muted-foreground mt-2">Check back soon, our community of educators is growing!</p>
+          </ScrollReveal>
+        )}
       </div>
     </div>
   );
 }
-
-    
