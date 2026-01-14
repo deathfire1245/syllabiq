@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Check, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Sparkles, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { Textarea } from "@/components/ui/textarea";
+import { UploadDropzone } from "@/lib/uploadthing";
 
 const steps = [
   { id: 1, title: "Welcome to SyllabiQ!" },
@@ -31,6 +32,7 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
     preferredSubjects: [] as string[],
     learningGoals: "",
     interests: [] as string[],
+    profilePicture: "",
   });
   const { toast } = useToast();
   const { user } = useUser();
@@ -61,7 +63,14 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
     try {
         const userDocRef = doc(firestore, 'users', user.uid);
         await updateDoc(userDocRef, {
-            studentProfile: formData,
+            studentProfile: {
+              gradeLevel: formData.gradeLevel,
+              schoolBoard: formData.schoolBoard,
+              preferredSubjects: formData.preferredSubjects,
+              learningGoals: formData.learningGoals,
+              interests: formData.interests,
+            },
+            profilePicture: formData.profilePicture,
         });
         toast({
             title: "Profile setup complete!",
@@ -81,9 +90,28 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
       case 1:
         return (
           <div className="text-center">
-             <Sparkles className="mx-auto h-16 w-16 text-primary bg-primary/10 rounded-full p-3 mb-6" />
-            <h2 className="text-3xl font-bold mb-2">Welcome to SyllabiQ!</h2>
-            <p className="text-muted-foreground text-lg">Let's quickly set up your profile to personalize your learning experience.</p>
+             <User className="mx-auto h-16 w-16 text-primary bg-primary/10 rounded-full p-3 mb-6" />
+            <h2 className="text-3xl font-bold mb-2">Upload a Profile Picture</h2>
+             <UploadDropzone
+                endpoint="profileUploader"
+                onClientUploadComplete={(res) => {
+                    if (res && res.length > 0) {
+                        setFormData({...formData, profilePicture: res[0].url});
+                        toast({
+                            title: "Upload Complete!",
+                            description: "Your profile picture has been uploaded.",
+                        });
+                    }
+                }}
+                onUploadError={(error: Error) => {
+                    toast({
+                        variant: "destructive",
+                        title: "Upload Failed",
+                        description: error.message,
+                    });
+                }}
+                className="mt-4 ut-label:text-lg ut-button:bg-primary ut-button:ut-readying:bg-primary/50"
+            />
           </div>
         );
       case 2:
@@ -170,7 +198,7 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
           </div>
           <CardTitle className="text-2xl">{steps[currentStep - 1].title}</CardTitle>
         </CardHeader>
-        <CardContent className="min-h-[250px] flex flex-col justify-center">
+        <CardContent className="min-h-[300px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
@@ -207,3 +235,5 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
     </div>
   );
 }
+
+    

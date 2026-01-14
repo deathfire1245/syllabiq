@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Check, DollarSign } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, DollarSign, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
+import { UploadDropzone } from "@/lib/uploadthing";
 
 const steps = [
   { id: 1, title: "Welcome, Educator!" },
@@ -35,6 +36,7 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
       days: [] as string[],
       timeSlots: [] as string[], // Placeholder for now
     },
+    profilePicture: "",
   });
   const { toast } = useToast();
   const { user } = useUser();
@@ -76,11 +78,17 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
         const userDocRef = doc(firestore, 'users', user.uid);
         await updateDoc(userDocRef, {
             teacherProfile: {
-                ...formData,
+                subjects: formData.subjects,
+                qualifications: formData.qualifications,
+                experienceYears: formData.experienceYears,
+                hourlyRate: formData.hourlyRate,
+                bio: formData.bio,
+                availability: formData.availability,
                 isVerified: false,
                 totalSessions: 0,
                 rating: 0,
             },
+            profilePicture: formData.profilePicture,
         });
         toast({
             title: "Profile setup complete!",
@@ -101,8 +109,29 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
       case 1:
         return (
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-2">Welcome, Educator!</h2>
-            <p className="text-muted-foreground text-lg max-w-md mx-auto">We're excited to have you. Let's set up your teaching profile so students can find you.</p>
+            <User className="mx-auto h-16 w-16 text-primary bg-primary/10 rounded-full p-3 mb-6" />
+            <h2 className="text-3xl font-bold mb-2">Upload Your Profile Picture</h2>
+            <p className="text-muted-foreground text-lg max-w-md mx-auto mb-4">A professional photo helps build trust with students.</p>
+             <UploadDropzone
+                endpoint="profileUploader"
+                onClientUploadComplete={(res) => {
+                     if (res && res.length > 0) {
+                        setFormData({...formData, profilePicture: res[0].url});
+                        toast({
+                            title: "Upload Complete!",
+                            description: "Your profile picture has been uploaded.",
+                        });
+                    }
+                }}
+                onUploadError={(error: Error) => {
+                    toast({
+                        variant: "destructive",
+                        title: "Upload Failed",
+                        description: error.message,
+                    });
+                }}
+                className="mt-4 ut-label:text-lg ut-button:bg-primary ut-button:ut-readying:bg-primary/50"
+            />
           </div>
         );
       case 2:
@@ -198,7 +227,7 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
           <CardTitle className="text-2xl">{steps[currentStep - 1].title}</CardTitle>
           {currentStep === 3 && <CardDescription>This information will be displayed on your public profile.</CardDescription>}
         </CardHeader>
-        <CardContent className="min-h-[300px] flex flex-col justify-center">
+        <CardContent className="min-h-[350px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
@@ -230,3 +259,5 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
     </div>
   );
 }
+
+    

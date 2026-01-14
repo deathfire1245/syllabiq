@@ -10,6 +10,8 @@ import { ScrollReveal } from "@/components/ScrollReveal";
 import { useUser, useDoc, useFirebase, useMemoFirebase } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UploadButton } from "@/lib/uploadthing";
+import { useToast } from "@/hooks/use-toast";
 
 const InfoCard = ({ icon, title, children }: { icon: React.ElementType, title: string, children: React.ReactNode }) => {
     const Icon = icon;
@@ -29,13 +31,14 @@ const InfoCard = ({ icon, title, children }: { icon: React.ElementType, title: s
 export default function ProfilePage() {
     const { user, isUserLoading } = useUser();
     const { firestore } = useFirebase();
+    const { toast } = useToast();
 
     const userDocRef = useMemoFirebase(() => {
         if (!user || !firestore) return null;
         return doc(firestore, 'users', user.uid);
     }, [user, firestore]);
 
-    const { data: profile, isLoading: isProfileLoading } = useDoc(userDocRef);
+    const { data: profile, isLoading: isProfileLoading, mutate } = useDoc(userDocRef);
 
     if (isUserLoading || isProfileLoading) {
         return (
@@ -77,13 +80,30 @@ export default function ProfilePage() {
                         <CardHeader className="flex flex-col items-center text-center -mt-16">
                             <Avatar className="w-24 h-24 mb-2 border-4 border-background">
                                 <AvatarImage src={profile.profilePicture || `https://picsum.photos/seed/${profile.uid}/100`} />
-                                <AvatarFallback>{profile.fullName?.charAt(0)}</AvatarFallback>
+                                <AvatarFallback>{profile.name?.charAt(0)}</AvatarFallback>
                             </Avatar>
-                            <CardTitle className="text-2xl">{profile.fullName}</CardTitle>
+                            <CardTitle className="text-2xl">{profile.name}</CardTitle>
                             <CardDescription>{profile.email}</CardDescription>
-                             <Button variant="outline" size="sm" className="mt-4">
-                                <Edit className="mr-2 h-4 w-4" /> Edit Profile
-                            </Button>
+                             <UploadButton
+                                endpoint="profileUploader"
+                                onClientUploadComplete={(res) => {
+                                    if (res && res.length > 0 && res[0].url) {
+                                       mutate({ profilePicture: res[0].url });
+                                        toast({
+                                            title: "Profile Picture Updated",
+                                            description: "Your new picture has been saved.",
+                                        });
+                                    }
+                                }}
+                                onUploadError={(error: Error) => {
+                                    toast({
+                                        variant: "destructive",
+                                        title: "Upload Failed",
+                                        description: error.message,
+                                    });
+                                }}
+                                className="mt-4 ut-button:bg-primary ut-button:ut-readying:bg-primary/50"
+                             />
                         </CardHeader>
                         <CardContent className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 pt-6">
                             <InfoCard icon={GraduationCap} title="Education">
@@ -119,16 +139,33 @@ export default function ProfilePage() {
                          <CardHeader className="flex flex-col items-center text-center -mt-16">
                             <Avatar className="w-24 h-24 mb-2 border-4 border-background">
                                 <AvatarImage src={profile.profilePicture || `https://picsum.photos/seed/${profile.uid}/100`} />
-                                <AvatarFallback>{profile.fullName?.charAt(0)}</AvatarFallback>
+                                <AvatarFallback>{profile.name?.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <CardTitle className="text-2xl flex items-center gap-2">
-                                {profile.fullName}
+                                {profile.name}
                                 {profile.teacherProfile?.isVerified && <Verified className="w-6 h-6 text-blue-500" />}
                             </CardTitle>
                             <CardDescription>{profile.email}</CardDescription>
-                            <Button variant="outline" size="sm" className="mt-4">
-                                <Edit className="mr-2 h-4 w-4" /> Edit Profile
-                            </Button>
+                            <UploadButton
+                                endpoint="profileUploader"
+                                onClientUploadComplete={(res) => {
+                                    if (res && res.length > 0 && res[0].url) {
+                                       mutate({ profilePicture: res[0].url });
+                                        toast({
+                                            title: "Profile Picture Updated",
+                                            description: "Your new picture has been saved.",
+                                        });
+                                    }
+                                }}
+                                onUploadError={(error: Error) => {
+                                    toast({
+                                        variant: "destructive",
+                                        title: "Upload Failed",
+                                        description: error.message,
+                                    });
+                                }}
+                                className="mt-4 ut-button:bg-primary ut-button:ut-readying:bg-primary/50"
+                             />
                         </CardHeader>
                         <CardContent className="space-y-6 pt-6">
                             <div className="text-center">
@@ -167,3 +204,5 @@ export default function ProfilePage() {
 
     return null;
 }
+
+    

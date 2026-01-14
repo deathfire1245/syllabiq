@@ -37,6 +37,11 @@
         "isActive": {
           "type": "boolean",
           "description": "Indicates if the user account is active."
+        },
+        "profilePicture": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL of the user's profile picture."
         }
       },
       "required": ["uid", "email", "role", "name", "createdAt", "isActive"]
@@ -260,3 +265,5 @@
     ]
   }
 }
+
+    
