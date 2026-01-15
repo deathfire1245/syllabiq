@@ -5,6 +5,7 @@ export type Topic = {
   chapter: string;
   name:string;
   summary: string;
+  content: string; // Can be a URL or markdown text
   coverImage: {
     src: string;
     hint: string;
@@ -16,6 +17,7 @@ export type Topic = {
     answer: string;
   }[];
   createdAt?: any;
+  createdBy?: string;
 };
 
 export type Subject = {
@@ -31,7 +33,7 @@ export type Subject = {
 };
 
 export type Grade = {
-  id: string;
+  id: 'grade-10' | 'grade-11' | 'grade-12';
   name: string;
   subjects: Subject[];
 };
