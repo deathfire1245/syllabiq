@@ -21,18 +21,34 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
 
 export default function TopicDetailsPage({
-  params,
+  params: paramsProp,
 }: {
   params: { subjectId: string; topicId: string };
 }) {
+  const params = React.use(paramsProp);
+  const { firestore } = useFirebase();
+
+  const topicsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "topics"), where("subjectId", "==", params.subjectId));
+  }, [firestore, params.subjectId]);
+  
+  const { data: topics, isLoading: areTopicsLoading } = useCollection<Topic>(topicsQuery);
+
   const subject = getSubjectById(params.subjectId);
-  const topic = getTopicById(params.topicId);
+  const topic = React.useMemo(() => {
+    if(!topics) return getTopicById(params.topicId, []);
+    return topics.find(t => t.id === params.topicId) ?? getTopicById(params.topicId, []);
+  }, [topics, params.topicId]);
+
   const { addBookmark, removeBookmark, isBookmarked } = useBookmarks();
   const { toast } = useToast();
 
-  if (!subject || !topic) {
+  if (!subject || (!topic && !areTopicsLoading)) {
     notFound();
   }
   
@@ -53,6 +69,10 @@ export default function TopicDetailsPage({
       });
     }
   };
+  
+  if (areTopicsLoading || !topic) {
+      return <div>Loading...</div>
+  }
 
   return (
     <div className="space-y-8">
