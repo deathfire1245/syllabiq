@@ -18,7 +18,7 @@ import { ScrollReveal } from "@/components/ScrollReveal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirebase, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query, where, addDoc, serverTimestamp } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -30,6 +30,7 @@ export default function SubjectDetailsPage({
   const params = React.use(paramsProp);
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const { firestore } = useFirebase();
+  const { user } = useUser();
   const { toast } = useToast();
 
   const [newTopic, setNewTopic] = React.useState({ title: "", chapter: "", summary: "" });
@@ -77,15 +78,20 @@ export default function SubjectDetailsPage({
       toast({ variant: 'destructive', title: "Error", description: "Please fill all fields for the new topic." });
       return;
     }
-    if (!firestore) return;
+    if (!firestore || !user) {
+        toast({ variant: 'destructive', title: "Error", description: "You must be logged in to create a topic." });
+        return;
+    }
 
     setIsSubmitting(true);
     try {
       await addDoc(collection(firestore, "topics"), {
-        ...newTopic,
         name: newTopic.title,
-        subjectId: params.subjectId,
-        coverImage: { // Using a placeholder for now
+        chapter: newTopic.chapter,
+        summary: newTopic.summary,
+        subjectId: params.subjectId, // Automatically set subjectId
+        createdBy: user.uid, // Automatically set createdBy
+        coverImage: { 
           src: "https://picsum.photos/seed/new-topic/600/400",
           hint: "new topic"
         },
@@ -97,6 +103,7 @@ export default function SubjectDetailsPage({
       setNewTopic({ title: "", chapter: "", summary: "" }); // Reset form
     } catch (error) {
       toast({ variant: 'destructive', title: "Error", description: "Could not create the topic." });
+      console.error("Error creating topic: ", error);
     } finally {
       setIsSubmitting(false);
     }
