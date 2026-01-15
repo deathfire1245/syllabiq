@@ -5,7 +5,8 @@ export type Topic = {
   chapter: string;
   name:string;
   summary: string;
-  content: string; // Can be a URL or markdown text
+  content?: string; // Markdown text for written content
+  pdfUrl?: string; // URL for linked PDF/Doc
   coverImage: {
     src: string;
     hint: string;
