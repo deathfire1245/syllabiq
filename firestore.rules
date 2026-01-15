@@ -44,7 +44,7 @@ service cloud.firestore {
       allow get: if isOwner(uid) || isAdmin(request.auth.uid) || isTeacher(request.auth.uid);
       
       // LIST: Only admins can list all users.
-      allow list: if isAdmin(request.auth.uid);
+      allow list: if isAdmin(request.auth.uid) || isTeacher(request.auth.uid);
 
       // CREATE: A user can only create their own profile document.
       // - The role must be 'student' or 'teacher' (admins are created manually).
@@ -81,12 +81,9 @@ service cloud.firestore {
     match /tickets/{ticketId} {
         // READ (get): 
         // - Admins can read any ticket.
-        // - A user (student or teacher) can read a ticket if their UID is on it, but only within the valid time window.
+        // - A user (student or teacher) can read a ticket if their UID is on it.
         allow get: if isAdmin(request.auth.uid) || 
-                    (isSignedIn() && 
-                      (isOwner(resource.data.studentId) || isOwner(resource.data.teacherId)) &&
-                      request.time >= resource.data.validFrom &&
-                      request.time <= resource.data.validTill);
+                    (isSignedIn() && (isOwner(resource.data.studentId) || isOwner(resource.data.teacherId)));
 
         // LIST: 
         // - Admins can list all tickets.
@@ -127,7 +124,8 @@ service cloud.firestore {
             (
               request.resource.data.status == 'ACTIVE' || 
               request.resource.data.status == 'COMPLETED' || 
-              request.resource.data.status == 'CANCELLED'
+              request.resource.data.status == 'CANCELLED' ||
+              request.resource.data.status == 'REFUND_PROCESSED'
             ) &&
             // Immutable fields
             request.resource.data.studentId == resource.data.studentId &&
@@ -153,6 +151,20 @@ service cloud.firestore {
     //----------------------------------------------------------------------
     match /whiteboards/{meetingId}/strokes/{strokeId} {
       allow read, write: if isSignedIn(); 
+    }
+
+    //----------------------------------------------------------------------
+    //  COURSES & TOPICS RULES
+    //----------------------------------------------------------------------
+    match /courses/{courseId} {
+      allow read: if isSignedIn();
+      allow write: if isTeacher(request.auth.uid);
+    }
+
+    match /topics/{topicId} {
+      allow read: if isSignedIn();
+      allow create: if isTeacher(request.auth.uid) && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isTeacher(request.auth.uid) && resource.data.createdBy == request.auth.uid;
     }
   }
 }

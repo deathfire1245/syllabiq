@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { getSubjectById } from "@/lib/data";
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +34,8 @@ export default function SubjectDetailsPage({
   const { user } = useUser();
   const { toast } = useToast();
 
-  const [newTopic, setNewTopic] = React.useState({ title: "", chapter: "", summary: "", content: "" });
+  const [newTopic, setNewTopic] = React.useState({ title: "", chapter: "", summary: "" });
+  const [contentValue, setContentValue] = React.useState("");
   const [contentType, setContentType] = React.useState<'write' | 'link'>('write');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -76,7 +77,7 @@ export default function SubjectDetailsPage({
   };
 
   const handleAddTopic = async () => {
-    if (!newTopic.title || !newTopic.chapter || !newTopic.summary || !newTopic.content) {
+    if (!newTopic.title || !newTopic.chapter || !newTopic.summary || !contentValue) {
       toast({ variant: 'destructive', title: "Error", description: "Please fill all fields for the new topic." });
       return;
     }
@@ -86,24 +87,33 @@ export default function SubjectDetailsPage({
     }
 
     setIsSubmitting(true);
+    
+    const payload: any = {
+      name: newTopic.title,
+      chapter: newTopic.chapter,
+      summary: newTopic.summary,
+      subjectId: params.subjectId,
+      createdBy: user.uid,
+      coverImage: { 
+        src: `https://picsum.photos/seed/${newTopic.title.replace(/\s+/g, '-')}/600/400`,
+        hint: "educational content"
+      },
+      keyPoints: [],
+      questions: [],
+      createdAt: serverTimestamp(),
+    };
+
+    if (contentType === 'write') {
+        payload.content = contentValue;
+    } else {
+        payload.pdfUrl = contentValue;
+    }
+
     try {
-      await addDoc(collection(firestore, "topics"), {
-        name: newTopic.title,
-        chapter: newTopic.chapter,
-        summary: newTopic.summary,
-        content: newTopic.content,
-        subjectId: params.subjectId,
-        createdBy: user.uid,
-        coverImage: { 
-          src: `https://picsum.photos/seed/${newTopic.title.replace(/\s+/g, '-')}/600/400`,
-          hint: "educational content"
-        },
-        keyPoints: [],
-        questions: [],
-        createdAt: serverTimestamp(),
-      });
+      await addDoc(collection(firestore, "topics"), payload);
       toast({ title: "Topic Added!", description: `"${newTopic.title}" has been created.` });
-      setNewTopic({ title: "", chapter: "", summary: "", content: "" }); // Reset form
+      setNewTopic({ title: "", chapter: "", summary: "" }); // Reset form
+      setContentValue("");
     } catch (error) {
       toast({ variant: 'destructive', title: "Error", description: "Could not create the topic." });
       console.error("Error creating topic: ", error);
@@ -171,7 +181,7 @@ export default function SubjectDetailsPage({
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="write">Write Content</SelectItem>
-                                    <SelectItem value="link">Paste a Link</SelectItem>
+                                    <SelectItem value="link">Paste a PDF/Doc Link</SelectItem>
                                   </SelectContent>
                                 </Select>
                             </div>
@@ -181,9 +191,9 @@ export default function SubjectDetailsPage({
                                   {contentType === 'write' ? 'Main Content' : 'PDF or Google Doc Link'}
                                 </Label>
                                 {contentType === 'write' ? (
-                                    <Textarea id="topic-content" placeholder="Write the full lesson content here..." className="min-h-[200px]" value={newTopic.content} onChange={(e) => setNewTopic({...newTopic, content: e.target.value})} />
+                                    <Textarea id="topic-content" placeholder="Write the full lesson content here..." className="min-h-[200px]" value={contentValue} onChange={(e) => setContentValue(e.target.value)} />
                                 ) : (
-                                    <Input id="topic-content" placeholder="https://example.com/your-document.pdf" value={newTopic.content} onChange={(e) => setNewTopic({...newTopic, content: e.target.value})} />
+                                    <Input id="topic-content" placeholder="https://example.com/your-document.pdf" value={contentValue} onChange={(e) => setContentValue(e.target.value)} />
                                 )}
                             </div>
 

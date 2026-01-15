@@ -2,8 +2,8 @@
 "use client";
 
 import * as React from "react";
-import { getSubjectById, getStaticTopics } from "@/lib/data";
-import { notFound, useRouter } from "next/navigation";
+import { getSubjectById } from "@/lib/data";
+import { notFound, useParams } from "next/navigation";
 import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,19 +21,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { useFirebase, useMemoFirebase, useCollection } from "@/firebase";
-import { doc, collection } from "firebase/firestore";
+import { useFirebase, useMemoFirebase } from "@/firebase";
+import { doc } from "firebase/firestore";
 import { useDoc } from "@/firebase/firestore/use-doc";
 import { Skeleton } from "@/components/ui/skeleton";
-
-function isUrl(text: string) {
-    try {
-        new URL(text);
-        return true;
-    } catch (_) {
-        return false;
-    }
-}
 
 export default function TopicDetailsPage({
   params: paramsProp,
@@ -42,8 +33,7 @@ export default function TopicDetailsPage({
 }) {
   const params = React.use(paramsProp);
   const { firestore } = useFirebase();
-  const router = useRouter();
-
+  
   const topicDocRef = useMemoFirebase(() => {
     if (!firestore || !params.topicId) return null;
     return doc(firestore, 'topics', params.topicId);
@@ -53,7 +43,6 @@ export default function TopicDetailsPage({
   const { addBookmark, removeBookmark, isBookmarked } = useBookmarks();
   const { toast } = useToast();
   
-  // Fetch the subject statically since it's not expected to change frequently
   const subject = getSubjectById(params.subjectId);
 
   if (isTopicLoading) {
@@ -74,7 +63,6 @@ export default function TopicDetailsPage({
       );
   }
 
-  // Once loading is complete, if there's no subject or no topic data, then it's a 404.
   if (!subject || !topic) {
     notFound();
   }
@@ -96,8 +84,6 @@ export default function TopicDetailsPage({
       });
     }
   };
-
-  const contentIsUrl = isUrl(topic.content);
 
   return (
     <div className="space-y-8">
@@ -134,9 +120,9 @@ export default function TopicDetailsPage({
                             <CardDescription>{topic.summary}</CardDescription>
                         </CardHeader>
                         <CardContent>
-                           {contentIsUrl ? (
+                           {topic.pdfUrl ? (
                                 <Button asChild size="lg">
-                                    <Link href={topic.content} target="_blank" rel="noopener noreferrer">
+                                    <Link href={topic.pdfUrl} target="_blank" rel="noopener noreferrer">
                                        <FileText className="mr-2 h-5 w-5" /> View Document
                                     </Link>
                                 </Button>
