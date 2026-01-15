@@ -1,6 +1,8 @@
 
 import type { Grade, Subject, Topic } from "./types";
 import { PlaceHolderImages } from "./placeholder-images";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { firestore } from "firebase-admin";
 
 const getImage = (id: string) => {
   const img = PlaceHolderImages.find((p) => p.id === id);
@@ -13,6 +15,8 @@ const getImage = (id: string) => {
   return { src: img.imageUrl, hint: img.imageHint };
 };
 
+// This static data is now a fallback or for UI structure reference.
+// The app will primarily use real-time data from Firestore.
 const topics: Topic[] = [
   {
     id: 'alg-101',
@@ -311,9 +315,11 @@ const grades: Grade[] = [
 // Functions to query the data
 export const getGrades = () => grades;
 export const getSubjects = () => subjects;
-export const getTopics = () => topics;
+
+// These functions now primarily serve for static lookups (e.g., getting a subject's name from its ID).
+// The main data fetching is done via the `useCollection` hook in the components.
+export const getStaticTopics = () => topics;
 
 export const getSubjectById = (id: string) => subjects.find(s => s.id === id);
-export const getTopicsBySubjectId = (subjectId: string) => topics.filter(t => t.subjectId === subjectId);
-export const getTopicById = (id: string) => topics.find(t => t.id === id);
-
+export const getTopicsBySubjectId = (subjectId: string, dbTopics: Topic[]) => dbTopics.filter(t => t.subjectId === subjectId);
+export const getTopicById = (id: string, dbTopics: Topic[]) => dbTopics.find(t => t.id === id);
