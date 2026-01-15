@@ -33,7 +33,7 @@ export default function SubjectDetailsPage({
   const { user } = useUser();
   const { toast } = useToast();
 
-  const [newTopic, setNewTopic] = React.useState({ title: "", chapter: "", summary: "" });
+  const [newTopic, setNewTopic] = React.useState({ title: "", chapter: "", summary: "", content: "" });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const subject = getSubjectById(params.subjectId);
@@ -74,7 +74,7 @@ export default function SubjectDetailsPage({
   };
 
   const handleAddTopic = async () => {
-    if (!newTopic.title || !newTopic.chapter || !newTopic.summary) {
+    if (!newTopic.title || !newTopic.chapter || !newTopic.summary || !newTopic.content) {
       toast({ variant: 'destructive', title: "Error", description: "Please fill all fields for the new topic." });
       return;
     }
@@ -89,18 +89,19 @@ export default function SubjectDetailsPage({
         name: newTopic.title,
         chapter: newTopic.chapter,
         summary: newTopic.summary,
-        subjectId: params.subjectId, // Automatically set subjectId
-        createdBy: user.uid, // Automatically set createdBy
+        content: newTopic.content,
+        subjectId: params.subjectId,
+        createdBy: user.uid,
         coverImage: { 
-          src: "https://picsum.photos/seed/new-topic/600/400",
-          hint: "new topic"
+          src: `https://picsum.photos/seed/${newTopic.title.replace(/\s+/g, '-')}/600/400`,
+          hint: "educational content"
         },
         keyPoints: [],
         questions: [],
         createdAt: serverTimestamp(),
       });
       toast({ title: "Topic Added!", description: `"${newTopic.title}" has been created.` });
-      setNewTopic({ title: "", chapter: "", summary: "" }); // Reset form
+      setNewTopic({ title: "", chapter: "", summary: "", content: "" }); // Reset form
     } catch (error) {
       toast({ variant: 'destructive', title: "Error", description: "Could not create the topic." });
       console.error("Error creating topic: ", error);
@@ -158,6 +159,10 @@ export default function SubjectDetailsPage({
                             <div className="space-y-2">
                                 <Label htmlFor="topic-summary">Short Summary</Label>
                                 <Textarea id="topic-summary" placeholder="Briefly describe what this topic covers." value={newTopic.summary} onChange={(e) => setNewTopic({...newTopic, summary: e.target.value})} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="topic-content">Main Content</Label>
+                                <Textarea id="topic-content" placeholder="Paste a link to a PDF/Google Doc, or write the full lesson content here..." className="min-h-[200px]" value={newTopic.content} onChange={(e) => setNewTopic({...newTopic, content: e.target.value})} />
                             </div>
                              <div className="flex justify-end">
                                 <Button onClick={handleAddTopic} disabled={isSubmitting}>{isSubmitting ? "Adding..." : "Add Topic"}</Button>
