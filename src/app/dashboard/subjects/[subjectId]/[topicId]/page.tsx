@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { getSubjectById } from "@/lib/data";
-import { notFound } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,8 +21,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc } from "firebase/firestore";
+import { useFirebase, useMemoFirebase } from "@/firebase";
+import { doc } from "firebase/firestore";
 import { useDoc } from "@/firebase/firestore/use-doc";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -42,9 +42,10 @@ export default function TopicDetailsPage({
 }) {
   const params = React.use(paramsProp);
   const { firestore } = useFirebase();
+  const router = useRouter();
 
   const topicDocRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !params.topicId) return null;
     return doc(firestore, 'topics', params.topicId);
   }, [firestore, params.topicId]);
 
@@ -54,7 +55,25 @@ export default function TopicDetailsPage({
   const { addBookmark, removeBookmark, isBookmarked } = useBookmarks();
   const { toast } = useToast();
 
-  if (!subject || (!topic && !isTopicLoading)) {
+  if (isTopicLoading) {
+      return (
+          <div className="space-y-8">
+              <Skeleton className="h-10 w-1/3" />
+              <div className="grid lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2 space-y-8">
+                    <Skeleton className="h-96 w-full" />
+                    <Skeleton className="h-48 w-full" />
+                  </div>
+                  <div className="lg:col-span-1 space-y-8">
+                    <Skeleton className="h-32 w-full" />
+                    <Skeleton className="h-64 w-full" />
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
+  if (!subject || !topic) {
     notFound();
   }
   
@@ -76,26 +95,18 @@ export default function TopicDetailsPage({
       });
     }
   };
-  
-  if (isTopicLoading || !topic) {
-      return (
-          <div className="space-y-8">
-              <Skeleton className="h-10 w-1/3" />
-              <div className="grid lg:grid-cols-3 gap-8">
-                  <div className="lg:col-span-2 space-y-8">
-                    <Skeleton className="h-96 w-full" />
-                    <Skeleton className="h-48 w-full" />
-                  </div>
-                  <div className="lg:col-span-1 space-y-8">
-                    <Skeleton className="h-32 w-full" />
-                    <Skeleton className="h-64 w-full" />
-                  </div>
-              </div>
-          </div>
-      );
-  }
 
   const contentIsUrl = isUrl(topic.content);
+  
+  const handleStartLearning = () => {
+    if (contentIsUrl) {
+      window.open(topic.content, '_blank', 'noopener,noreferrer');
+    } else {
+      // For written content, we can assume we are on the learning page,
+      // or implement a specific learning view if needed.
+      // For now, we just ensure the content is displayed.
+    }
+  };
 
   return (
     <div className="space-y-8">
