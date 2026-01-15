@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { getSubjectById } from "@/lib/data";
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import Image from "next/image";
 import {
   Card,
@@ -17,11 +17,8 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Bookmark,
-  CheckCircle,
-  HelpCircle,
-  Lightbulb,
-  Video,
   FileText,
+  Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBookmarks } from "@/contexts/BookmarkContext";
@@ -29,66 +26,26 @@ import { useToast } from "@/hooks/use-toast";
 import type { Topic } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ScrollReveal } from "@/components/ScrollReveal";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { useFirebase, useMemoFirebase } from "@/firebase";
+import { useFirebase, useDoc, useMemoFirebase } from "@/firebase";
 import { doc } from "firebase/firestore";
-import { useDoc } from "@/firebase/firestore/use-doc";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function TopicDetailsPage({
-  params: paramsPromise,
-}: {
-  params: Promise<{ subjectId: string; topicId: string }>;
-}) {
-  const params = React.use(paramsPromise);
+export default function TopicDetailsPage() {
+  const params = useParams();
+  const { subjectId, topicId } = params as { subjectId: string; topicId: string; };
+
   const { firestore } = useFirebase();
   const { addBookmark, removeBookmark, isBookmarked } = useBookmarks();
   const { toast } = useToast();
-  const [sessionTopic, setSessionTopic] = React.useState<Topic | null>(null);
 
-  // Attempt to load from session storage first
-  React.useEffect(() => {
-    try {
-      const storedTopic = sessionStorage.getItem('currentTopic');
-      if (storedTopic) {
-        const parsedTopic = JSON.parse(storedTopic);
-        // Ensure the topic from session matches the one in the URL
-        if (parsedTopic.id === params.topicId) {
-          setSessionTopic(parsedTopic);
-        }
-      }
-    } catch (e) {
-      console.error("Could not parse topic from session storage.", e);
-    }
-  }, [params.topicId]);
-
-  // Firestore document reference, only active if sessionTopic is null
   const topicDocRef = useMemoFirebase(() => {
-    if (sessionTopic || !firestore || !params.topicId) return null;
-    return doc(firestore, "topics", params.topicId);
-  }, [firestore, params.topicId, sessionTopic]);
+    if (!firestore || !topicId) return null;
+    return doc(firestore, "topics", topicId);
+  }, [firestore, topicId]);
 
-  // Firestore hook, only runs if sessionTopic is null
-  const { data: firestoreTopic, isLoading: isFirestoreLoading } = useDoc<Topic>(topicDocRef);
-  
-  // Combine session and firestore data
-  const topic = sessionTopic || firestoreTopic;
-  const isLoading = !sessionTopic && isFirestoreLoading;
+  const { data: topic, isLoading } = useDoc<Topic>(topicDocRef);
 
-  const subject = getSubjectById(params.subjectId);
-
-  // Final check for not found, only after both lookups have been attempted
-  React.useEffect(() => {
-    if (!isLoading && !topic) {
-      notFound();
-    }
-  }, [isLoading, topic]);
-
+  const subject = getSubjectById(subjectId);
 
   const handleBookmarkToggle = (e: React.MouseEvent) => {
     if (!topic) return;
@@ -129,9 +86,10 @@ export default function TopicDetailsPage({
   }
 
   if (!topic || !subject) {
-    return null; // or a dedicated not found component
+    // This will only run after loading is complete and if topic is still null
+    notFound();
   }
-
+  
   const isPdf = topic.contentType === 'pdf' || (topic.pdfUrl && !topic.content);
 
   return (
@@ -180,14 +138,14 @@ export default function TopicDetailsPage({
               <CardContent>
                 {isPdf ? (
                   <Button asChild size="lg">
-                    <Link href={topic.pdfUrl!} target="_blank">
+                    <Link href={topic.pdfUrl!} target="_blank" rel="noopener noreferrer">
                       <FileText className="mr-2 h-5 w-5" />
                       View Document
                     </Link>
                   </Button>
                 ) : (
                   <div className="prose prose-stone dark:prose-invert max-w-none">
-                    <p>{topic.content}</p>
+                     <p>{topic.content}</p>
                   </div>
                 )}
               </CardContent>
@@ -226,7 +184,7 @@ export default function TopicDetailsPage({
                     className="w-full justify-start gap-2"
                     asChild
                   >
-                    <Link href={topic.videoUrl} target="_blank">
+                    <Link href={topic.videoUrl} target="_blank" rel="noopener noreferrer">
                       <Video className="h-5 w-5" />
                       Watch Video Lesson
                     </Link>
