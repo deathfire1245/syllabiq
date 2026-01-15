@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useFirebase, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query, where, addDoc, serverTimestamp } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function SubjectDetailsPage({
   params: paramsProp,
@@ -34,6 +35,7 @@ export default function SubjectDetailsPage({
   const { toast } = useToast();
 
   const [newTopic, setNewTopic] = React.useState({ title: "", chapter: "", summary: "", content: "" });
+  const [contentType, setContentType] = React.useState<'write' | 'link'>('write');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const subject = getSubjectById(params.subjectId);
@@ -160,10 +162,31 @@ export default function SubjectDetailsPage({
                                 <Label htmlFor="topic-summary">Short Summary</Label>
                                 <Textarea id="topic-summary" placeholder="Briefly describe what this topic covers." value={newTopic.summary} onChange={(e) => setNewTopic({...newTopic, summary: e.target.value})} />
                             </div>
+                            
                             <div className="space-y-2">
-                                <Label htmlFor="topic-content">Main Content</Label>
-                                <Textarea id="topic-content" placeholder="Paste a link to a PDF/Google Doc, or write the full lesson content here..." className="min-h-[200px]" value={newTopic.content} onChange={(e) => setNewTopic({...newTopic, content: e.target.value})} />
+                                <Label>Content Type</Label>
+                                <Select value={contentType} onValueChange={(value: 'write' | 'link') => setContentType(value)}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select content type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="write">Write Content</SelectItem>
+                                    <SelectItem value="link">Paste a Link</SelectItem>
+                                  </SelectContent>
+                                </Select>
                             </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="topic-content">
+                                  {contentType === 'write' ? 'Main Content' : 'PDF or Google Doc Link'}
+                                </Label>
+                                {contentType === 'write' ? (
+                                    <Textarea id="topic-content" placeholder="Write the full lesson content here..." className="min-h-[200px]" value={newTopic.content} onChange={(e) => setNewTopic({...newTopic, content: e.target.value})} />
+                                ) : (
+                                    <Input id="topic-content" placeholder="https://example.com/your-document.pdf" value={newTopic.content} onChange={(e) => setNewTopic({...newTopic, content: e.target.value})} />
+                                )}
+                            </div>
+
                              <div className="flex justify-end">
                                 <Button onClick={handleAddTopic} disabled={isSubmitting}>{isSubmitting ? "Adding..." : "Add Topic"}</Button>
                              </div>
