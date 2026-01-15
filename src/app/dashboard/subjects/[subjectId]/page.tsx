@@ -2,13 +2,13 @@
 "use client";
 
 import * as React from "react";
-import { getSubjectById, getTopicById as getStaticTopicById } from "@/lib/data";
+import { getSubjectById } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { ArrowLeft, Bookmark, PlusCircle, Upload, FileText, Video, HelpCircle } from "lucide-react";
+import { ArrowLeft, Bookmark, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBookmarks } from "@/contexts/BookmarkContext";
 import { useToast } from "@/hooks/use-toast";
@@ -23,10 +23,11 @@ import { collection, query, where, addDoc, serverTimestamp } from "firebase/fire
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SubjectDetailsPage({
-  params,
+  params: paramsProp,
 }: {
   params: { subjectId: string };
 }) {
+  const params = React.use(paramsProp);
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const { firestore } = useFirebase();
   const { toast } = useToast();
