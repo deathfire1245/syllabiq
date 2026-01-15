@@ -16,76 +16,7 @@ const getImage = (id: string) => {
 // This static data is now a fallback or for UI structure reference.
 // The app will primarily use real-time data from Firestore.
 const topics: Topic[] = [
-  {
-    id: 'alg-101',
-    subjectId: 'math-10',
-    chapter: 'Chapter 1: Foundations',
-    name: 'Introduction to Algebra',
-    summary: 'Explore the fundamental concepts of algebra, including variables, expressions, and equations. This topic lays the groundwork for all future mathematical studies.',
-    coverImage: getImage('algebra-topic'),
-    videoUrl: 'https://example.com/video',
-    keyPoints: [
-      'A variable is a symbol that represents a quantity that can change.',
-      'An algebraic expression is a combination of variables, numbers, and at least one operation.',
-      'An equation is a statement that two expressions are equal.',
-      'Solving an equation means finding the value of the variable that makes the equation true.'
-    ],
-    questions: [
-      { question: 'What is a variable?', answer: 'A variable is a letter or symbol used to represent an unknown value or a value that can change.' },
-      { question: 'What is the difference between an expression and an equation?', answer: 'An expression is a mathematical phrase that can contain numbers, variables, and operators, but it does not have an equal sign. An equation sets two expressions equal to each other.' },
-    ]
-  },
-  {
-    id: 'geo-101',
-    subjectId: 'math-10',
-    chapter: 'Chapter 5: Geometry',
-    name: 'Basics of Geometry',
-    summary: 'Learn about points, lines, planes, and angles. Understand the basic postulates and theorems that form the foundation of Euclidean geometry.',
-    coverImage: getImage('geometry-topic'),
-    keyPoints: [
-      'A point has no dimension. It is represented by a dot.',
-      'A line has one dimension. It is represented by a line with two arrowheads, extending without end.',
-      'A plane has two dimensions. It is represented by a shape that looks like a floor or a wall, extending without end.',
-      'An angle is formed by two rays with a common endpoint, called the vertex.'
-    ],
-    questions: [
-      { question: 'What are parallel lines?', answer: 'Parallel lines are two lines in a plane that never intersect or touch each other at any point.' },
-    ]
-  },
-  {
-    id: 'phy-101',
-    subjectId: 'science-10',
-    chapter: 'Chapter 1: Mechanics',
-    name: 'Newton\'s Laws of Motion',
-    summary: 'Dive into classical mechanics by studying Newton\'s three laws of motion, which are fundamental principles describing the relationship between an object and the forces acting upon it.',
-    coverImage: getImage('physics-topic'),
-    videoUrl: 'https://example.com/video',
-    keyPoints: [
-      'First Law (Inertia): An object at rest stays at rest and an object in motion stays in motion with the same speed and in the same direction unless acted upon by an unbalanced force.',
-      'Second Law: The acceleration of an object as produced by a net force is directly proportional to the magnitude of the net force, in the same direction as the net force, and inversely proportional to the mass of the object (F=ma).',
-      'Third Law: For every action, there is an equal and opposite reaction.'
-    ],
-    questions: [
-      { question: 'What is inertia?', answer: 'Inertia is the resistance of any physical object to any change in its state of motion.' },
-    ]
-  },
-  {
-    id: 'chem-101',
-    subjectId: 'science-10',
-    chapter: 'Chapter 3: The Atom',
-    name: 'The Periodic Table',
-    summary: 'Understand the organization of the periodic table and how it predicts the properties of elements. Learn about periods, groups, and elemental properties.',
-    coverImage: getImage('chemistry-topic'),
-    keyPoints: [
-      'The periodic table arranges elements in order of increasing atomic number.',
-      'Rows are called periods, and columns are called groups.',
-      'Elements in the same group have similar chemical properties.',
-      'The table can be used to predict trends in atomic size, ionization energy, and electronegativity.'
-    ],
-    questions: [
-      { question: 'Who is credited with creating the first periodic table?', answer: 'Dmitri Mendeleev is most often credited with creating the first modern periodic table in 1869.' },
-    ]
-  },
+  // This can be kept empty or as a reference, as real data comes from Firestore
 ];
 
 const subjects: Subject[] = [
@@ -95,7 +26,7 @@ const subjects: Subject[] = [
     name: 'Mathematics',
     icon: 'Calculator',
     coverImage: getImage('math-cover'),
-    topics: topics.filter(t => t.subjectId === 'math-10'),
+    topics: [], // Topics are now fetched from Firestore
   },
   {
     id: 'science-10',
@@ -103,7 +34,7 @@ const subjects: Subject[] = [
     name: 'Science',
     icon: 'FlaskConical',
     coverImage: getImage('science-cover'),
-    topics: topics.filter(t => t.subjectId === 'science-10'),
+    topics: [],
   },
   {
     id: 'history-10',
@@ -315,9 +246,9 @@ export const getGrades = () => grades;
 export const getSubjects = () => subjects;
 
 // These functions now primarily serve for static lookups (e.g., getting a subject's name from its ID).
-// The main data fetching is done via the `useCollection` hook in the components.
+// The main data fetching is done via the `useCollection` and `useDoc` hooks in the components.
 export const getTopicById = (topicId: string, allTopics: Topic[]): Topic | undefined => {
-    // First, check the new real-time topics
+    // This function is now deprecated for real-time fetching but can be used for bookmarks or other client-side operations.
     const realTimeTopic = allTopics.find(t => t.id === topicId);
     if (realTimeTopic) {
         return realTimeTopic;

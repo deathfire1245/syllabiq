@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { getSubjectById } from "@/lib/data";
+import { getSubjectById, getStaticTopics } from "@/lib/data";
 import { notFound, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -21,8 +21,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { useFirebase, useMemoFirebase } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { useFirebase, useMemoFirebase, useCollection } from "@/firebase";
+import { doc, collection } from "firebase/firestore";
 import { useDoc } from "@/firebase/firestore/use-doc";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -50,10 +50,11 @@ export default function TopicDetailsPage({
   }, [firestore, params.topicId]);
 
   const { data: topic, isLoading: isTopicLoading } = useDoc<Topic>(topicDocRef);
-  const subject = getSubjectById(params.subjectId);
-
   const { addBookmark, removeBookmark, isBookmarked } = useBookmarks();
   const { toast } = useToast();
+  
+  // Fetch the subject statically since it's not expected to change frequently
+  const subject = getSubjectById(params.subjectId);
 
   if (isTopicLoading) {
       return (
@@ -73,12 +74,12 @@ export default function TopicDetailsPage({
       );
   }
 
+  // Once loading is complete, if there's no subject or no topic data, then it's a 404.
   if (!subject || !topic) {
     notFound();
   }
   
   const handleBookmarkToggle = (e: React.MouseEvent) => {
-    if (!topic) return;
     e.preventDefault();
     e.stopPropagation();
     if (isBookmarked(topic.id)) {
@@ -97,16 +98,6 @@ export default function TopicDetailsPage({
   };
 
   const contentIsUrl = isUrl(topic.content);
-  
-  const handleStartLearning = () => {
-    if (contentIsUrl) {
-      window.open(topic.content, '_blank', 'noopener,noreferrer');
-    } else {
-      // For written content, we can assume we are on the learning page,
-      // or implement a specific learning view if needed.
-      // For now, we just ensure the content is displayed.
-    }
-  };
 
   return (
     <div className="space-y-8">
@@ -165,13 +156,13 @@ export default function TopicDetailsPage({
                         </CardHeader>
                         <CardContent>
                              <ul className="space-y-3">
-                                {topic.keyPoints.map((point, index) => (
+                                {topic.keyPoints && topic.keyPoints.map((point, index) => (
                                     <li key={index} className="flex items-start">
                                         <CheckCircle className="w-5 h-5 text-green-500 mr-3 flex-shrink-0 mt-1" />
                                         <span>{point}</span>
                                     </li>
                                 ))}
-                                {topic.keyPoints.length === 0 && <p className="text-muted-foreground">No key points added yet.</p>}
+                                {(!topic.keyPoints || topic.keyPoints.length === 0) && <p className="text-muted-foreground">No key points added yet.</p>}
                             </ul>
                         </CardContent>
                     </Card>
@@ -212,7 +203,7 @@ export default function TopicDetailsPage({
                         </CardHeader>
                         <CardContent>
                            <Accordion type="single" collapsible className="w-full">
-                                {topic.questions.map((q, index) => (
+                                {topic.questions && topic.questions.map((q, index) => (
                                     <AccordionItem key={index} value={`item-${index}`}>
                                         <AccordionTrigger>{q.question}</AccordionTrigger>
                                         <AccordionContent className="text-muted-foreground">
@@ -221,7 +212,7 @@ export default function TopicDetailsPage({
                                     </AccordionItem>
                                 ))}
                             </Accordion>
-                             {topic.questions.length === 0 && <p className="text-muted-foreground text-center py-4">No questions added yet.</p>}
+                             {(!topic.questions || topic.questions.length === 0) && <p className="text-muted-foreground text-center py-4">No questions added yet.</p>}
                         </CardContent>
                     </Card>
                  </ScrollReveal>
