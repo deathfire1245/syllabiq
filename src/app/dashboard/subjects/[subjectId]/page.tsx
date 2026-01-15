@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { getSubjectById } from "@/lib/data";
-import { notFound, useParams } from "next/navigation";
+import { notFound } from "next/navigation";
 import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,11 +24,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function SubjectDetailsPage({
-  params: paramsProp,
+  params: paramsPromise,
 }: {
-  params: { subjectId: string };
+  params: Promise<{ subjectId: string }>;
 }) {
-  const params = React.use(paramsProp);
+  const params = React.use(paramsPromise);
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const { firestore } = useFirebase();
   const { user } = useUser();
@@ -53,6 +53,14 @@ export default function SubjectDetailsPage({
     const role = localStorage.getItem("userRole");
     setUserRole(role);
   }, []);
+
+  const handleTopicClick = (topic: Topic) => {
+    try {
+      sessionStorage.setItem('currentTopic', JSON.stringify(topic));
+    } catch (e) {
+      console.error("Failed to save topic to session storage", e);
+    }
+  };
 
   if (!subject) {
     notFound();
@@ -101,13 +109,18 @@ export default function SubjectDetailsPage({
       keyPoints: [],
       questions: [],
       createdAt: serverTimestamp(),
+      contentType: contentType === 'link' ? 'pdf' : 'text',
+      content: contentValue,
     };
-
+    
     if (contentType === 'write') {
         payload.content = contentValue;
+        payload.contentType = 'text';
     } else {
         payload.pdfUrl = contentValue;
+        payload.contentType = 'pdf';
     }
+
 
     try {
       await addDoc(collection(firestore, "topics"), payload);
@@ -220,7 +233,7 @@ export default function SubjectDetailsPage({
                                             <p className="text-sm text-muted-foreground">{topic.chapter}</p>
                                         </div>
                                         <Button variant="ghost" size="sm" asChild>
-                                          <Link href={`/dashboard/subjects/${subject.id}/${topic.id}`}>View</Link>
+                                          <Link href={`/dashboard/subjects/${subject.id}/${topic.id}`} onClick={() => handleTopicClick(topic)}>View</Link>
                                         </Button>
                                     </li>
                                 ))}
@@ -253,7 +266,7 @@ export default function SubjectDetailsPage({
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {topics && topics.map((topic, index) => (
           <ScrollReveal key={topic.id} delay={index * 0.1}>
-            <Link href={`/dashboard/subjects/${subject.id}/${topic.id}`}>
+            <Link href={`/dashboard/subjects/${subject.id}/${topic.id}`} onClick={() => handleTopicClick(topic)}>
               <Card
                 className="group relative overflow-hidden transform transition-all duration-300 hover:shadow-xl h-full"
               >

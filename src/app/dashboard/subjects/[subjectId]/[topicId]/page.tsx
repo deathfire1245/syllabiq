@@ -45,25 +45,71 @@ export default function TopicDetailsPage({
 }: {
   params: Promise<{ subjectId: string; topicId: string }>;
 }) {
-  // ✅ REQUIRED in Next.js 15
   const params = React.use(paramsPromise);
-
   const { firestore } = useFirebase();
-
-  const topicDocRef = useMemoFirebase(() => {
-    if (!firestore || !params.topicId) return null;
-    // Fetch the topic directly by its ID from the top-level collection
-    return doc(firestore, "topics", params.topicId);
-  }, [firestore, params.topicId]);
-
-  const { data: topic, isLoading } = useDoc<Topic>(topicDocRef);
-
   const { addBookmark, removeBookmark, isBookmarked } = useBookmarks();
   const { toast } = useToast();
+  const [sessionTopic, setSessionTopic] = React.useState<Topic | null>(null);
+
+  // Attempt to load from session storage first
+  React.useEffect(() => {
+    try {
+      const storedTopic = sessionStorage.getItem('currentTopic');
+      if (storedTopic) {
+        const parsedTopic = JSON.parse(storedTopic);
+        // Ensure the topic from session matches the one in the URL
+        if (parsedTopic.id === params.topicId) {
+          setSessionTopic(parsedTopic);
+        }
+      }
+    } catch (e) {
+      console.error("Could not parse topic from session storage.", e);
+    }
+  }, [params.topicId]);
+
+  // Firestore document reference, only active if sessionTopic is null
+  const topicDocRef = useMemoFirebase(() => {
+    if (sessionTopic || !firestore || !params.topicId) return null;
+    return doc(firestore, "topics", params.topicId);
+  }, [firestore, params.topicId, sessionTopic]);
+
+  // Firestore hook, only runs if sessionTopic is null
+  const { data: firestoreTopic, isLoading: isFirestoreLoading } = useDoc<Topic>(topicDocRef);
+  
+  // Combine session and firestore data
+  const topic = sessionTopic || firestoreTopic;
+  const isLoading = !sessionTopic && isFirestoreLoading;
 
   const subject = getSubjectById(params.subjectId);
 
-  // ⏳ Prevent premature 404
+  // Final check for not found, only after both lookups have been attempted
+  React.useEffect(() => {
+    if (!isLoading && !topic) {
+      notFound();
+    }
+  }, [isLoading, topic]);
+
+
+  const handleBookmarkToggle = (e: React.MouseEvent) => {
+    if (!topic) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (isBookmarked(topic.id)) {
+      removeBookmark(topic.id);
+      toast({
+        title: "Bookmark Removed",
+        description: `"${topic.name}" has been removed from your bookmarks.`,
+      });
+    } else {
+      addBookmark(topic.id);
+      toast({
+        title: "Bookmark Added!",
+        description: `"${topic.name}" has been added to your bookmarks.`,
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-8">
@@ -82,29 +128,11 @@ export default function TopicDetailsPage({
     );
   }
 
-  // ❌ Only call notFound() after data fetching is complete and the document is confirmed to not exist.
   if (!topic || !subject) {
-    notFound();
+    return null; // or a dedicated not found component
   }
 
-  const handleBookmarkToggle = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (isBookmarked(topic.id)) {
-      removeBookmark(topic.id);
-      toast({
-        title: "Bookmark Removed",
-        description: `"${topic.name}" has been removed from your bookmarks.`,
-      });
-    } else {
-      addBookmark(topic.id);
-      toast({
-        title: "Bookmark Added!",
-        description: `"${topic.name}" has been added to your bookmarks.`,
-      });
-    }
-  };
+  const isPdf = topic.contentType === 'pdf' || (topic.pdfUrl && !topic.content);
 
   return (
     <div className="space-y-8">
@@ -150,9 +178,9 @@ export default function TopicDetailsPage({
                 <CardDescription>{topic.summary}</CardDescription>
               </CardHeader>
               <CardContent>
-                {topic.pdfUrl ? (
+                {isPdf ? (
                   <Button asChild size="lg">
-                    <Link href={topic.pdfUrl} target="_blank">
+                    <Link href={topic.pdfUrl!} target="_blank">
                       <FileText className="mr-2 h-5 w-5" />
                       View Document
                     </Link>
