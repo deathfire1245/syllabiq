@@ -27,6 +27,7 @@ const studentNavItems = [
 const teacherNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/create", icon: PlusCircle, label: "Create" },
+   { href: "/dashboard/subjects", icon: Compass, label: "Subjects" },
   { type: 'collapsible', 
     label: "Browse", 
     icon: Compass, 

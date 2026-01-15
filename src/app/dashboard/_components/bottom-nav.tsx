@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -18,13 +19,13 @@ const teacherNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/create", icon: PlusCircle, label: "Create" },
   { href: "/dashboard/subjects", icon: Compass, label: "Subjects" },
-  { href: "/dashboard/bookmarks", icon: BookMarked, label: "Bookmarks" },
+  { href: "/dashboard/bookings", icon: Video, label: "Bookings" },
   { href: "/dashboard/profile", icon: User, label: "Profile" },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
-  const [userRole, setUserRole] = React.useState("Student");
+  const [userRole, setUserRole] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -35,7 +36,7 @@ export function BottomNav() {
     }
   }, []);
   
-  const navItems = userRole === 'Teacher' ? teacherNavItems : studentNavItems;
+  const navItems = userRole === 'teacher' ? teacherNavItems : studentNavItems;
 
 
   return (

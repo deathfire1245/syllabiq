@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { getSubjectById, getTopicsBySubjectId } from "@/lib/data";
+import { getSubjectById, getTopicById as getStaticTopicById } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -18,6 +18,9 @@ import { ScrollReveal } from "@/components/ScrollReveal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, where, addDoc, serverTimestamp } from "firebase/firestore";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SubjectDetailsPage({
   params,
@@ -25,10 +28,21 @@ export default function SubjectDetailsPage({
   params: { subjectId: string };
 }) {
   const [userRole, setUserRole] = React.useState<string | null>(null);
-  const subject = getSubjectById(params.subjectId);
-  const topics = getTopicsBySubjectId(params.subjectId);
-  const { addBookmark, removeBookmark, isBookmarked } = useBookmarks();
+  const { firestore } = useFirebase();
   const { toast } = useToast();
+
+  const [newTopic, setNewTopic] = React.useState({ title: "", chapter: "", summary: "" });
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const subject = getSubjectById(params.subjectId);
+
+  const topicsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, "topics"), where("subjectId", "==", params.subjectId));
+  }, [firestore, params.subjectId]);
+
+  const { data: topics, isLoading: areTopicsLoading } = useCollection<Topic>(topicsQuery);
+  const { addBookmark, removeBookmark, isBookmarked } = useBookmarks();
 
   React.useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -56,17 +70,52 @@ export default function SubjectDetailsPage({
       });
     }
   };
+
+  const handleAddTopic = async () => {
+    if (!newTopic.title || !newTopic.chapter || !newTopic.summary) {
+      toast({ variant: 'destructive', title: "Error", description: "Please fill all fields for the new topic." });
+      return;
+    }
+    if (!firestore) return;
+
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(firestore, "topics"), {
+        ...newTopic,
+        name: newTopic.title,
+        subjectId: params.subjectId,
+        coverImage: { // Using a placeholder for now
+          src: "https://picsum.photos/seed/new-topic/600/400",
+          hint: "new topic"
+        },
+        keyPoints: [],
+        questions: [],
+        createdAt: serverTimestamp(),
+      });
+      toast({ title: "Topic Added!", description: `"${newTopic.title}" has been created.` });
+      setNewTopic({ title: "", chapter: "", summary: "" }); // Reset form
+    } catch (error) {
+      toast({ variant: 'destructive', title: "Error", description: "Could not create the topic." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   
-  if (userRole === null) {
+  if (userRole === null || areTopicsLoading) {
       return (
-        <div className="flex items-center justify-center h-[60vh]">
-            <p>Loading...</p>
+        <div className="space-y-8">
+          <Skeleton className="h-10 w-1/3" />
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
         </div>
       );
   }
 
   // Teacher View
-  if (userRole === 'Teacher') {
+  if (userRole === 'teacher') {
     return (
       <div className="space-y-8">
         <ScrollReveal className="flex items-center gap-4">
@@ -78,7 +127,7 @@ export default function SubjectDetailsPage({
           </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Manage Content for {subject.name}</h1>
-            <p className="text-muted-foreground">Add new topics, notes, videos, and questions.</p>
+            <p className="text-muted-foreground">Add new topics for this free subject.</p>
           </div>
         </ScrollReveal>
 
@@ -92,43 +141,19 @@ export default function SubjectDetailsPage({
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
                                 <Label htmlFor="topic-title">Topic Title</Label>
-                                <Input id="topic-title" placeholder="e.g., Introduction to Photosynthesis" />
+                                <Input id="topic-title" placeholder="e.g., Introduction to Photosynthesis" value={newTopic.title} onChange={(e) => setNewTopic({...newTopic, title: e.target.value})} />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="topic-chapter">Chapter / Unit</Label>
-                                <Input id="topic-chapter" placeholder="e.g., Chapter 4" />
+                                <Input id="topic-chapter" placeholder="e.g., Chapter 4" value={newTopic.chapter} onChange={(e) => setNewTopic({...newTopic, chapter: e.target.value})} />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="topic-summary">Short Summary</Label>
-                                <Textarea id="topic-summary" placeholder="Briefly describe what this topic covers." />
+                                <Textarea id="topic-summary" placeholder="Briefly describe what this topic covers." value={newTopic.summary} onChange={(e) => setNewTopic({...newTopic, summary: e.target.value})} />
                             </div>
                              <div className="flex justify-end">
-                                <Button>Add Topic</Button>
+                                <Button onClick={handleAddTopic} disabled={isSubmitting}>{isSubmitting ? "Adding..." : "Add Topic"}</Button>
                              </div>
-                        </CardContent>
-                    </Card>
-                 </ScrollReveal>
-
-                 <ScrollReveal delay={0.2}>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><Upload className="w-5 h-5 text-primary"/> Upload Content</CardTitle>
-                            <CardDescription>Attach notes, videos or other resources to a topic.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="space-y-2">
-                                <Label htmlFor="select-topic">Select Topic</Label>
-                                <select id="select-topic" className="w-full h-10 border-input bg-background rounded-md border px-3 py-2 text-sm">
-                                    <option>Select a topic to add content to...</option>
-                                    {topics.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                    {topics.length === 0 && <option disabled>No topics created yet.</option>}
-                                </select>
-                            </div>
-                             <div className="grid sm:grid-cols-3 gap-4">
-                                <Button variant="outline"><FileText className="mr-2 h-4 w-4"/> Add Text Notes</Button>
-                                <Button variant="outline"><Video className="mr-2 h-4 w-4"/> Upload Video</Button>
-                                <Button variant="outline"><HelpCircle className="mr-2 h-4 w-4"/> Add Questions</Button>
-                            </div>
                         </CardContent>
                     </Card>
                  </ScrollReveal>
@@ -140,7 +165,7 @@ export default function SubjectDetailsPage({
                         <CardTitle>Existing Topics</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {topics.length > 0 ? (
+                        {topics && topics.length > 0 ? (
                             <ul className="space-y-3">
                                 {topics.map(topic => (
                                     <li key={topic.id} className="flex justify-between items-center bg-secondary p-3 rounded-md">
@@ -148,7 +173,9 @@ export default function SubjectDetailsPage({
                                             <p className="font-semibold">{topic.name}</p>
                                             <p className="text-sm text-muted-foreground">{topic.chapter}</p>
                                         </div>
-                                        <Button variant="ghost" size="sm">Edit</Button>
+                                        <Button variant="ghost" size="sm" asChild>
+                                          <Link href={`/dashboard/subjects/${subject.id}/${topic.id}`}>View</Link>
+                                        </Button>
                                     </li>
                                 ))}
                             </ul>
@@ -178,7 +205,7 @@ export default function SubjectDetailsPage({
       </ScrollReveal>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {topics.map((topic, index) => (
+        {topics && topics.map((topic, index) => (
           <ScrollReveal key={topic.id} delay={index * 0.1}>
             <Link href={`/dashboard/subjects/${subject.id}/${topic.id}`}>
               <Card
@@ -215,7 +242,7 @@ export default function SubjectDetailsPage({
             </Link>
           </ScrollReveal>
         ))}
-        {topics.length === 0 && (
+        {topics && topics.length === 0 && (
           <ScrollReveal className="col-span-full text-center py-12">
             <h3 className="text-lg font-medium">No topics yet.</h3>
             <p className="text-muted-foreground">Check back soon for content in {subject.name}!</p>

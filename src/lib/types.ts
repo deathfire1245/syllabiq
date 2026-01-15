@@ -15,6 +15,7 @@ export type Topic = {
     question: string;
     answer: string;
   }[];
+  createdAt?: any;
 };
 
 export type Subject = {
@@ -46,5 +47,3 @@ export type Ticket = {
   price: number;
   createdAt: any;
 }
-
-    
