@@ -8,7 +8,7 @@ import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { ArrowLeft, Bookmark, PlusCircle } from "lucide-react";
+import { ArrowLeft, Bookmark, PlusCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBookmarks } from "@/contexts/BookmarkContext";
 import { useToast } from "@/hooks/use-toast";
@@ -24,11 +24,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function SubjectDetailsPage({
-  params: paramsPromise,
+  params,
 }: {
-  params: Promise<{ subjectId: string }>;
+  params: { subjectId: string };
 }) {
-  const params = React.use(paramsPromise);
   const router = useRouter();
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const { firestore } = useFirebase();
@@ -38,6 +37,8 @@ export default function SubjectDetailsPage({
   const [newTopic, setNewTopic] = React.useState({ title: "", chapter: "", summary: "" });
   const [contentValue, setContentValue] = React.useState("");
   const [contentType, setContentType] = React.useState<'write' | 'link'>('write');
+  const [keyPoints, setKeyPoints] = React.useState<string[]>(['']);
+  const [questions, setQuestions] = React.useState<{ question: string; answer: string }[]>([{ question: '', answer: '' }]);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const subject = getSubjectById(params.subjectId);
@@ -92,6 +93,44 @@ export default function SubjectDetailsPage({
     }
   };
 
+  // For Key Points
+  const handleKeyPointChange = (index: number, value: string) => {
+    const newKeyPoints = [...keyPoints];
+    newKeyPoints[index] = value;
+    setKeyPoints(newKeyPoints);
+  };
+
+  const addKeyPoint = () => {
+    setKeyPoints([...keyPoints, '']);
+  };
+
+  const removeKeyPoint = (index: number) => {
+    if (keyPoints.length > 1) {
+      setKeyPoints(keyPoints.filter((_, i) => i !== index));
+    } else {
+        setKeyPoints(['']); // Keep at least one empty input
+    }
+  };
+
+  // For Questions
+  const handleQuestionChange = (index: number, field: 'question' | 'answer', value: string) => {
+    const newQuestions = [...questions];
+    newQuestions[index][field] = value;
+    setQuestions(newQuestions);
+  };
+
+  const addQuestion = () => {
+    setQuestions([...questions, { question: '', answer: '' }]);
+  };
+
+  const removeQuestion = (index: number) => {
+    if (questions.length > 1) {
+        setQuestions(questions.filter((_, i) => i !== index));
+    } else {
+        setQuestions([{ question: '', answer: '' }]); // Keep one empty pair
+    }
+  };
+
   const handleAddTopic = async () => {
     if (!newTopic.title || !newTopic.chapter || !newTopic.summary || !contentValue) {
       toast({ variant: 'destructive', title: "Error", description: "Please fill all fields for the new topic." });
@@ -103,6 +142,9 @@ export default function SubjectDetailsPage({
     }
 
     setIsSubmitting(true);
+
+    const finalKeyPoints = keyPoints.map(p => p.trim()).filter(p => p);
+    const finalQuestions = questions.filter(q => q.question.trim() && q.answer.trim());
     
     const payload: any = {
       name: newTopic.title,
@@ -114,11 +156,9 @@ export default function SubjectDetailsPage({
         src: `https://picsum.photos/seed/${newTopic.title.replace(/\s+/g, '-')}/600/400`,
         hint: "educational content"
       },
-      keyPoints: [],
-      questions: [],
+      keyPoints: finalKeyPoints,
+      questions: finalQuestions,
       createdAt: serverTimestamp(),
-      contentType: contentType === 'link' ? 'pdf' : 'text',
-      content: contentValue,
     };
     
     if (contentType === 'write') {
@@ -135,6 +175,8 @@ export default function SubjectDetailsPage({
       toast({ title: "Topic Added!", description: `"${newTopic.title}" has been created.` });
       setNewTopic({ title: "", chapter: "", summary: "" }); // Reset form
       setContentValue("");
+      setKeyPoints(['']);
+      setQuestions([{ question: '', answer: '' }]);
     } catch (error) {
       toast({ variant: 'destructive', title: "Error", description: "Could not create the topic." });
       console.error("Error creating topic: ", error);
@@ -180,7 +222,7 @@ export default function SubjectDetailsPage({
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2"><PlusCircle className="w-5 h-5 text-primary"/> Add New Topic / Lesson</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="space-y-6">
                             <div className="space-y-2">
                                 <Label htmlFor="topic-title">Topic Title</Label>
                                 <Input id="topic-title" placeholder="e.g., Introduction to Photosynthesis" value={newTopic.title} onChange={(e) => setNewTopic({...newTopic, title: e.target.value})} />
@@ -218,7 +260,68 @@ export default function SubjectDetailsPage({
                                 )}
                             </div>
 
-                             <div className="flex justify-end">
+                             <div className="space-y-4 pt-4 border-t">
+                                <Label>Key Points</Label>
+                                <CardDescription>Add the main takeaways for this topic.</CardDescription>
+                                {keyPoints.map((point, index) => (
+                                    <div key={index} className="flex items-center gap-2">
+                                        <Input 
+                                            placeholder={`Key Point ${index + 1}`} 
+                                            value={point} 
+                                            onChange={(e) => handleKeyPointChange(index, e.target.value)} 
+                                        />
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            onClick={() => removeKeyPoint(index)} 
+                                            disabled={keyPoints.length <= 1 && point === ''}
+                                            className="text-destructive hover:bg-destructive/10"
+                                        >
+                                            <Trash2 className="w-4 h-4"/>
+                                        </Button>
+                                    </div>
+                                ))}
+                                <Button variant="outline" size="sm" onClick={addKeyPoint} className="mt-2">
+                                    <PlusCircle className="mr-2 h-4 w-4"/> Add Key Point
+                                </Button>
+                            </div>
+                            
+                            <div className="space-y-4 pt-4 border-t">
+                                <Label>Practice Questions</Label>
+                                <CardDescription>Add questions and answers to help students test their knowledge.</CardDescription>
+                                {questions.map((qa, index) => (
+                                    <div key={index} className="p-3 border rounded-md space-y-2 bg-secondary/50 relative">
+                                         <div className="flex items-center gap-2">
+                                            <Input 
+                                                placeholder={`Question ${index + 1}`} 
+                                                value={qa.question} 
+                                                onChange={(e) => handleQuestionChange(index, 'question', e.target.value)}
+                                            />
+                                             <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                onClick={() => removeQuestion(index)}
+                                                disabled={questions.length <= 1 && qa.question === '' && qa.answer === ''}
+                                                className="text-destructive hover:bg-destructive/10"
+                                            >
+                                                <Trash2 className="w-4 h-4"/>
+                                            </Button>
+                                         </div>
+                                         <Textarea 
+                                            placeholder="Answer" 
+                                            value={qa.answer} 
+                                            onChange={(e) => handleQuestionChange(index, 'answer', e.target.value)}
+                                            className="min-h-[60px]"
+                                         />
+                                    </div>
+                                ))}
+                                 <Button variant="outline" size="sm" onClick={addQuestion} className="mt-2">
+                                    <PlusCircle className="mr-2 h-4 w-4"/> Add Question
+                                </Button>
+                            </div>
+
+
+                             <div className="flex justify-end pt-6">
                                 <Button onClick={handleAddTopic} disabled={isSubmitting}>{isSubmitting ? "Adding..." : "Add Topic"}</Button>
                              </div>
                         </CardContent>
