@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -99,10 +98,10 @@ export default function TopicContentPage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <FileText className="w-6 h-6 text-destructive" />
-                            Document Viewer
+                            External Document
                         </CardTitle>
                         <CardDescription>
-                            This topic is a linked document. You can view it below or open it in a new tab for a better experience.
+                            This topic content is provided as an external document. Click the button to open it in a new tab.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -111,14 +110,6 @@ export default function TopicContentPage() {
                                 Open Document in New Tab <LinkIcon className="ml-2 h-4 w-4" />
                             </a>
                         </Button>
-                        <div className="aspect-[4/3] w-full rounded-lg border overflow-hidden">
-                             <iframe
-                                src={`https://docs.google.com/gview?url=${topic.pdfUrl}&embedded=true`}
-                                className="w-full h-full"
-                                frameBorder="0"
-                                title={topic.name}
-                            />
-                        </div>
                     </CardContent>
                 </Card>
             );
