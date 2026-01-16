@@ -81,34 +81,31 @@ export default function CreateCoursePage() {
     }
   };
   
+  const isStep1Valid = courseData.title.trim() !== '' && courseData.description.trim() !== '' && courseData.category.trim() !== '' && courseData.difficulty.trim() !== '';
+  const isStep2Valid = courseContent.length > 0 && courseContent.every(content => content.title.trim() !== '' && isValidUrl(content.url, content.type));
+  const isStep3Valid = courseData.price.trim() !== '';
+
+  const isNextStepDisabled = () => {
+    if (currentStep === 1) return !isStep1Valid;
+    if (currentStep === 2) return !isStep2Valid;
+    if (currentStep === 3) return !isStep3Valid;
+    if (currentStep === 4) return true;
+    return false;
+  };
+
   const handlePublish = async () => {
      if (!firestore || !user) {
         toast({ variant: 'destructive', title: "Error", description: "You must be logged in to create a course." });
         return;
     }
-    // Basic validation
-    if (!courseData.title || !courseData.description || !courseData.category || !courseData.difficulty || !courseData.price) {
-        toast({ variant: 'destructive', title: "Missing Information", description: "Please fill out all fields in the 'Basic Info' and 'Pricing' steps." });
-        setCurrentStep(1);
+    // Final validation before publishing
+    if (!isStep1Valid || !isStep2Valid || !isStep3Valid) {
+        toast({ variant: 'destructive', title: "Missing Information", description: "Please complete all previous steps correctly." });
+        // Find first invalid step and go to it
+        if (!isStep1Valid) setCurrentStep(1);
+        else if (!isStep2Valid) setCurrentStep(2);
+        else if (!isStep3Valid) setCurrentStep(3);
         return;
-    }
-    if (courseContent.length === 0) {
-        toast({ variant: 'destructive', title: "No Content", description: "Please add at least one topic to your course." });
-        setCurrentStep(2);
-        return;
-    }
-    // Validate content before publishing
-    for (const content of courseContent) {
-        if (!content.title.trim()) {
-            toast({ variant: 'destructive', title: "Validation Error", description: `Please provide a title for all content items.` });
-            setCurrentStep(2);
-            return;
-        }
-        if (!isValidUrl(content.url, content.type)) {
-            toast({ variant: 'destructive', title: "Validation Error", description: `Please provide a valid ${content.type === 'pdf' ? 'PDF or Google Doc' : 'video'} URL for "${content.title}".` });
-            setCurrentStep(2);
-            return;
-        }
     }
     
     setIsPublishing(true);
@@ -324,7 +321,7 @@ export default function CreateCoursePage() {
         <Button variant="outline" onClick={prevStep} disabled={currentStep === 1}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Previous
         </Button>
-        <Button onClick={nextStep} disabled={currentStep === 4}>
+        <Button onClick={nextStep} disabled={isNextStepDisabled()}>
           Next <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>
