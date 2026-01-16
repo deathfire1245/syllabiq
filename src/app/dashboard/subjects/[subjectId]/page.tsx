@@ -28,6 +28,7 @@ export default function SubjectDetailsPage({
 }: {
   params: { subjectId: string };
 }) {
+  const { subjectId } = params;
   const router = useRouter();
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const { firestore } = useFirebase();
@@ -41,12 +42,12 @@ export default function SubjectDetailsPage({
   const [questions, setQuestions] = React.useState<{ question: string; answer: string }[]>([{ question: '', answer: '' }]);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const subject = getSubjectById(params.subjectId);
+  const subject = getSubjectById(subjectId);
 
   const topicsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, "topics"), where("subjectId", "==", params.subjectId));
-  }, [firestore, params.subjectId]);
+    return query(collection(firestore, "topics"), where("subjectId", "==", subjectId));
+  }, [firestore, subjectId]);
 
   const { data: topics, isLoading: areTopicsLoading } = useCollection<Topic>(topicsQuery);
   const { addBookmark, removeBookmark, isBookmarked } = useBookmarks();
@@ -150,7 +151,7 @@ export default function SubjectDetailsPage({
       name: newTopic.title,
       chapter: newTopic.chapter,
       summary: newTopic.summary,
-      subjectId: params.subjectId,
+      subjectId: subjectId,
       createdBy: user.uid,
       coverImage: { 
         src: `https://picsum.photos/seed/${newTopic.title.replace(/\s+/g, '-')}/600/400`,
