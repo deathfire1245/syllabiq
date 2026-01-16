@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -7,39 +8,58 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, CheckCircle, Clock, IndianRupee, Save } from "lucide-react";
+import { Calendar, CheckCircle, Clock, IndianRupee, Save, PlusCircle, Trash2 } from "lucide-react";
 import { ScrollReveal } from "@/components/ScrollReveal";
-import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Day = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
-
 const daysOrder: Day[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const timeSlots = ["09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00", "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00"];
-
-interface Availability {
-  [day: string]: string[];
+// New Slot interface
+interface AvailabilitySlot {
+  id: number;
+  day: Day;
+  time: string;
+  period: "AM" | "PM";
 }
 
 export default function CreateClassesPage() {
   const { toast } = useToast();
   const [isAvailable, setIsAvailable] = React.useState(true);
   const [costPerHour, setCostPerHour] = React.useState("50");
-  const [availability, setAvailability] = React.useState<Availability>({});
 
-  const handleSlotToggle = (day: Day, slot: string) => {
-    setAvailability(prev => {
-      const daySlots = prev[day] || [];
-      if (daySlots.includes(slot)) {
-        return { ...prev, [day]: daySlots.filter(s => s !== slot) };
-      } else {
-        return { ...prev, [day]: [...daySlots, slot] };
-      }
-    });
+  // New state for dynamic slots
+  const [slots, setSlots] = React.useState<AvailabilitySlot[]>([
+    { id: Date.now(), day: "Mon", time: "10:00", period: "AM" },
+  ]);
+
+  const addSlot = () => {
+    setSlots([...slots, { id: Date.now(), day: "Mon", time: "12:00", period: "PM" }]);
+  };
+
+  const removeSlot = (id: number) => {
+    if (slots.length > 1) {
+        setSlots(slots.filter(slot => slot.id !== id));
+    } else {
+        toast({
+            variant: "destructive",
+            title: "Cannot remove",
+            description: "You must have at least one availability slot.",
+        })
+    }
+  };
+
+  const handleSlotChange = <K extends keyof AvailabilitySlot>(
+    id: number,
+    field: K,
+    value: AvailabilitySlot[K]
+  ) => {
+    setSlots(slots.map(slot => (slot.id === id ? { ...slot, [field]: value } : slot)));
   };
 
   const handleSaveChanges = () => {
-    // Placeholder for saving logic
+    // Placeholder for saving logic. This would now save the `slots` array.
+    console.log({ isAvailable, costPerHour, slots });
     toast({
       title: "Availability Saved",
       description: "Your live class schedule has been updated.",
@@ -89,40 +109,52 @@ export default function CreateClassesPage() {
           </ScrollReveal>
         </div>
 
-        {/* Right Side: Availability Grid */}
+        {/* Right Side: Availability Management */}
         <div className="lg:col-span-2">
           <ScrollReveal delay={0.3}>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Calendar className="w-5 h-5"/> Weekly Availability</CardTitle>
-                <CardDescription>Select the time slots you are available for teaching.</CardDescription>
+                <CardDescription>Add the time slots you are available for teaching.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {daysOrder.map(day => (
-                            <div key={day} className="bg-card border rounded-lg p-3">
-                                <h3 className="font-bold text-center mb-3">{day}</h3>
-                                <div className="space-y-2">
-                                    {timeSlots.map(slot => (
-                                        <div
-                                            key={slot}
-                                            onClick={() => handleSlotToggle(day, slot)}
-                                            className={cn(
-                                                "p-2 text-center rounded-md cursor-pointer transition-all border",
-                                                availability[day]?.includes(slot)
-                                                    ? "bg-primary/10 border-primary text-primary-foreground font-semibold"
-                                                    : "bg-secondary hover:bg-accent"
-                                            )}
-                                        >
-                                            <p className="text-sm">{slot}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
+              <CardContent className="space-y-4">
+                {slots.map((slot) => (
+                    <div key={slot.id} className="flex items-center gap-2 p-3 border rounded-lg bg-secondary/50">
+                        <div className="grid grid-cols-3 gap-2 flex-grow">
+                             <Select
+                                value={slot.day}
+                                onValueChange={(value: Day) => handleSlotChange(slot.id, 'day', value)}
+                            >
+                                <SelectTrigger><SelectValue placeholder="Day" /></SelectTrigger>
+                                <SelectContent>
+                                    {daysOrder.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <Input 
+                                type="text"
+                                placeholder="e.g., 10:00"
+                                value={slot.time}
+                                onChange={(e) => handleSlotChange(slot.id, 'time', e.target.value)}
+                            />
+                            <Select
+                                value={slot.period}
+                                onValueChange={(value: 'AM' | 'PM') => handleSlotChange(slot.id, 'period', value)}
+                            >
+                                <SelectTrigger><SelectValue placeholder="AM/PM" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="AM">AM</SelectItem>
+                                    <SelectItem value="PM">PM</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => removeSlot(slot.id)} className="text-destructive hover:bg-destructive/10">
+                            <Trash2 className="w-4 h-4" />
+                        </Button>
                     </div>
-                </div>
+                ))}
+                <Button variant="outline" onClick={addSlot} className="w-full">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Slot
+                </Button>
               </CardContent>
             </Card>
           </ScrollReveal>
@@ -138,12 +170,11 @@ export default function CreateClassesPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {daysOrder.flatMap(day => 
-                (availability[day] || []).map(slot => (
-                  <Card key={`${day}-${slot}`} className="bg-secondary p-4 flex flex-col justify-between">
+              {slots.map(slot => (
+                  <Card key={slot.id} className="bg-secondary p-4 flex flex-col justify-between">
                     <div>
-                      <p className="font-semibold">{day}, This Week</p>
-                      <p className="text-muted-foreground text-sm flex items-center gap-1 mt-1"><Clock className="w-4 h-4" /> {slot}</p>
+                      <p className="font-semibold">{slot.day}, This Week</p>
+                      <p className="text-muted-foreground text-sm flex items-center gap-1 mt-1"><Clock className="w-4 h-4" /> {slot.time} {slot.period}</p>
                     </div>
                     <div className="mt-4 flex items-center justify-between">
                        <div className="flex items-center gap-1 text-green-600 font-medium text-sm">
@@ -155,7 +186,7 @@ export default function CreateClassesPage() {
                   </Card>
                 ))
               )}
-               {Object.keys(availability).every(day => availability[day].length === 0) && (
+               {slots.length === 0 && (
                  <div className="col-span-full text-center py-8 text-muted-foreground">
                     You have not set any available slots.
                  </div>
