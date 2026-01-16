@@ -253,6 +253,16 @@ const StudentDashboard = () => {
 
     const completedTopicsCount = userProfile?.studentProfile?.completedTopics?.length || 0;
     const totalTopicsCount = allTopics?.length || 0;
+
+    const completedSessionsQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return query(
+            collection(firestore, "tickets"),
+            where("studentId", "==", user.uid),
+            where("status", "==", "COMPLETED")
+        );
+    }, [user, firestore]);
+    const { data: completedSessions, isLoading: areSessionsLoading } = useCollection(completedSessionsQuery);
     
     const recentlyAccessedIds = userProfile?.studentProfile?.recentlyAccessed || [];
     const recentTopics = React.useMemo(() => {
@@ -268,8 +278,7 @@ const StudentDashboard = () => {
 
     const userStats = [
         { title: "Topics Completed", icon: TrendingUp, value: completedTopicsCount, total: totalTopicsCount, footer: "Keep it up!", isLoading: isProfileLoading || areTopicsLoading },
-        { title: "Study Hours", icon: Clock, value: 42, footer: "Total time spent learning", isLoading: false }, // Static
-        { title: "Average Score", icon: Target, value: 88, suffix: "%", footer: "Across 12 quizzes", isLoading: false }, // Static
+        { title: "Study Hours", icon: Clock, value: completedSessions?.length ?? 0, footer: "Total sessions attended", isLoading: areSessionsLoading },
     ];
     
     const subjectsWithProgress = React.useMemo(() => {
@@ -333,7 +342,7 @@ const StudentDashboard = () => {
                         </ScrollReveal>
                     )
                 })}
-                <ScrollReveal className="sm:col-span-2 lg:col-span-1" delay={0.3}>
+                <ScrollReveal className="sm:col-span-2 lg:col-span-2" delay={0.3}>
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium">Recently Accessed</CardTitle>
@@ -437,3 +446,5 @@ export default function DashboardPage() {
     </>
   )
 }
+
+    
