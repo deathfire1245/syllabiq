@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { getSubjectById } from "@/lib/data";
-import { notFound } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,7 @@ export default function SubjectDetailsPage({
   params: Promise<{ subjectId: string }>;
 }) {
   const params = React.use(paramsPromise);
+  const router = useRouter();
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const { firestore } = useFirebase();
   const { user } = useUser();
@@ -54,13 +55,20 @@ export default function SubjectDetailsPage({
     setUserRole(role);
   }, []);
 
-  const handleTopicClick = (topic: Topic) => {
+  const handleViewTopic = (topic: Topic) => {
     try {
-      sessionStorage.setItem('currentTopic', JSON.stringify(topic));
+        sessionStorage.setItem('activeTopic', JSON.stringify(topic));
+        router.push('/dashboard/subjects/topic-content');
     } catch (e) {
-      console.error("Failed to save topic to session storage", e);
+        console.error("Failed to save topic to session storage or navigate", e);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not open the topic. Please try again.",
+        });
     }
   };
+
 
   if (!subject) {
     notFound();
@@ -232,8 +240,8 @@ export default function SubjectDetailsPage({
                                             <p className="font-semibold">{topic.name}</p>
                                             <p className="text-sm text-muted-foreground">{topic.chapter}</p>
                                         </div>
-                                        <Button variant="ghost" size="sm" asChild>
-                                          <Link href={`/dashboard/subjects/${subject.id}/${topic.id}`} onClick={() => handleTopicClick(topic)}>View</Link>
+                                        <Button variant="ghost" size="sm" onClick={() => handleViewTopic(topic)}>
+                                          View
                                         </Button>
                                     </li>
                                 ))}
@@ -266,7 +274,7 @@ export default function SubjectDetailsPage({
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {topics && topics.map((topic, index) => (
           <ScrollReveal key={topic.id} delay={index * 0.1}>
-            <Link href={`/dashboard/subjects/${subject.id}/${topic.id}`} onClick={() => handleTopicClick(topic)}>
+            <div onClick={() => handleViewTopic(topic)} className="cursor-pointer h-full">
               <Card
                 className="group relative overflow-hidden transform transition-all duration-300 hover:shadow-xl h-full"
               >
@@ -298,7 +306,7 @@ export default function SubjectDetailsPage({
                   </p>
                 </CardContent>
               </Card>
-            </Link>
+            </div>
           </ScrollReveal>
         ))}
         {topics && topics.length === 0 && (
