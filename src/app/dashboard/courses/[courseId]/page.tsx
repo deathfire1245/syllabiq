@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -77,7 +76,7 @@ export default function CourseContentPage() {
                         </CardHeader>
                         <CardContent>
                              <Button onClick={() => router.push(`/dashboard/payment/${courseId}`)}>
-                                Buy Course for ${course.price}
+                                Buy Course for ₹{course.price}
                              </Button>
                         </CardContent>
                     </Card>

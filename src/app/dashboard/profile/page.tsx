@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -6,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit, BookOpen, Goal, Star, GraduationCap, Briefcase, DollarSign, Calendar, Verified, Save, X, Camera } from "lucide-react";
+import { Edit, BookOpen, Goal, Star, GraduationCap, Briefcase, IndianRupee, Calendar, Verified, Save, X, Camera } from "lucide-react";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { useUser, useDoc, useFirebase, useMemoFirebase } from "@/firebase";
 import { doc } from "firebase/firestore";
@@ -216,8 +215,8 @@ export default function ProfilePage() {
                                     <InfoCard icon={Briefcase} title="Experience">
                                         <p className="text-lg font-semibold">{profile.teacherProfile?.experienceYears ? `${profile.teacherProfile.experienceYears} years` : "Not specified."}</p>
                                     </InfoCard>
-                                    <InfoCard icon={DollarSign} title="Hourly Rate">
-                                        <p className="text-lg font-semibold">${profile.teacherProfile?.hourlyRate || "0"}/hr</p>
+                                    <InfoCard icon={IndianRupee} title="Hourly Rate">
+                                        <p className="text-lg font-semibold">₹{profile.teacherProfile?.hourlyRate || "0"}/hr</p>
                                     </InfoCard>
                                     <InfoCard icon={Calendar} title="Availability">
                                         <div className="flex flex-wrap gap-2">

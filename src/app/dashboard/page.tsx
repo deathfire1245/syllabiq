@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -12,7 +11,7 @@ import {
   Users,
   BookOpen,
   Calendar,
-  DollarSign,
+  IndianRupee,
 } from "lucide-react";
 import { getSubjects, getStaticTopics } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -125,7 +124,7 @@ const TeacherDashboard = () => {
     const { data: recentContent, isLoading: isRecentContentLoading } = useCollection<Topic>(recentContentQuery);
     
     const teacherStats = [
-        { title: "Total Earnings", value: totalEarnings, icon: DollarSign, footer: "From completed sessions", isLoading: areSessionsLoading, prefix: "$" },
+        { title: "Total Earnings", value: totalEarnings, icon: IndianRupee, footer: "From completed sessions", isLoading: areSessionsLoading, prefix: "₹" },
         { title: "Hours Taught", value: completedSessions?.length ?? 0, icon: Clock, footer: "Total sessions completed", isLoading: areSessionsLoading },
         { title: "My Students", value: uniqueStudents, icon: Users, footer: "Unique students taught", isLoading: areSessionsLoading },
         { title: "Upcoming Sessions", value: upcomingSessions?.length ?? 0, icon: Calendar, footer: "Check your schedule", isLoading: areUpcomingSessionsLoading },

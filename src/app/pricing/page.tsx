@@ -7,8 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const tiers = [
     {
         name: 'Free',
-        priceMonthly: '$0',
-        priceYearly: '$0',
+        priceMonthly: '₹0',
+        priceYearly: '₹0',
         description: 'Get started and explore core features, absolutely free.',
         features: [
             'Access to 1 Full Subject',
@@ -23,8 +23,8 @@ const tiers = [
     },
     {
         name: 'Pro',
-        priceMonthly: '$9.99',
-        priceYearly: '$99.99',
+        priceMonthly: '₹830',
+        priceYearly: '₹8300',
         description: 'Unlock the full power of SyllabiQ for unlimited learning.',
         features: [
             'Access to All Subjects & Grades',

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -100,7 +99,7 @@ export default function MockPaymentPage() {
                          <div className="border-t border-b py-4">
                             <div className="flex justify-between items-center text-lg">
                                 <span className="text-muted-foreground">Total</span>
-                                <span className="font-bold text-2xl">${course.price}</span>
+                                <span className="font-bold text-2xl">₹{course.price}</span>
                             </div>
                         </div>
                         <div>
@@ -126,7 +125,7 @@ export default function MockPaymentPage() {
                                     Processing...
                                 </>
                             ) : (
-                                `Confirm Purchase for $${course.price}`
+                                `Confirm Purchase for ₹${course.price}`
                             )}
                         </Button>
                     </CardFooter>
