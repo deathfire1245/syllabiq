@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -47,7 +46,7 @@ const generateProductionTicket = (tutor: PublicTutorProfile, slot: { day: string
     // A real app would use a proper date picker and time zone handling.
     const now = new Date();
     const startTimeStr = slot.time.split(' - ')[0];
-    const sessionDate = parse(startTimeStr, 'HH:mm', now);
+    const sessionDate = parse(startTimeStr, 'h:mm a', now);
     
     // In a real app, you would determine the correct date for the selected "day"
     const sessionStartTime = sessionDate;
