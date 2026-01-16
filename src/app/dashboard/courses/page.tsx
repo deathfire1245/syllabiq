@@ -7,8 +7,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
-import { collection } from "firebase/firestore";
+import { useCollection, useFirebase, useMemoFirebase, useUser, useDoc } from "@/firebase";
+import { collection, doc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Course {
@@ -26,6 +26,7 @@ interface Course {
 
 export default function CoursesPage() {
   const { firestore } = useFirebase();
+  const { user } = useUser();
 
   const coursesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -33,6 +34,14 @@ export default function CoursesPage() {
   }, [firestore]);
 
   const { data: courses, isLoading } = useCollection<Course>(coursesQuery);
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+
+  const { data: userProfile } = useDoc(userDocRef);
+  const enrolledCourses = userProfile?.studentProfile?.enrolledCourses || [];
 
   if (isLoading) {
     return (
@@ -61,7 +70,9 @@ export default function CoursesPage() {
       
       {courses && courses.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {courses.map((course, index) => (
+            {courses.map((course, index) => {
+              const isEnrolled = enrolledCourses.includes(course.id);
+              return (
               <ScrollReveal key={course.id} delay={index * 0.1}>
                 <Card className="group relative overflow-hidden transform transition-all duration-300 hover:shadow-xl h-full flex flex-col">
                   <CardHeader>
@@ -86,12 +97,16 @@ export default function CoursesPage() {
                   <CardFooter className="flex justify-between items-center bg-secondary/50 p-4">
                      <p className="text-2xl font-bold text-primary">${course.price}</p>
                      <Button asChild>
-                        <Link href="#">View Course</Link>
+                        {isEnrolled ? (
+                            <Link href={`/dashboard/courses/${course.id}`}>View Course</Link>
+                        ) : (
+                            <Link href={`/dashboard/payment/${course.id}`}>Buy</Link>
+                        )}
                      </Button>
                   </CardFooter>
                 </Card>
               </ScrollReveal>
-            ))}
+            )})}
           </div>
       ) : (
         <ScrollReveal className="text-center py-16">
