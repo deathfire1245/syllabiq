@@ -7,45 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-
-// Placeholder data
-const ticketsData = [
-  {
-    ticketId: "TKT-12345",
-    studentName: "Alex Johnson",
-    teacherName: "Dr. Evelyn Reed",
-    status: "PAID",
-    refundable: false,
-  },
-  {
-    ticketId: "TKT-67890",
-    studentName: "Sam Lee",
-    teacherName: "Prof. Eleanor Vance",
-    status: "ACTIVE",
-    refundable: false,
-  },
-  {
-    ticketId: "TKT-11223",
-    studentName: "Jessica Wong",
-    teacherName: "John Smith",
-    status: "COMPLETED",
-    refundable: false,
-  },
-  {
-    ticketId: "TKT-44556",
-    studentName: "Michael Brown",
-    teacherName: "Dr. Evelyn Reed",
-    status: "CANCELLED",
-    refundable: true,
-  },
-   {
-    ticketId: "TKT-99887",
-    studentName: "Emily Davis",
-    teacherName: "Prof. Eleanor Vance",
-    status: "REFUND_PROCESSED",
-    refundable: false,
-  },
-];
+import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
+import { collection } from "firebase/firestore";
+import { Skeleton } from "../ui/skeleton";
 
 const statusStyles: { [key: string]: string } = {
   PAID: "bg-green-100 text-green-800 border-green-200",
@@ -57,11 +21,44 @@ const statusStyles: { [key: string]: string } = {
 };
 
 export function TicketsTable() {
+  const { firestore } = useFirebase();
+  const [filter, setFilter] = React.useState('all');
+  const [searchTerm, setSearchTerm] = React.useState('');
+
+  const ticketsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'tickets') : null, [firestore]);
+  const { data: ticketsData, isLoading } = useCollection(ticketsQuery);
+  
+  const filteredTickets = React.useMemo(() => {
+    if (!ticketsData) return [];
+    
+    let filtered = ticketsData;
+
+    if (filter !== 'all') {
+      filtered = filtered.filter(t => t.status === filter);
+    }
+    
+    if (searchTerm) {
+        const lowercasedFilter = searchTerm.toLowerCase();
+        filtered = filtered.filter(t => 
+            t.studentName?.toLowerCase().includes(lowercasedFilter) || 
+            t.teacherName?.toLowerCase().includes(lowercasedFilter)
+        );
+    }
+    
+    return filtered;
+  }, [ticketsData, filter, searchTerm]);
+
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-4">
-        <Input placeholder="Filter by Student or Teacher..." className="max-w-xs" />
-        <Select>
+        <Input 
+          placeholder="Filter by Student or Teacher..." 
+          className="max-w-xs"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <Select value={filter} onValueChange={setFilter}>
             <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by Status" />
             </SelectTrigger>
@@ -91,22 +88,28 @@ export function TicketsTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {ticketsData.map((ticket) => (
-              <TableRow key={ticket.ticketId} className="hover:bg-accent transition-colors">
-                <TableCell className="font-mono text-xs">{ticket.ticketId}</TableCell>
-                <TableCell>{ticket.studentName}</TableCell>
-                <TableCell>{ticket.teacherName}</TableCell>
-                <TableCell className="text-center">
-                  <Badge variant="outline" className={statusStyles[ticket.status]}>{ticket.status.replace(/_/g, ' ')}</Badge>
-                </TableCell>
-                <TableCell className="text-center">
-                    {ticket.refundable ? <Badge variant="destructive">YES</Badge> : <span className="text-muted-foreground">-</span>}
-                </TableCell>
-                <TableCell className="text-center space-x-2">
-                    <Button variant="outline" size="sm" className="h-8" disabled={!ticket.refundable}>Refund Student</Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {isLoading ? (
+              <TableRow><TableCell colSpan={6} className="text-center"><Skeleton className="h-24 w-full" /></TableCell></TableRow>
+            ) : filteredTickets && filteredTickets.length > 0 ? (
+               filteredTickets.map((ticket) => (
+                <TableRow key={ticket.id} className="hover:bg-accent transition-colors">
+                  <TableCell className="font-mono text-xs">{ticket.ticketCode}</TableCell>
+                  <TableCell>{ticket.studentName}</TableCell>
+                  <TableCell>{ticket.teacherName}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="outline" className={statusStyles[ticket.status]}>{ticket.status.replace(/_/g, ' ')}</Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                      {ticket.refundable ? <Badge variant="destructive">YES</Badge> : <span className="text-muted-foreground">-</span>}
+                  </TableCell>
+                  <TableCell className="text-center space-x-2">
+                      <Button variant="outline" size="sm" className="h-8" disabled={!ticket.refundable}>Refund Student</Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow><TableCell colSpan={6} className="text-center">No tickets found.</TableCell></TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

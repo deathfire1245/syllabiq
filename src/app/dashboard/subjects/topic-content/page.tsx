@@ -1,10 +1,11 @@
+
 'use client';
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import type { Topic } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Bookmark, FileText, Link as LinkIcon, Video } from 'lucide-react';
+import { ArrowLeft, Bookmark, FileText, Link as LinkIcon, Video, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
@@ -13,6 +14,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useBookmarks } from '@/contexts/BookmarkContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useFirebase, useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 export default function TopicContentPage() {
     const router = useRouter();
@@ -20,20 +23,47 @@ export default function TopicContentPage() {
     const [loading, setLoading] = React.useState(true);
     const { addBookmark, removeBookmark, isBookmarked } = useBookmarks();
     const { toast } = useToast();
+    const { user, firestore } = useFirebase();
+
+    const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
+    const { data: userProfile } = useDoc(userDocRef);
+
+    const [isCompleted, setIsCompleted] = React.useState(false);
 
     React.useEffect(() => {
         try {
             const topicJson = sessionStorage.getItem('activeTopic');
             if (topicJson) {
-                setTopic(JSON.parse(topicJson));
+                const parsedTopic: Topic = JSON.parse(topicJson);
+                setTopic(parsedTopic);
+
+                // Fire-and-forget update for recently viewed topics
+                if (user && firestore && parsedTopic.id) {
+                    const userRef = doc(firestore, 'users', user.uid);
+                    getDoc(userRef).then(docSnap => {
+                        if (docSnap.exists()) {
+                            const currentRecent = docSnap.data().studentProfile?.recentlyAccessed || [];
+                            const newRecent = [parsedTopic.id, ...currentRecent.filter((id: string) => id !== parsedTopic.id)].slice(0, 10);
+                            updateDoc(userRef, { 'studentProfile.recentlyAccessed': newRecent });
+                        }
+                    }).catch(console.error); // Silently fail on error
+                }
             }
         } catch (error) {
             console.error("Failed to parse topic from session storage", error);
+            router.replace('/dashboard/subjects');
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [user, firestore, router]);
     
+    React.useEffect(() => {
+        if (userProfile && topic) {
+            const completed = userProfile.studentProfile?.completedTopics || [];
+            setIsCompleted(completed.includes(topic.id));
+        }
+    }, [userProfile, topic]);
+
     if (loading) {
         return (
              <div className="space-y-8">
@@ -91,9 +121,31 @@ export default function TopicContentPage() {
         }
     };
     
+    const handleMarkAsComplete = async () => {
+        if (!user || !firestore || !topic || isCompleted) return;
+        const userRef = doc(firestore, 'users', user.uid);
+        try {
+            await updateDoc(userRef, {
+                'studentProfile.completedTopics': arrayUnion(topic.id)
+            });
+            toast({
+                title: "Progress Saved!",
+                description: `You've completed "${topic.name}".`,
+            });
+            setIsCompleted(true);
+        } catch (error) {
+            console.error("Failed to mark as complete:", error);
+            toast({
+                variant: 'destructive',
+                title: "Error",
+                description: "Could not save your progress.",
+            });
+        }
+    };
+
     const renderContent = () => {
         if ((topic.contentType === 'pdf' || topic.contentType === 'link') && topic.pdfUrl) {
-            return (
+             return (
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -121,7 +173,7 @@ export default function TopicContentPage() {
                      <CardHeader>
                         <CardTitle>Lesson Content</CardTitle>
                     </CardHeader>
-                    <CardContent className="prose dark:prose-invert max-w-none text-base">
+                    <CardContent className="prose dark:prose-invert max-w-none text-base leading-relaxed">
                         {topic.content.split('\n').map((paragraph, index) => (
                           <p key={index}>{paragraph}</p>  
                         ))}
@@ -131,7 +183,17 @@ export default function TopicContentPage() {
         }
 
         if (topic.videoUrl) {
-            const videoId = topic.videoUrl.split('v=')[1]?.split('&')[0] || topic.videoUrl.split('/').pop();
+            const videoIdMatch = topic.videoUrl.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+            const videoId = videoIdMatch ? videoIdMatch[1] : null;
+
+            if (!videoId) {
+                return (
+                    <Card>
+                        <CardHeader><CardTitle>Invalid Video</CardTitle></CardHeader>
+                        <CardContent><p>The provided video link is not a valid YouTube URL.</p></CardContent>
+                    </Card>
+                )
+            }
             return (
                  <Card>
                     <CardHeader>
@@ -169,15 +231,23 @@ export default function TopicContentPage() {
     return (
         <div className="space-y-8">
             {/* Header */}
-            <div className="flex items-center gap-4">
-                <Button variant="outline" size="icon" onClick={() => router.push(`/dashboard/subjects/${topic.subjectId}`)}>
-                    <ArrowLeft className="h-4 w-4" />
-                    <span className="sr-only">Back to topics</span>
-                </Button>
-                <div>
-                    <Badge variant="secondary" className="mb-1">{topic.chapter}</Badge>
-                    <h1 className="text-3xl font-bold tracking-tight">{topic.name}</h1>
+            <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <Button variant="outline" size="icon" onClick={() => router.push(`/dashboard/subjects/${topic.subjectId}`)}>
+                        <ArrowLeft className="h-4 w-4" />
+                        <span className="sr-only">Back to topics</span>
+                    </Button>
+                    <div>
+                        <Badge variant="secondary" className="mb-1">{topic.chapter}</Badge>
+                        <h1 className="text-3xl font-bold tracking-tight">{topic.name}</h1>
+                    </div>
                 </div>
+                 {userProfile?.role === 'student' && (
+                    <Button onClick={handleMarkAsComplete} disabled={isCompleted} variant={isCompleted ? "secondary" : "default"}>
+                        <CheckCircle className="mr-2 h-5 w-5" />
+                        {isCompleted ? "Completed" : "Mark as Complete"}
+                    </Button>
+                )}
             </div>
 
             {/* Main Content Area */}
@@ -236,8 +306,8 @@ export default function TopicContentPage() {
                                         <ul className="space-y-4 text-muted-foreground">
                                            {topic.questions && topic.questions.length > 0 ? topic.questions.map((q, i) => (
                                                 <li key={i}>
-                                                    <p className="font-semibold">{q.question}</p>
-                                                    <p className="text-sm italic mt-1">A: {q.answer}</p>
+                                                    <p className="font-semibold text-foreground">{i + 1}. {q.question}</p>
+                                                    <p className="text-sm italic mt-1 pl-4">A: {q.answer}</p>
                                                 </li>
                                             )) : <li>No practice questions available.</li>}
                                         </ul>
