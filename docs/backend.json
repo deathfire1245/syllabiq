@@ -21,7 +21,8 @@
             "schoolBoard": { "type": "string" },
             "preferredSubjects": { "type": "array", "items": { "type": "string" } },
             "learningGoals": { "type": "string" },
-            "interests": { "type": "array", "items": { "type": "string" } }
+            "interests": { "type": "array", "items": { "type": "string" } },
+            "enrolledCourses": { "type": "array", "items": { "type": "string" }, "description": "Array of course IDs the student is enrolled in." }
           }
         },
         "teacherProfile": {
