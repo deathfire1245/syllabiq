@@ -5,7 +5,6 @@ import * as React from "react";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
@@ -65,14 +64,6 @@ export default function CoursesPage() {
             {courses.map((course, index) => (
               <ScrollReveal key={course.id} delay={index * 0.1}>
                 <Card className="group relative overflow-hidden transform transition-all duration-300 hover:shadow-xl h-full flex flex-col">
-                  <Image
-                    src={course.coverImage || "https://picsum.photos/seed/placeholder/600/400"}
-                    alt={course.title}
-                    width={600}
-                    height={400}
-                    className="object-cover w-full h-48 transition-transform duration-300 group-hover:scale-105"
-                    data-ai-hint={course.imageHint || 'course cover'}
-                  />
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div>
