@@ -14,7 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
-import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { useUser, useFirebase, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { collection, doc, addDoc, serverTimestamp, getDoc, updateDoc } from 'firebase/firestore';
 
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
@@ -439,7 +439,19 @@ export default function MeetingPage() {
       }
 
       const ticketRef = doc(firestore, 'tickets', ticketId);
-      const ticketSnap = await getDoc(ticketRef);
+      let ticketSnap;
+      try {
+        ticketSnap = await getDoc(ticketRef);
+      } catch (error) {
+        const permissionError = new FirestorePermissionError({
+          path: ticketRef.path,
+          operation: 'get',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        setHasPermission(false);
+        return;
+      }
+
 
       if (!ticketSnap.exists()) {
           toast({ variant: "destructive", title: "Not Found", description: "This session ticket does not exist." });
@@ -472,17 +484,21 @@ export default function MeetingPage() {
       }
 
       if (role === 'teacher' && currentTicket.status === 'WAITING_FOR_TEACHER') {
-           try {
-              await updateDoc(ticketRef, {
-                  status: 'ACTIVE',
-                  activatedAt: serverTimestamp(),
-                  updatedAt: serverTimestamp()
-              });
-           } catch (e) {
-               console.error("Failed to activate session", e);
-               toast({ variant: "destructive", title: "Error", description: "Could not activate the session." });
-               return;
-           }
+           const updateData = {
+              status: 'ACTIVE',
+              activatedAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+           };
+           updateDoc(ticketRef, updateData)
+            .catch(error => {
+                const permissionError = new FirestorePermissionError({
+                    path: ticketRef.path,
+                    operation: 'update',
+                    requestResourceData: updateData,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                toast({ variant: "destructive", title: "Error", description: "Could not activate the session." });
+            });
       }
 
       try {
@@ -583,38 +599,62 @@ export default function MeetingPage() {
     }
   };
   
-  const handleLeave = async () => {
+  const handleLeave = () => {
     const ticketId = params.bookingId as string;
     if (firestore && ticketId && userRole && ticketData && ticketData.status === 'ACTIVE') {
         const ticketRef = doc(firestore, 'tickets', ticketId);
-        try {
-            await updateDoc(ticketRef, {
-                status: 'COMPLETED',
-                endedAt: serverTimestamp(),
-                endedBy: userRole.toUpperCase(),
-                updatedAt: serverTimestamp()
+        const updateData = {
+            status: 'COMPLETED',
+            endedAt: serverTimestamp(),
+            endedBy: userRole.toUpperCase(),
+            updatedAt: serverTimestamp()
+        };
+        updateDoc(ticketRef, updateData)
+            .catch(error => {
+                const permissionError = new FirestorePermissionError({
+                    path: ticketRef.path,
+                    operation: 'update',
+                    requestResourceData: updateData,
+                });
+                errorEmitter.emit('permission-error', permissionError);
             });
-        } catch (error) {
-            console.error("Failed to update ticket status on leave:", error);
-        }
     }
     router.replace('/dashboard/bookings');
   };
 
-   const handleStroke = async (stroke: Omit<Stroke, 'id' | 'timestamp'> & {timestamp: any}) => {
+   const handleStroke = (stroke: Omit<Stroke, 'id' | 'timestamp'> & {timestamp: any}) => {
         if (!strokesCollectionRef) return;
         
+        let payload;
         if (stroke.tool === 'eraser' && stroke.size === 9999) {
-            // This is the clear signal
-            await addDoc(strokesCollectionRef, { type: 'clear', timestamp: serverTimestamp() });
+            payload = { type: 'clear', timestamp: serverTimestamp() };
         } else {
-            await addDoc(strokesCollectionRef, { ...stroke, timestamp: serverTimestamp() });
+            payload = { ...stroke, timestamp: serverTimestamp() };
         }
+        
+        addDoc(strokesCollectionRef, payload)
+            .catch(error => {
+                const permissionError = new FirestorePermissionError({
+                    path: strokesCollectionRef.path,
+                    operation: 'create',
+                    requestResourceData: payload,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
     };
 
     const handleClearWhiteboard = () => {
         if (!strokesCollectionRef) return;
-         addDoc(strokesCollectionRef, { type: 'clear', timestamp: serverTimestamp() });
+        const payload = { type: 'clear', timestamp: serverTimestamp() };
+        addDoc(strokesCollectionRef, payload)
+            .catch(error => {
+                const permissionError = new FirestorePermissionError({
+                    path: strokesCollectionRef.path,
+                    operation: 'create',
+                    requestResourceData: payload,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
     };
 
     const processedStrokes = React.useMemo(() => {

@@ -14,6 +14,8 @@ import { collection, query, where, doc, updateDoc, serverTimestamp, runTransacti
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 interface Ticket {
   id: string;
@@ -72,38 +74,42 @@ const Countdown = ({ targetDate, onTimeout }: { targetDate: Date, onTimeout: () 
  * Performs an atomic transaction to "check-in" the student, marking the ticket as used.
  * This is an idempotent operation; it will only succeed once.
  */
-const joinMeetingAndCheckIn = async (firestore: any, ticketId: string) => {
+const joinMeetingAndCheckIn = (firestore: any, ticketId: string): Promise<boolean> => {
     const ticketRef = doc(firestore, 'tickets', ticketId);
-    try {
-        await runTransaction(firestore, async (transaction) => {
-            const ticketDoc = await transaction.get(ticketRef);
-            if (!ticketDoc.exists()) {
-                throw "Ticket does not exist!";
-            }
+    
+    const updateData = { 
+        used: true,
+        checkInTime: serverTimestamp(),
+        status: 'WAITING_FOR_TEACHER',
+        waitingSince: serverTimestamp(),
+        updatedAt: serverTimestamp() 
+    };
 
-            const ticketData = ticketDoc.data();
-            // Only proceed if the ticket has not been used yet
-            if (ticketData.used) {
-                // If already used, we can just proceed to the waiting room without changing the DB.
-                console.log("Ticket already used, proceeding to waiting room.");
-                return; 
-            }
+    return runTransaction(firestore, async (transaction) => {
+        const ticketDoc = await transaction.get(ticketRef);
+        if (!ticketDoc.exists()) {
+            throw "Ticket does not exist!";
+        }
 
-            // Perform the check-in: mark as used and timestamp it.
-            transaction.update(ticketRef, { 
-                used: true,
-                checkInTime: serverTimestamp(),
-                status: 'WAITING_FOR_TEACHER', // Also update status here atomically
-                waitingSince: serverTimestamp(),
-                updatedAt: serverTimestamp() 
-            });
-        });
+        const ticketData = ticketDoc.data();
+        if (ticketData.used) {
+            console.log("Ticket already used, proceeding to waiting room.");
+            return; 
+        }
+
+        transaction.update(ticketRef, updateData);
+    }).then(() => {
         console.log("Transaction successfully committed!");
         return true;
-    } catch (error) {
-        console.error("Transaction failed: ", error);
+    }).catch((error) => {
+        const permissionError = new FirestorePermissionError({
+            path: ticketRef.path,
+            operation: 'update',
+            requestResourceData: updateData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
         return false;
-    }
+    });
 }
 
 
@@ -113,18 +119,16 @@ const StudentTicketCard = ({ ticket }: { ticket: Ticket }) => {
     const { toast } = useToast();
     const [isWaiting, setIsWaiting] = React.useState(false);
 
-    const handleEnterWaitingRoom = async () => {
+    const handleEnterWaitingRoom = () => {
         if(!firestore) return;
         setIsWaiting(true);
         
-        // The new atomic check-in function
-        const success = await joinMeetingAndCheckIn(firestore, ticket.id);
-
-        if (!success) {
-            toast({ variant: 'destructive', title: "Error", description: "Could not enter waiting room. Please try again." });
-            setIsWaiting(false);
-        }
-        // If successful, the real-time listener on the page will handle showing the waiting room UI
+        joinMeetingAndCheckIn(firestore, ticket.id)
+          .then(success => {
+            if (!success) {
+                setIsWaiting(false);
+            }
+        });
     }
 
     return (
@@ -158,15 +162,27 @@ const WaitingRoomView = ({ ticket }: { ticket: Ticket }) => {
     const { firestore } = useFirebase();
     const { toast } = useToast();
 
-    const handleTimeout = async () => {
+    const handleTimeout = () => {
         if (!firestore) return;
         const ticketRef = doc(firestore, 'tickets', ticket.id);
-        await updateDoc(ticketRef, { status: 'CANCELLED', updatedAt: serverTimestamp() });
-        toast({
-            variant: "destructive",
-            title: "Session Cancelled",
-            description: "The teacher did not join in time. Your ticket is eligible for a refund.",
-        });
+        const updateData = { status: 'CANCELLED', updatedAt: serverTimestamp() };
+
+        updateDoc(ticketRef, updateData)
+            .then(() => {
+                 toast({
+                    variant: "destructive",
+                    title: "Session Cancelled",
+                    description: "The teacher did not join in time. Your ticket is eligible for a refund.",
+                });
+            })
+            .catch(error => {
+                const permissionError = new FirestorePermissionError({
+                    path: ticketRef.path,
+                    operation: 'update',
+                    requestResourceData: updateData
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
     }
 
     return (
@@ -285,10 +301,19 @@ const StudentBookingsView = ({ tickets }: { tickets: Ticket[] | null }) => {
         }
     }, [activeTicket, router]);
 
-    const handleResetCancelled = async () => {
+    const handleResetCancelled = () => {
         if (!cancelledTicket || !firestore) return;
         const ticketRef = doc(firestore, 'tickets', cancelledTicket.id);
-        await updateDoc(ticketRef, { status: 'REFUND_PROCESSED', updatedAt: serverTimestamp() });
+        const updateData = { status: 'REFUND_PROCESSED', updatedAt: serverTimestamp() };
+        updateDoc(ticketRef, updateData)
+            .catch(error => {
+                const permissionError = new FirestorePermissionError({
+                    path: ticketRef.path,
+                    operation: 'update',
+                    requestResourceData: updateData
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
     }
     
     if (waitingTicket) {
