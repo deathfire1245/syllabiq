@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Check, DollarSign, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, IndianRupee, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
@@ -181,9 +181,9 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
               <Textarea id="bio" placeholder="Tell students a bit about yourself, your passion for teaching, and what they can expect from your classes." className="min-h-[120px]" value={formData.bio} onChange={(e) => setFormData({...formData, bio: e.target.value})}/>
             </div>
              <div className="space-y-2">
-                <Label htmlFor="hourly-rate">Your Hourly Teaching Rate (USD)</Label>
+                <Label htmlFor="hourly-rate">Your Hourly Teaching Rate (INR)</Label>
                 <div className="relative max-w-xs">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input id="hourly-rate" type="number" placeholder="50" className="pl-10" value={formData.hourlyRate} onChange={(e) => setFormData({...formData, hourlyRate: parseInt(e.target.value, 10) || 0})}/>
                 </div>
             </div>
@@ -259,5 +259,3 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
     </div>
   );
 }
-
-    

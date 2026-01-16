@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -7,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "../ui/button";
-import { DollarSign } from "lucide-react";
+import { IndianRupee } from "lucide-react";
 import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
 import { collection, query, where } from "firebase/firestore";
 import { Skeleton } from "../ui/skeleton";
@@ -115,16 +114,16 @@ export function PaymentsTable() {
                         <TableCell className="font-mono text-xs">{payment.paymentId}</TableCell>
                         <TableCell>{payment.studentName}</TableCell>
                         <TableCell>{payment.teacherName}</TableCell>
-                        <TableCell className="text-right font-medium">${payment.amount.toFixed(2)}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">${payment.commission.toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-semibold">${payment.netAmount.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-medium">₹{payment.amount.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">₹{payment.commission.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-semibold">₹{payment.netAmount.toFixed(2)}</TableCell>
                         <TableCell className="text-center">
                         <Badge variant="outline" className={statusStyles[payment.status]}>{payment.status.replace(/_/g, ' ')}</Badge>
                         </TableCell>
                         <TableCell className="text-center space-x-2">
                             {payment.status === 'READY_FOR_PAYOUT' && (
                                 <Button variant="outline" size="sm" className="h-8">
-                                    <DollarSign className="w-4 h-4 mr-1" /> Mark as Paid
+                                    <IndianRupee className="w-4 h-4 mr-1" /> Mark as Paid
                                 </Button>
                             )}
                         </TableCell>

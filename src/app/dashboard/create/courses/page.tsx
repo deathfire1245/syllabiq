@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, Check, DollarSign, Book, Layers, PlusCircle, Trash2, Link as LinkIcon, FileText, Video } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, IndianRupee, Book, Layers, PlusCircle, Trash2, Link as LinkIcon, FileText, Video } from "lucide-react";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { useFirebase, useUser } from "@/firebase";
 import { addDoc, collection, serverTimestamp, getDoc, doc } from "firebase/firestore";
@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 const steps = [
   { id: 1, name: "Basic Info", icon: Book },
   { id: 2, name: "Content", icon: Layers },
-  { id: 3, name: "Pricing", icon: DollarSign },
+  { id: 3, name: "Pricing", icon: IndianRupee },
   { id: 4, name: "Publish", icon: Check },
 ];
 
@@ -252,10 +252,10 @@ export default function CreateCoursePage() {
               </CardHeader>
               <CardContent className="max-w-xs mx-auto">
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input type="number" placeholder="0.00" className="pl-10 text-xl h-12" value={courseData.price} onChange={(e) => setCourseData({...courseData, price: e.target.value})} />
                 </div>
-                 <p className="text-center text-sm text-muted-foreground mt-2">Currency is in USD. Enter 0 for a free course.</p>
+                 <p className="text-center text-sm text-muted-foreground mt-2">Currency is in INR. Enter 0 for a free course.</p>
               </CardContent>
             </Card>
           </ScrollReveal>

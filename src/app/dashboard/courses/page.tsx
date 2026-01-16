@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -95,7 +94,7 @@ export default function CoursesPage() {
                     </p>
                   </CardContent>
                   <CardFooter className="flex justify-between items-center bg-secondary/50 p-4">
-                     <p className="text-2xl font-bold text-primary">${course.price}</p>
+                     <p className="text-2xl font-bold text-primary">₹{course.price}</p>
                      <Button asChild>
                         {isEnrolled ? (
                             <Link href={`/dashboard/courses/${course.id}`}>View Course</Link>

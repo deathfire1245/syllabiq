@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -8,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, CheckCircle, Clock, DollarSign, Save } from "lucide-react";
+import { Calendar, CheckCircle, Clock, IndianRupee, Save } from "lucide-react";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { cn } from "@/lib/utils";
 
@@ -75,7 +74,7 @@ export default function CreateClassesPage() {
                 <div className="space-y-2">
                   <Label htmlFor="cost">Cost Per Hour</Label>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input id="cost" type="number" placeholder="50.00" className="pl-10" value={costPerHour} onChange={(e) => setCostPerHour(e.target.value)} />
                   </div>
                 </div>
@@ -151,7 +150,7 @@ export default function CreateClassesPage() {
                          <CheckCircle className="w-4 h-4"/>
                          Available
                        </div>
-                       <p className="font-bold text-lg">${costPerHour}<span className="text-xs text-muted-foreground">/hr</span></p>
+                       <p className="font-bold text-lg">₹{costPerHour}<span className="text-xs text-muted-foreground">/hr</span></p>
                     </div>
                   </Card>
                 ))
