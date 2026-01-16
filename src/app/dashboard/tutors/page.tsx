@@ -38,7 +38,7 @@ interface PublicTutorProfile {
   bio?: string;
 }
 
-const getNextDayOfWeek = (dayOfWeek: string): Date => {
+const getNextSessionDate = (dayOfWeek: string, time: string): Date => {
     const days: { [key: string]: number } = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
     const targetDayIndex = days[dayOfWeek];
     
@@ -47,16 +47,24 @@ const getNextDayOfWeek = (dayOfWeek: string): Date => {
         return new Date(); 
     }
 
-    const today = new Date();
-    const currentDayIndex = today.getDay();
+    const now = new Date();
+    const currentDayIndex = now.getDay();
     let dayDifference = targetDayIndex - currentDayIndex;
-    
-    if (dayDifference < 0) {
+
+    // If it's the same day, check if the time has passed
+    if (dayDifference === 0) {
+        const sessionTimeToday = parse(time, 'h:mm a', new Date(now));
+        if (sessionTimeToday < now) {
+            // Time has passed today, schedule for next week
+            dayDifference += 7;
+        }
+    } else if (dayDifference < 0) {
+        // Day has passed this week, schedule for next week
         dayDifference += 7;
     }
     
-    const nextDate = new Date(today);
-    nextDate.setDate(today.getDate() + dayDifference);
+    const nextDate = new Date(now);
+    nextDate.setDate(now.getDate() + dayDifference);
     
     return nextDate;
 };
@@ -67,7 +75,7 @@ const getNextDayOfWeek = (dayOfWeek: string): Date => {
  * This function prepares a ticket object that can be stored in Firestore.
  */
 const generateProductionTicket = (tutor: PublicTutorProfile, slot: { day: string, time: string }, user: any, studentName: string) => {
-    const sessionBaseDate = getNextDayOfWeek(slot.day);
+    const sessionBaseDate = getNextSessionDate(slot.day, slot.time);
     const sessionStartTime = parse(slot.time, 'h:mm a', sessionBaseDate);
     const sessionEndTime = add(sessionStartTime, { hours: 1 });
 
@@ -121,7 +129,7 @@ export default function TutorsPage() {
       return;
     }
 
-    let studentName = user.email || 'Student'; // Default fallback
+    let studentName = user.displayName || user.email || 'Student'; // Default fallback
     try {
         const studentDocRef = doc(firestore, 'users', user.uid);
         const studentDoc = await getDoc(studentDocRef);
