@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight, Check, IndianRupee, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase } from "@/firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
 import { UploadDropzone } from "@/lib/uploadthing";
 
 const steps = [
@@ -76,20 +76,45 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
     setIsSaving(true);
     try {
         const userDocRef = doc(firestore, 'users', user.uid);
+
+        // Fetch user's name from their private document
+        const userDocSnap = await getDoc(userDocRef);
+        if (!userDocSnap.exists()) {
+            toast({ title: 'Error', description: 'User profile not found.', variant: 'destructive' });
+            setIsSaving(false);
+            return;
+        }
+        const userName = userDocSnap.data().name;
+        
+        // 1. Update private user document
+        const teacherProfileData = {
+            subjects: formData.subjects,
+            qualifications: formData.qualifications,
+            experienceYears: formData.experienceYears,
+            hourlyRate: formData.hourlyRate,
+            bio: formData.bio,
+            availability: formData.availability,
+            isVerified: false,
+            totalSessions: 0,
+            rating: 0,
+        };
         await updateDoc(userDocRef, {
-            teacherProfile: {
-                subjects: formData.subjects,
-                qualifications: formData.qualifications,
-                experienceYears: formData.experienceYears,
-                hourlyRate: formData.hourlyRate,
-                bio: formData.bio,
-                availability: formData.availability,
-                isVerified: false,
-                totalSessions: 0,
-                rating: 0,
-            },
+            teacherProfile: teacherProfileData,
             profilePicture: formData.profilePicture,
         });
+
+        // 2. Create/update public tutor document
+        const tutorDocRef = doc(firestore, 'tutors', user.uid);
+        const publicTutorData = {
+            name: userName,
+            profilePicture: formData.profilePicture,
+            subjects: formData.subjects,
+            hourlyRate: formData.hourlyRate,
+            availability: formData.availability,
+            bio: formData.bio,
+        };
+        await setDoc(tutorDocRef, publicTutorData, { merge: true });
+
         toast({
             title: "Profile setup complete!",
             description: "Welcome to your teacher dashboard.",

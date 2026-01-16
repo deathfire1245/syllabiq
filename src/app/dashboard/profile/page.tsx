@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Edit, BookOpen, Goal, Star, GraduationCap, Briefcase, IndianRupee, Calendar, Verified, Save, X, Camera } from "lucide-react";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { useUser, useDoc, useFirebase, useMemoFirebase } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UploadButton } from "@/lib/uploadthing";
 import { useToast } from "@/hooks/use-toast";
@@ -57,20 +57,36 @@ export default function ProfilePage() {
     }, [profile]);
 
     const handleSave = async () => {
+        if (!user || !firestore || !profile) return;
+    
         const updatePayload: { [key: string]: any } = {
             name: editData.name,
             profilePicture: editData.profilePicture,
         };
-
-        if (profile?.role === 'teacher') {
+    
+        if (profile.role === 'teacher') {
             updatePayload['teacherProfile.bio'] = editData.bio;
         }
-        
+    
         try {
+            // Update the private /users document
             await mutate(updatePayload);
+    
+            // Sync public fields to the /tutors document
+            if (profile.role === 'teacher') {
+                const tutorDocRef = doc(firestore, 'tutors', user.uid);
+                const publicUpdatePayload = {
+                    name: editData.name,
+                    profilePicture: editData.profilePicture,
+                    bio: editData.bio,
+                };
+                await updateDoc(tutorDocRef, publicUpdatePayload);
+            }
+    
             toast({ title: "Profile Updated", description: "Your changes have been saved." });
             setIsEditMode(false);
         } catch (error) {
+            console.error("Error updating profile:", error)
             toast({ variant: 'destructive', title: "Error", description: "Failed to update profile." });
         }
     };

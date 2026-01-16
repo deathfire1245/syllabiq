@@ -67,6 +67,16 @@ service cloud.firestore {
     }
     
     //----------------------------------------------------------------------
+    //  PUBLIC TUTOR PROFILE RULES
+    //----------------------------------------------------------------------
+    match /tutors/{tutorId} {
+      // READ: Any authenticated user can view public tutor profiles.
+      allow read: if isSignedIn();
+      // WRITE: Only the owner of the profile can create or update it.
+      allow write: if isOwner(tutorId);
+    }
+
+    //----------------------------------------------------------------------
     //  MEETING RULES
     //----------------------------------------------------------------------
     match /meetings/{meetingId} {

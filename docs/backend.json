@@ -46,6 +46,26 @@
       },
       "required": ["uid", "email", "role", "name", "createdAt", "isActive"]
     },
+    "PublicTutorProfile": {
+      "title": "Public Tutor Profile",
+      "description": "Represents the public-facing, safe-to-display profile of a teacher.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "profilePicture": { "type": "string", "format": "uri" },
+        "subjects": { "type": "array", "items": { "type": "string" } },
+        "hourlyRate": { "type": "number" },
+        "availability": {
+          "type": "object",
+          "properties": {
+            "days": { "type": "array", "items": { "type": "string" } },
+            "timeSlots": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "bio": { "type": "string" }
+      },
+      "required": ["name"]
+    },
     "Course": {
       "title": "Course",
       "description": "Represents a course created by a teacher.",
@@ -156,6 +176,15 @@
       {
         "path": "/users/{uid}",
         "definition": { "entityName": "User", "schema": { "$ref": "#/backend/entities/User" }, "description": "Stores user profile information, including their role.", "params": [{ "name": "uid", "description": "The unique identifier of the user." }] }
+      },
+       {
+        "path": "/tutors/{tutorId}",
+        "definition": {
+          "entityName": "PublicTutorProfile",
+          "schema": { "$ref": "#/backend/entities/PublicTutorProfile" },
+          "description": "Stores public-facing profiles for tutors. Read-only for students, writable only by the tutor themselves.",
+          "params": [{ "name": "tutorId", "description": "The unique identifier of the tutor, matching their auth UID." }]
+        }
       },
       {
         "path": "/courses/{courseId}",

@@ -20,31 +20,28 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { addDoc, collection, serverTimestamp, Timestamp, query, where } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore";
 import { add, sub, parse } from 'date-fns';
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface TeacherProfile {
+interface PublicTutorProfile {
   id: string;
   name: string;
-  email: string;
   profilePicture?: string;
-  teacherProfile?: {
-    subjects: string[];
-    hourlyRate: number;
-    availability: {
-      days: string[];
-      timeSlots: string[];
-    };
-    bio: string;
+  subjects?: string[];
+  hourlyRate?: number;
+  availability?: {
+    days: string[];
+    timeSlots: string[];
   };
+  bio?: string;
 }
 
 /**
  * Generates a production-ready ticket with time buffers and idempotent identifiers.
  * This function prepares a ticket object that can be stored in Firestore.
  */
-const generateProductionTicket = (tutor: TeacherProfile, slot: { day: string, time: string }, user: any) => {
+const generateProductionTicket = (tutor: PublicTutorProfile, slot: { day: string, time: string }, user: any) => {
     // This is a simplified way to get a Date object for the session.
     // A real app would use a proper date picker and time zone handling.
     const now = new Date();
@@ -67,7 +64,7 @@ const generateProductionTicket = (tutor: TeacherProfile, slot: { day: string, ti
       teacherId: tutor.id,
       status: 'PAID', // Initial status before check-in
       paymentStatus: 'MOCK_PAID',
-      price: tutor.teacherProfile?.hourlyRate || 0,
+      price: tutor.hourlyRate || 0,
       duration: 60, // minutes
       commissionPercent: 10,
       createdAt: serverTimestamp(),
@@ -93,12 +90,12 @@ export default function TutorsPage() {
 
   const tutorsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, "users"), where("role", "==", "teacher"));
+    return collection(firestore, "tutors");
   }, [firestore]);
 
-  const { data: tutors, isLoading } = useCollection<TeacherProfile>(tutorsQuery);
+  const { data: tutors, isLoading } = useCollection<PublicTutorProfile>(tutorsQuery);
 
-  const handleBookSession = async (tutor: TeacherProfile, slot: { day: string, time: string }) => {
+  const handleBookSession = async (tutor: PublicTutorProfile, slot: { day: string, time: string }) => {
     if (!user || !firestore) {
       toast({ variant: 'destructive', title: "Error", description: "You must be logged in to book a session." });
       return;
@@ -155,7 +152,7 @@ export default function TutorsPage() {
 
       <div className="space-y-6">
         {tutors && tutors.length > 0 ? tutors.map((tutor, index) => {
-            const availability = tutor.teacherProfile?.availability;
+            const availability = tutor.availability;
             const availableSlots = availability?.days.flatMap(day => 
                 (availability.timeSlots || []).map(time => ({ day, time }))
             ) || [];
@@ -170,14 +167,14 @@ export default function TutorsPage() {
                     <AvatarFallback>{getInitials(tutor.name)}</AvatarFallback>
                   </Avatar>
                   <CardTitle className="text-xl">{tutor.name}</CardTitle>
-                  <p className="text-muted-foreground text-sm mt-1">{tutor.teacherProfile?.bio || 'Experienced Educator'}</p>
-                   <p className="text-2xl font-bold text-primary mt-4">₹{tutor.teacherProfile?.hourlyRate || 0}<span className="text-base font-normal text-muted-foreground">/hour</span></p>
+                  <p className="text-muted-foreground text-sm mt-1">{tutor.bio || 'Experienced Educator'}</p>
+                   <p className="text-2xl font-bold text-primary mt-4">₹{tutor.hourlyRate || 0}<span className="text-base font-normal text-muted-foreground">/hour</span></p>
                 </div>
 
                 <div>
                     <CardDescription className="mb-4">Specializes in:</CardDescription>
                     <div className="flex flex-wrap gap-2 mb-6">
-                        {(tutor.teacherProfile?.subjects || []).map(subject => (
+                        {(tutor.subjects || []).map(subject => (
                             <Badge key={subject} variant="secondary">{subject}</Badge>
                         ))}
                     </div>
@@ -196,7 +193,7 @@ export default function TutorsPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Confirm Ticket Purchase</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Purchase a ticket for a 1-hour session with {tutor.name} on {slot.day} at {slot.time} for ₹{tutor.teacherProfile?.hourlyRate || 0}?
+                                  Purchase a ticket for a 1-hour session with {tutor.name} on {slot.day} at {slot.time} for ₹{tutor.hourlyRate || 0}?
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
