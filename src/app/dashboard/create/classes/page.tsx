@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -45,7 +44,7 @@ export default function CreateClassesPage() {
             variant: "destructive",
             title: "Cannot remove",
             description: "You must have at least one availability slot.",
-        })
+        });
     }
   };
 
@@ -185,7 +184,7 @@ export default function CreateClassesPage() {
                     </div>
                   </Card>
                 ))
-              )}
+              }
                {slots.length === 0 && (
                  <div className="col-span-full text-center py-8 text-muted-foreground">
                     You have not set any available slots.
