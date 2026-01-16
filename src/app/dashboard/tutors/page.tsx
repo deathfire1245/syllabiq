@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -37,19 +38,37 @@ interface PublicTutorProfile {
   bio?: string;
 }
 
+const getNextDayOfWeek = (dayOfWeek: string): Date => {
+    const days: { [key: string]: number } = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const targetDayIndex = days[dayOfWeek];
+    
+    if (targetDayIndex === undefined) {
+        console.error(`Invalid day of week: ${dayOfWeek}`);
+        return new Date(); 
+    }
+
+    const today = new Date();
+    const currentDayIndex = today.getDay();
+    let dayDifference = targetDayIndex - currentDayIndex;
+    
+    if (dayDifference < 0) {
+        dayDifference += 7;
+    }
+    
+    const nextDate = new Date(today);
+    nextDate.setDate(today.getDate() + dayDifference);
+    
+    return nextDate;
+};
+
+
 /**
  * Generates a production-ready ticket with time buffers and idempotent identifiers.
  * This function prepares a ticket object that can be stored in Firestore.
  */
 const generateProductionTicket = (tutor: PublicTutorProfile, slot: { day: string, time: string }, user: any, studentName: string) => {
-    // This is a simplified way to get a Date object for the session.
-    // A real app would use a proper date picker and time zone handling.
-    const now = new Date();
-    const startTimeStr = slot.time.split(' - ')[0];
-    const sessionDate = parse(startTimeStr, 'h:mm a', now);
-    
-    // In a real app, you would determine the correct date for the selected "day"
-    const sessionStartTime = sessionDate;
+    const sessionBaseDate = getNextDayOfWeek(slot.day);
+    const sessionStartTime = parse(slot.time, 'h:mm a', sessionBaseDate);
     const sessionEndTime = add(sessionStartTime, { hours: 1 });
 
     const ticketCode = `TKT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -74,7 +93,8 @@ const generateProductionTicket = (tutor: PublicTutorProfile, slot: { day: string
       slot, // Keep original slot info for display
       studentName: studentName || "Student",
       teacherName: tutor.name || "Tutor",
-      validFrom: Timestamp.fromDate(sub(sessionStartTime, { minutes: 15 })),
+      sessionStartTime: Timestamp.fromDate(sessionStartTime),
+      validFrom: Timestamp.fromDate(sub(sessionStartTime, { minutes: 10 })),
       validTill: Timestamp.fromDate(add(sessionEndTime, { minutes: 30 })),
       used: false,
       checkInTime: null,

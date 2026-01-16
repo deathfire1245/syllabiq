@@ -30,6 +30,8 @@ interface Ticket {
   activatedAt?: any;
   waitingSince?: any;
   used: boolean;
+  validFrom: any;
+  sessionStartTime: any;
 }
 
 const Countdown = ({ targetDate, onTimeout }: { targetDate: Date, onTimeout: () => void }) => {
@@ -112,21 +114,74 @@ const joinMeetingAndCheckIn = (firestore: any, ticketId: string): Promise<boolea
     });
 }
 
+const JoinButton = ({ validFrom, onJoin, isJoining }: { validFrom: any, onJoin: () => void, isJoining: boolean }) => {
+    const { toast } = useToast();
+    const [canJoin, setCanJoin] = React.useState(false);
+    const [timeLeft, setTimeLeft] = React.useState("");
+    const joinTime = validFrom.toDate();
+
+    React.useEffect(() => {
+        const checkTime = () => {
+            const now = new Date();
+            const difference = joinTime.getTime() - now.getTime();
+            if (difference <= 0) {
+                setCanJoin(true);
+                setTimeLeft("");
+                if (timer) clearInterval(timer);
+            } else {
+                setCanJoin(false);
+                const minutes = Math.floor((difference / 1000 / 60));
+                const seconds = Math.floor((difference / 1000) % 60);
+                setTimeLeft(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+            }
+        };
+
+        const timer = setInterval(checkTime, 1000);
+        checkTime(); // Initial check
+
+        return () => clearInterval(timer);
+    }, [joinTime]);
+
+    const handleClick = () => {
+        if (canJoin) {
+            onJoin();
+        } else {
+            toast({
+                title: "It's not time yet!",
+                description: `You can join the meeting 10 minutes before the start time.`,
+            });
+        }
+    };
+
+    const getButtonText = () => {
+        if (isJoining) return "Entering...";
+        if (canJoin) return "Enter Waiting Room";
+        return `Join in ${timeLeft}`;
+    };
+
+    return (
+        <Button className="w-full" disabled={!canJoin || isJoining} onClick={handleClick}>
+            <Video className="mr-2 h-4 w-4" />
+            {getButtonText()}
+        </Button>
+    );
+};
+
 
 const StudentTicketCard = ({ ticket }: { ticket: Ticket }) => {
     const router = useRouter();
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const [isWaiting, setIsWaiting] = React.useState(false);
+    const [isJoining, setIsJoining] = React.useState(false);
 
     const handleEnterWaitingRoom = () => {
         if(!firestore) return;
-        setIsWaiting(true);
+        setIsJoining(true);
         
         joinMeetingAndCheckIn(firestore, ticket.id)
           .then(success => {
             if (!success) {
-                setIsWaiting(false);
+                setIsJoining(false);
             }
         });
     }
@@ -148,10 +203,7 @@ const StudentTicketCard = ({ ticket }: { ticket: Ticket }) => {
                 <p className="text-2xl font-bold font-mono tracking-widest text-primary">{ticket.ticketCode}</p>
             </CardContent>
             <CardFooter className="p-4 bg-secondary/30">
-                <Button className="w-full" disabled={isWaiting} onClick={handleEnterWaitingRoom}>
-                    <Video className="mr-2 h-4 w-4" />
-                    {isWaiting ? "Entering..." : "Enter Waiting Room"}
-                </Button>
+                <JoinButton validFrom={ticket.validFrom} onJoin={handleEnterWaitingRoom} isJoining={isJoining} />
             </CardFooter>
         </Card>
     )
