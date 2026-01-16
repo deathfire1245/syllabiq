@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { getSubjectById } from "@/lib/data";
-import { notFound, useRouter } from "next/navigation";
+import { useParams, notFound, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,12 +23,9 @@ import { collection, query, where, addDoc, serverTimestamp } from "firebase/fire
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export default function SubjectDetailsPage({
-  params,
-}: {
-  params: { subjectId: string };
-}) {
-  const { subjectId } = params;
+export default function SubjectDetailsPage() {
+  const params = useParams();
+  const subjectId = params.subjectId as string;
   const router = useRouter();
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const { firestore } = useFirebase();
@@ -45,7 +42,7 @@ export default function SubjectDetailsPage({
   const subject = getSubjectById(subjectId);
 
   const topicsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !subjectId) return null;
     return query(collection(firestore, "topics"), where("subjectId", "==", subjectId));
   }, [firestore, subjectId]);
 
@@ -423,3 +420,5 @@ export default function SubjectDetailsPage({
     </div>
   );
 }
+
+    
