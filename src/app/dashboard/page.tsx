@@ -80,7 +80,7 @@ const TeacherDashboard = () => {
     
     const { data: waitingTickets } = useCollection(waitingTicketsQuery);
     
-    // Total students
+    // Total students on the platform
     const studentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users'), where('role', '==', 'student')) : null, [firestore]);
     const { data: students, isLoading: areStudentsLoading } = useCollection(studentsQuery);
 
@@ -112,7 +112,7 @@ const TeacherDashboard = () => {
     const { data: recentContent, isLoading: isRecentContentLoading } = useCollection<Topic>(recentContentQuery);
     
     const teacherStats = [
-        { title: "Total Students", value: students?.length ?? 0, icon: Users, footer: "Across all courses", isLoading: areStudentsLoading },
+        { title: "Total Students", value: students?.length ?? 0, icon: Users, footer: "On the platform", isLoading: areStudentsLoading },
         { title: "Hours Taught", value: 340, icon: Clock, footer: "+20 this month", isLoading: false }, // Static
         { title: "Active Courses", value: myCourses?.length ?? 0, icon: BookOpen, footer: "View your courses", isLoading: areCoursesLoading },
         { title: "Upcoming Sessions", value: upcomingSessions?.length ?? 0, icon: Calendar, footer: "Check your schedule", isLoading: areSessionsLoading },
@@ -242,8 +242,7 @@ const TeacherDashboard = () => {
 };
 
 const StudentDashboard = () => {
-    const subjects = getSubjects().slice(0, 3);
-    const { user } = useUser();
+    const { user, isUserLoading } = useUser();
     const { firestore } = useFirebase();
     
     const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
@@ -258,6 +257,7 @@ const StudentDashboard = () => {
     const recentlyAccessedIds = userProfile?.studentProfile?.recentlyAccessed || [];
     const recentTopics = React.useMemo(() => {
       if (!allTopics || recentlyAccessedIds.length === 0) return [];
+      // Combine Firestore topics with any static topics if they exist
       const staticTopics = getStaticTopics();
       const combinedTopics = [...(allTopics || []), ...staticTopics];
       return [...new Set(recentlyAccessedIds)]
@@ -267,7 +267,7 @@ const StudentDashboard = () => {
     }, [allTopics, recentlyAccessedIds]);
 
     const userStats = [
-        { title: "Topics Completed", icon: TrendingUp, value: completedTopicsCount, total: totalTopicsCount, footer: "+5 from last week", isLoading: isProfileLoading || areTopicsLoading },
+        { title: "Topics Completed", icon: TrendingUp, value: completedTopicsCount, total: totalTopicsCount, footer: "Keep it up!", isLoading: isProfileLoading || areTopicsLoading },
         { title: "Study Hours", icon: Clock, value: 42, footer: "Total time spent learning", isLoading: false }, // Static
         { title: "Average Score", icon: Target, value: 88, suffix: "%", footer: "Across 12 quizzes", isLoading: false }, // Static
     ];
