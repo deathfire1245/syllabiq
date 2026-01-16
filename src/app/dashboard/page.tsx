@@ -9,13 +9,11 @@ import {
   TrendingUp,
   Video,
   Copy,
-  PlusCircle,
   Users,
   BookOpen,
   Calendar,
-  FlaskRound,
 } from "lucide-react";
-import { getSubjects } from "@/lib/data";
+import { getSubjects, getStaticTopics } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Image from "next/image";
 import { Progress } from "@/components/ui/progress";
@@ -26,10 +24,11 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { doc, setDoc, getDoc, serverTimestamp, updateDoc, collection, query, where, addDoc, getDocs } from "firebase/firestore";
+import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from "@/firebase";
+import { doc, updateDoc, collection, query, where, addDoc, getDocs, orderBy, limit, getDoc, arrayUnion } from "firebase/firestore";
+import type { Topic } from "@/lib/types";
+
 
 const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?: string, suffix?: string }) => {
   const ref = React.useRef<HTMLSpanElement>(null);
@@ -50,7 +49,7 @@ const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?
     }
   }, [isInView, to, prefix, suffix]);
 
-  return <span ref={ref}>0</span>;
+  return <span ref={ref}>{prefix}0{suffix}</span>;
 };
 
 
@@ -70,7 +69,7 @@ const TeacherDashboard = () => {
     const { user, isUserLoading } = useUser();
     const { firestore } = useFirebase();
 
-    const ticketsQuery = useMemoFirebase(() => {
+    const waitingTicketsQuery = useMemoFirebase(() => {
         if (!user || !firestore) return null;
         return query(
             collection(firestore, "tickets"), 
@@ -79,46 +78,55 @@ const TeacherDashboard = () => {
         );
     }, [user, firestore]);
     
-    const { data: waitingTickets } = useCollection(ticketsQuery);
+    const { data: waitingTickets } = useCollection(waitingTicketsQuery);
+    
+    // Total students
+    const studentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users'), where('role', '==', 'student')) : null, [firestore]);
+    const { data: students, isLoading: areStudentsLoading } = useCollection(studentsQuery);
+
+    // Active courses by this teacher
+    const coursesQuery = useMemoFirebase(() => (user && firestore) ? query(collection(firestore, 'courses'), where('authorId', '==', user.uid)) : null, [user, firestore]);
+    const { data: myCourses, isLoading: areCoursesLoading } = useCollection(coursesQuery);
+
+    // Upcoming sessions for this teacher
+    const upcomingSessionsQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return query(
+            collection(firestore, "tickets"),
+            where("teacherId", "==", user.uid),
+            where("status", "in", ["PAID", "WAITING_FOR_TEACHER"])
+        );
+    }, [user, firestore]);
+    const { data: upcomingSessions, isLoading: areSessionsLoading } = useCollection(upcomingSessionsQuery);
+
+    // Recent content by this teacher
+    const recentContentQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return query(
+            collection(firestore, "topics"),
+            where("createdBy", "==", user.uid),
+            orderBy("createdAt", "desc"),
+            limit(3)
+        );
+    }, [user, firestore]);
+    const { data: recentContent, isLoading: isRecentContentLoading } = useCollection<Topic>(recentContentQuery);
+    
+    const teacherStats = [
+        { title: "Total Students", value: students?.length ?? 0, icon: Users, footer: "Across all courses", isLoading: areStudentsLoading },
+        { title: "Hours Taught", value: 340, icon: Clock, footer: "+20 this month", isLoading: false }, // Static
+        { title: "Active Courses", value: myCourses?.length ?? 0, icon: BookOpen, footer: "View your courses", isLoading: areCoursesLoading },
+        { title: "Upcoming Sessions", value: upcomingSessions?.length ?? 0, icon: Calendar, footer: "Check your schedule", isLoading: areSessionsLoading },
+    ];
     
     const handleJoinSession = async (ticket: any) => {
         if (!firestore || !user) return;
-        
-        const meetingId = ticket.id;
-        const teacherId = user.uid;
-
-        // Idempotency Check: See if a teacher ticket for this meeting already exists.
-        const teacherTicketQuery = query(
-            collection(firestore, "tickets"),
-            where("meetingId", "==", meetingId),
-            where("userId", "==", teacherId),
-            where("role", "==", "teacher")
-        );
-
-        const existingTeacherTickets = await getDocs(teacherTicketQuery);
-
-        if (existingTeacherTickets.empty) {
-            // No existing ticket, create one.
-            const teacherTicketData = {
-                userId: teacherId,
-                teacherId: teacherId,
-                meetingId: meetingId,
-                sessionId: meetingId, // Assuming sessionId is the same as the ticket/meeting ID
-                role: "teacher",
-                status: "ACTIVE",
-                paymentStatus: "FREE",
-                price: 0,
-                createdAt: serverTimestamp(),
-            };
-            await addDoc(collection(firestore, "tickets"), teacherTicketData);
-        }
         
         const ticketRef = doc(firestore, 'tickets', ticket.id);
         try {
             await updateDoc(ticketRef, {
                 status: 'ACTIVE',
-                activatedAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
+                activatedAt: new Date(),
+                updatedAt: new Date(),
             });
             router.push(`/dashboard/meeting/${ticket.id}`);
         } catch (error) {
@@ -126,19 +134,6 @@ const TeacherDashboard = () => {
         }
     }
     
-    const teacherStats = [
-        { title: "Total Students", value: 125, icon: Users, footer: "Across all courses" },
-        { title: "Hours Taught", value: 340, icon: Clock, footer: "+20 this month" },
-        { title: "Active Courses", value: 5, icon: BookOpen, footer: "View your courses" },
-        { title: "Upcoming Sessions", value: 3, icon: Calendar, footer: "Check your schedule" },
-    ];
-
-    const recentContent = [
-        { title: "Introduction to Calculus", type: "Course", date: "3 days ago" },
-        { title: "Newton's Laws of Motion", type: "Topic", date: "5 days ago" },
-        { title: "The Periodic Table", type: "Topic", date: "1 week ago" },
-    ];
-
     if (isUserLoading) return <div>Loading...</div>
 
     return (
@@ -185,7 +180,7 @@ const TeacherDashboard = () => {
                                     <Icon className="w-4 h-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-2xl font-bold"><AnimatedCounter to={stat.value} /></div>
+                                    {stat.isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold"><AnimatedCounter to={stat.value} /></div>}
                                     <p className="text-xs text-muted-foreground mt-1">{stat.footer}</p>
                                 </CardContent>
                             </Card>
@@ -203,17 +198,19 @@ const TeacherDashboard = () => {
                             <CardDescription>Your recently created or updated content.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                           <ul className="space-y-4">
-                                {recentContent.map(item => (
-                                    <li key={item.title} className="flex items-center justify-between">
+                           {isRecentContentLoading ? <Skeleton className="h-24 w-full" /> : (
+                             <ul className="space-y-4">
+                                {recentContent && recentContent.length > 0 ? recentContent.map(item => (
+                                    <li key={item.id} className="flex items-center justify-between">
                                         <div>
-                                            <p className="font-semibold">{item.title}</p>
-                                            <Badge variant="outline" className="mt-1">{item.type}</Badge>
+                                            <p className="font-semibold">{item.name}</p>
+                                            <Badge variant="outline" className="mt-1">Topic</Badge>
                                         </div>
-                                        <p className="text-sm text-muted-foreground">{item.date}</p>
+                                        <p className="text-sm text-muted-foreground">{item.createdAt?.toDate().toLocaleDateString()}</p>
                                     </li>
-                                ))}
+                                )) : <p className="text-sm text-muted-foreground text-center">No recent content.</p>}
                            </ul>
+                           )}
                         </CardContent>
                     </Card>
                 </ScrollReveal>
@@ -246,37 +243,54 @@ const TeacherDashboard = () => {
 
 const StudentDashboard = () => {
     const subjects = getSubjects().slice(0, 3);
+    const { user } = useUser();
+    const { firestore } = useFirebase();
+    
+    const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+
+    const topicsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'topics') : null, [firestore]);
+    const { data: allTopics, isLoading: areTopicsLoading } = useCollection<Topic>(topicsQuery);
+
+    const completedTopicsCount = userProfile?.studentProfile?.completedTopics?.length || 0;
+    const totalTopicsCount = allTopics?.length || 0;
+    
+    const recentlyAccessedIds = userProfile?.studentProfile?.recentlyAccessed || [];
+    const recentTopics = React.useMemo(() => {
+      if (!allTopics || recentlyAccessedIds.length === 0) return [];
+      const staticTopics = getStaticTopics();
+      const combinedTopics = [...(allTopics || []), ...staticTopics];
+      return [...new Set(recentlyAccessedIds)]
+        .map(id => combinedTopics.find(t => t.id === id))
+        .filter((t): t is Topic => !!t)
+        .slice(0, 3);
+    }, [allTopics, recentlyAccessedIds]);
 
     const userStats = [
-        {
-            title: "Topics Completed",
-            icon: TrendingUp,
-            value: 18,
-            total: 50,
-            footer: "+5 from last week",
-        },
-        {
-            title: "Study Hours",
-            icon: Clock,
-            value: 42,
-            footer: "Total time spent learning",
-        },
-        {
-            title: "Average Score",
-            icon: Target,
-            value: 88,
-            suffix: "%",
-            footer: "Across 12 quizzes",
-        }
+        { title: "Topics Completed", icon: TrendingUp, value: completedTopicsCount, total: totalTopicsCount, footer: "+5 from last week", isLoading: isProfileLoading || areTopicsLoading },
+        { title: "Study Hours", icon: Clock, value: 42, footer: "Total time spent learning", isLoading: false }, // Static
+        { title: "Average Score", icon: Target, value: 88, suffix: "%", footer: "Across 12 quizzes", isLoading: false }, // Static
     ];
     
-    const recentTopics = getSubjects().flatMap(s => s.topics).slice(0,3);
+    const subjectsWithProgress = React.useMemo(() => {
+        return getSubjects().slice(0, 3).map(subject => {
+            if (!allTopics || !userProfile?.studentProfile?.completedTopics) {
+                return { ...subject, progress: 0 };
+            }
+            const topicsInSubject = allTopics.filter(t => t.subjectId === subject.id);
+            const completedInSubject = userProfile.studentProfile.completedTopics.filter((topicId: string) => 
+                topicsInSubject.some(t => t.id === topicId)
+            ).length;
+            const progress = topicsInSubject.length > 0 ? Math.round((completedInSubject / topicsInSubject.length) * 100) : 0;
+            return { ...subject, progress };
+        });
+    }, [allTopics, userProfile]);
 
     return (
         <div className="space-y-8">
             <ScrollReveal>
                 <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Student Dashboard</h1>
-                <p className="text-muted-foreground mt-2 text-lg">Welcome back! Ready to learn something new?</p>
+                <p className="text-muted-foreground mt-2 text-lg">Welcome back, {user?.displayName || 'student'}! Ready to learn something new?</p>
             </ScrollReveal>
 
             <ScrollReveal delay={0.1}>
@@ -305,10 +319,14 @@ const StudentDashboard = () => {
                                     <Icon className="w-4 h-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-2xl font-bold">
-                                        <AnimatedCounter to={stat.value} suffix={stat.suffix} />
-                                        {stat.total && <span className="text-lg text-muted-foreground">/ {stat.total}</span>}
-                                    </div>
+                                    {stat.isLoading ? (
+                                      <Skeleton className="h-8 w-1/2" />
+                                    ) : (
+                                      <div className="text-2xl font-bold">
+                                          <AnimatedCounter to={stat.value} suffix={stat.suffix} />
+                                          {stat.total != null && <span className="text-lg text-muted-foreground">/ {stat.total}</span>}
+                                      </div>
+                                    )}
                                     <p className="text-xs text-muted-foreground mt-1">{stat.footer}</p>
                                 </CardContent>
                             </Card>
@@ -322,15 +340,17 @@ const StudentDashboard = () => {
                             <History className="w-4 h-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent className="space-y-3 pt-4">
-                        {recentTopics.map(topic => (
-                            <Link href={`/dashboard/subjects/${topic.subjectId}/${topic.id}`} key={topic.id} className="flex items-center gap-3 group">
-                                <Image src={topic.coverImage.src} alt={topic.name} width={40} height={40} className="rounded-md object-cover"/>
-                                <div>
-                                <p className="text-sm font-medium line-clamp-1 group-hover:text-primary transition-colors">{topic.name}</p>
-                                <p className="text-xs text-muted-foreground">{topic.chapter}</p>
-                                </div>
-                            </Link>
-                        ))}
+                        {(isProfileLoading || areTopicsLoading) ? <Skeleton className="h-24 w-full" /> : (
+                            recentTopics.length > 0 ? recentTopics.map(topic => (
+                                <Link href={`/dashboard/subjects/topic-content`} onClick={() => sessionStorage.setItem('activeTopic', JSON.stringify(topic))} key={topic.id} className="flex items-center gap-3 group">
+                                    <Image src={topic.coverImage.src} alt={topic.name} width={40} height={40} className="rounded-md object-cover"/>
+                                    <div>
+                                    <p className="text-sm font-medium line-clamp-1 group-hover:text-primary transition-colors">{topic.name}</p>
+                                    <p className="text-xs text-muted-foreground">{topic.chapter}</p>
+                                    </div>
+                                </Link>
+                            )) : <p className="text-sm text-muted-foreground text-center">No recent topics.</p>
+                        )}
                         </CardContent>
                     </Card>
                 </ScrollReveal>
@@ -346,9 +366,7 @@ const StudentDashboard = () => {
                 </div>
             </ScrollReveal>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {subjects.map((subject, index) => {
-                  const progress = Math.floor(Math.random() * 50) + 25;
-                  return (
+                {subjectsWithProgress.map((subject, index) => (
                     <ScrollReveal key={subject.id} delay={index * 0.1}>
                         <Link href={`/dashboard/subjects/${subject.id}`}>
                             <Card
@@ -371,16 +389,15 @@ const StudentDashboard = () => {
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center text-sm">
                                             <p className="text-muted-foreground">Progress</p>
-                                            <p className="font-medium text-primary">{progress}%</p>
+                                            <p className="font-medium text-primary">{subject.progress}%</p>
                                         </div>
-                                        <Progress value={progress} className="h-2" />
+                                        {(isProfileLoading || areTopicsLoading) ? <Skeleton className="h-2 w-full" /> : <Progress value={subject.progress} className="h-2" />}
                                     </div>
                                 </CardContent>
                             </Card>
                         </Link>
                     </ScrollReveal>
-                  );
-                })}
+                  ))}
             </div>
         </div>
     );
@@ -388,10 +405,8 @@ const StudentDashboard = () => {
 
 
 export default function DashboardPage() {
-  const { user, isUserLoading } = useUser();
+  const { isUserLoading } = useUser();
   const [userRole, setUserRole] = React.useState<string | null>(null);
-  const router = useRouter();
-  const { firestore } = useFirebase();
 
   React.useEffect(() => {
     if (isUserLoading) return;
@@ -399,7 +414,7 @@ export default function DashboardPage() {
     setUserRole(role);
   }, [isUserLoading]);
 
-  if (isUserLoading) {
+  if (isUserLoading || !userRole) {
       return (
         <div className="p-8">
             <div className="space-y-8">
@@ -422,6 +437,3 @@ export default function DashboardPage() {
     </>
   )
 }
-
-    
-    
