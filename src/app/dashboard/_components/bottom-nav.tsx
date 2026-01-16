@@ -4,12 +4,12 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { BookMarked, Home, Compass, PlusCircle, User, Briefcase, Video } from "lucide-react";
+import { BookOpen, Home, Briefcase, PlusCircle, User, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const studentNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
-  { href: "/dashboard/subjects", icon: Compass, label: "Subjects" },
+  { href: "/dashboard/library", icon: BookOpen, label: "Library" },
   { href: "/dashboard/tutors", icon: Briefcase, label: "Tutors" },
   { href: "/dashboard/bookings", icon: Video, label: "Bookings" },
   { href: "/dashboard/profile", icon: User, label: "Profile" },
@@ -18,7 +18,7 @@ const studentNavItems = [
 const teacherNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/create", icon: PlusCircle, label: "Create" },
-  { href: "/dashboard/subjects", icon: Compass, label: "Subjects" },
+  { href: "/dashboard/library", icon: BookOpen, label: "Library" },
   { href: "/dashboard/bookings", icon: Video, label: "Bookings" },
   { href: "/dashboard/profile", icon: User, label: "Profile" },
 ];
