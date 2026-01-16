@@ -11,7 +11,7 @@ import { Calendar, CheckCircle, Clock, IndianRupee, Save, PlusCircle, Trash2 } f
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useUser, useFirebase } from "@/firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, setDoc } from "firebase/firestore";
 
 type Day = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
 const daysOrder: Day[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -86,10 +86,10 @@ export default function CreateClassesPage() {
       });
 
       // Also update the public tutor profile
-      await updateDoc(tutorDocRef, {
+      await setDoc(tutorDocRef, {
         availability: availabilityData,
         hourlyRate: Number(costPerHour),
-      });
+      }, { merge: true });
 
       toast({
         title: 'Availability Saved',
