@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Calendar, CheckCircle, Clock, IndianRupee, Save, PlusCircle, Trash2 } from "lucide-react";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useUser, useFirebase } from "@/firebase";
+import { doc, updateDoc } from "firebase/firestore";
 
 type Day = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
 const daysOrder: Day[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -24,6 +26,8 @@ interface AvailabilitySlot {
 
 export default function CreateClassesPage() {
   const { toast } = useToast();
+  const { user } = useUser();
+  const { firestore } = useFirebase();
   const [isAvailable, setIsAvailable] = React.useState(true);
   const [costPerHour, setCostPerHour] = React.useState("50");
 
@@ -56,13 +60,49 @@ export default function CreateClassesPage() {
     setSlots(slots.map(slot => (slot.id === id ? { ...slot, [field]: value } : slot)));
   };
 
-  const handleSaveChanges = () => {
-    // Placeholder for saving logic. This would now save the `slots` array.
-    console.log({ isAvailable, costPerHour, slots });
-    toast({
-      title: "Availability Saved",
-      description: "Your live class schedule has been updated.",
-    });
+  const handleSaveChanges = async () => {
+    if (!user || !firestore) {
+      toast({
+        variant: 'destructive',
+        title: 'Authentication Error',
+        description: 'You must be logged in to save changes.',
+      });
+      return;
+    }
+    
+    const days = [...new Set(slots.map(s => s.day))].sort((a,b) => daysOrder.indexOf(a) - daysOrder.indexOf(b));
+    const timeSlots = [...new Set(slots.map(s => `${s.time} ${s.period}`))];
+
+    const availabilityData = { days, timeSlots };
+
+    const userDocRef = doc(firestore, 'users', user.uid);
+    const tutorDocRef = doc(firestore, 'tutors', user.uid);
+    
+    try {
+      // Update private user profile
+      await updateDoc(userDocRef, {
+        'teacherProfile.availability': availabilityData,
+        'teacherProfile.hourlyRate': Number(costPerHour),
+      });
+
+      // Also update the public tutor profile
+      await updateDoc(tutorDocRef, {
+        availability: availabilityData,
+        hourlyRate: Number(costPerHour),
+      });
+
+      toast({
+        title: 'Availability Saved',
+        description: 'Your live class schedule has been updated.',
+      });
+    } catch (error) {
+      console.error("Error saving availability:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Update Failed',
+        description: 'Could not save your availability. Please try again.',
+      });
+    }
   };
 
   return (
