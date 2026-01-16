@@ -12,6 +12,7 @@ import {
   Users,
   BookOpen,
   Calendar,
+  DollarSign,
 } from "lucide-react";
 import { getSubjects, getStaticTopics } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -80,15 +81,16 @@ const TeacherDashboard = () => {
     
     const { data: waitingTickets } = useCollection(waitingTicketsQuery);
     
-    // Total students on the platform
-    const studentsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users'), where('role', '==', 'student')) : null, [firestore]);
-    const { data: students, isLoading: areStudentsLoading } = useCollection(studentsQuery);
+    const completedSessionsQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return query(
+            collection(firestore, "tickets"),
+            where("teacherId", "==", user.uid),
+            where("status", "==", "COMPLETED")
+        );
+    }, [user, firestore]);
+    const { data: completedSessions, isLoading: areSessionsLoading } = useCollection(completedSessionsQuery);
 
-    // Active courses by this teacher
-    const coursesQuery = useMemoFirebase(() => (user && firestore) ? query(collection(firestore, 'courses'), where('authorId', '==', user.uid)) : null, [user, firestore]);
-    const { data: myCourses, isLoading: areCoursesLoading } = useCollection(coursesQuery);
-
-    // Upcoming sessions for this teacher
     const upcomingSessionsQuery = useMemoFirebase(() => {
         if (!user || !firestore) return null;
         return query(
@@ -97,7 +99,18 @@ const TeacherDashboard = () => {
             where("status", "in", ["PAID", "WAITING_FOR_TEACHER"])
         );
     }, [user, firestore]);
-    const { data: upcomingSessions, isLoading: areSessionsLoading } = useCollection(upcomingSessionsQuery);
+    const { data: upcomingSessions, isLoading: areUpcomingSessionsLoading } = useCollection(upcomingSessionsQuery);
+
+    const totalEarnings = React.useMemo(() => {
+        if (!completedSessions) return 0;
+        return completedSessions.reduce((acc, ticket) => acc + (ticket.price || 0), 0);
+    }, [completedSessions]);
+
+    const uniqueStudents = React.useMemo(() => {
+        if (!completedSessions) return 0;
+        const studentIds = new Set(completedSessions.map(ticket => ticket.studentId));
+        return studentIds.size;
+    }, [completedSessions]);
 
     // Recent content by this teacher
     const recentContentQuery = useMemoFirebase(() => {
@@ -112,10 +125,10 @@ const TeacherDashboard = () => {
     const { data: recentContent, isLoading: isRecentContentLoading } = useCollection<Topic>(recentContentQuery);
     
     const teacherStats = [
-        { title: "Total Students", value: students?.length ?? 0, icon: Users, footer: "On the platform", isLoading: areStudentsLoading },
-        { title: "Hours Taught", value: 340, icon: Clock, footer: "+20 this month", isLoading: false }, // Static
-        { title: "Active Courses", value: myCourses?.length ?? 0, icon: BookOpen, footer: "View your courses", isLoading: areCoursesLoading },
-        { title: "Upcoming Sessions", value: upcomingSessions?.length ?? 0, icon: Calendar, footer: "Check your schedule", isLoading: areSessionsLoading },
+        { title: "Total Earnings", value: totalEarnings, icon: DollarSign, footer: "From completed sessions", isLoading: areSessionsLoading, prefix: "$" },
+        { title: "Hours Taught", value: completedSessions?.length ?? 0, icon: Clock, footer: "Total sessions completed", isLoading: areSessionsLoading },
+        { title: "My Students", value: uniqueStudents, icon: Users, footer: "Unique students taught", isLoading: areSessionsLoading },
+        { title: "Upcoming Sessions", value: upcomingSessions?.length ?? 0, icon: Calendar, footer: "Check your schedule", isLoading: areUpcomingSessionsLoading },
     ];
     
     const handleJoinSession = async (ticket: any) => {
@@ -180,7 +193,7 @@ const TeacherDashboard = () => {
                                     <Icon className="w-4 h-4 text-muted-foreground" />
                                 </CardHeader>
                                 <CardContent>
-                                    {stat.isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold"><AnimatedCounter to={stat.value} /></div>}
+                                    {stat.isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold"><AnimatedCounter to={stat.value} prefix={stat.prefix} /></div>}
                                     <p className="text-xs text-muted-foreground mt-1">{stat.footer}</p>
                                 </CardContent>
                             </Card>
@@ -446,5 +459,3 @@ export default function DashboardPage() {
     </>
   )
 }
-
-    
