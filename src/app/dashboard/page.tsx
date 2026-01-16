@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -65,7 +66,6 @@ const iconMap: { [key:string]: React.ElementType } = {
 
 const TeacherDashboard = () => {
     const router = useRouter();
-    const { toast } = useToast();
     const { user, isUserLoading } = useUser();
     const { firestore } = useFirebase();
 
@@ -130,20 +130,8 @@ const TeacherDashboard = () => {
         { title: "Upcoming Sessions", value: upcomingSessions?.length ?? 0, icon: Calendar, footer: "Check your schedule", isLoading: areUpcomingSessionsLoading },
     ];
     
-    const handleJoinSession = async (ticket: any) => {
-        if (!firestore || !user) return;
-        
-        const ticketRef = doc(firestore, 'tickets', ticket.id);
-        try {
-            await updateDoc(ticketRef, {
-                status: 'ACTIVE',
-                activatedAt: new Date(),
-                updatedAt: new Date(),
-            });
-            router.push(`/dashboard/meeting/${ticket.id}`);
-        } catch (error) {
-            toast({ variant: 'destructive', title: "Error", description: "Could not start the session." });
-        }
+    const handleJoinSession = (ticketId: string) => {
+        router.push(`/dashboard/meeting/${ticketId}`);
     }
     
     if (isUserLoading) return <div>Loading...</div>
@@ -169,7 +157,7 @@ const TeacherDashboard = () => {
                                         <p className="font-semibold">Student: {ticket.studentName}</p>
                                         <p className="text-sm text-muted-foreground">Ticket: {ticket.ticketCode}</p>
                                     </div>
-                                    <Button onClick={() => handleJoinSession(ticket)}>
+                                    <Button onClick={() => handleJoinSession(ticket.id)}>
                                         <Video className="mr-2 h-5 w-5" />
                                         Join Session Now
                                     </Button>
