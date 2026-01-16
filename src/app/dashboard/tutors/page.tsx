@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -41,32 +40,28 @@ interface PublicTutorProfile {
 const getNextSessionDate = (dayOfWeek: string, time: string): Date => {
     const days: { [key: string]: number } = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
     const targetDayIndex = days[dayOfWeek];
-    
+
     if (targetDayIndex === undefined) {
         console.error(`Invalid day of week: ${dayOfWeek}`);
         return new Date(); 
     }
 
     const now = new Date();
-    const currentDayIndex = now.getDay();
-    let dayDifference = targetDayIndex - currentDayIndex;
+    
+    // Get the date of the next `targetDayIndex`
+    const resultDate = new Date(now.getTime());
+    const dayDifference = (targetDayIndex - now.getDay() + 7) % 7;
+    resultDate.setDate(now.getDate() + dayDifference);
+    
+    // We have the correct date, now parse the time onto it
+    const sessionTimeOnResultDate = parse(time, 'h:mm a', resultDate);
 
-    // If it's the same day, check if the time has passed
-    if (dayDifference === 0) {
-        const sessionTimeToday = parse(time, 'h:mm a', new Date(now));
-        if (sessionTimeToday < now) {
-            // Time has passed today, schedule for next week
-            dayDifference += 7;
-        }
-    } else if (dayDifference < 0) {
-        // Day has passed this week, schedule for next week
-        dayDifference += 7;
+    // If the calculated session time is in the past (i.e. same day but earlier time), add 7 days.
+    if (sessionTimeOnResultDate < now) {
+        sessionTimeOnResultDate.setDate(sessionTimeOnResultDate.getDate() + 7);
     }
     
-    const nextDate = new Date(now);
-    nextDate.setDate(now.getDate() + dayDifference);
-    
-    return nextDate;
+    return sessionTimeOnResultDate;
 };
 
 
@@ -75,8 +70,7 @@ const getNextSessionDate = (dayOfWeek: string, time: string): Date => {
  * This function prepares a ticket object that can be stored in Firestore.
  */
 const generateProductionTicket = (tutor: PublicTutorProfile, slot: { day: string, time: string }, user: any, studentName: string) => {
-    const sessionBaseDate = getNextSessionDate(slot.day, slot.time);
-    const sessionStartTime = parse(slot.time, 'h:mm a', sessionBaseDate);
+    const sessionStartTime = getNextSessionDate(slot.day, slot.time);
     const sessionEndTime = add(sessionStartTime, { hours: 1 });
 
     const ticketCode = `TKT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;

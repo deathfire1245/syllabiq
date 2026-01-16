@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -9,13 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Video, CalendarX2, Ticket, Clock, AlertTriangle, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
-import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { useUser, useFirebase, useCollection, useMemoFirebase, FirestorePermissionError, errorEmitter } from "@/firebase";
 import { collection, query, where, doc, updateDoc, serverTimestamp, runTransaction, getDoc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
-import { errorEmitter } from "@/firebase/error-emitter";
-import { FirestorePermissionError } from "@/firebase/errors";
 
 interface Ticket {
   id: string;
@@ -130,9 +127,20 @@ const JoinButton = ({ validFrom, onJoin, isJoining }: { validFrom: any, onJoin: 
                 if (timer) clearInterval(timer);
             } else {
                 setCanJoin(false);
-                const minutes = Math.floor((difference / 1000 / 60));
-                const seconds = Math.floor((difference / 1000) % 60);
-                setTimeLeft(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+                const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+                let timeLeftString = "";
+                if (days > 0) {
+                    timeLeftString = `${days}d ${hours}h`;
+                } else if (hours > 0) {
+                    timeLeftString = `${hours}h ${minutes}m`;
+                } else {
+                    timeLeftString = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                }
+                setTimeLeft(timeLeftString);
             }
         };
 
