@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -13,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, Check, DollarSign, Book, Layers, PlusCircle, Trash2, Link as LinkIcon, FileText, Video } from "lucide-react";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { useFirebase, useUser } from "@/firebase";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, getDoc, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 const steps = [
@@ -111,10 +110,14 @@ export default function CreateCoursePage() {
     setIsPublishing(true);
 
     try {
+        const userDocRef = doc(firestore, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        const authorName = userDoc.exists() ? userDoc.data().name : user.displayName || "Anonymous Teacher";
+
         await addDoc(collection(firestore, 'courses'), {
             ...courseData,
             authorId: user.uid,
-            author: user.displayName || "Anonymous Teacher",
+            author: authorName,
             createdAt: serverTimestamp(),
             content: courseContent.map(({id, ...rest}) => rest), // Remove client-side ID
             lessons: courseContent.length,
