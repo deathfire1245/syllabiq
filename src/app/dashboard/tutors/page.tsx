@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -20,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, Timestamp, getDoc, doc } from "firebase/firestore";
 import { add, sub, parse } from 'date-fns';
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -41,7 +42,7 @@ interface PublicTutorProfile {
  * Generates a production-ready ticket with time buffers and idempotent identifiers.
  * This function prepares a ticket object that can be stored in Firestore.
  */
-const generateProductionTicket = (tutor: PublicTutorProfile, slot: { day: string, time: string }, user: any) => {
+const generateProductionTicket = (tutor: PublicTutorProfile, slot: { day: string, time: string }, user: any, studentName: string) => {
     // This is a simplified way to get a Date object for the session.
     // A real app would use a proper date picker and time zone handling.
     const now = new Date();
@@ -72,8 +73,8 @@ const generateProductionTicket = (tutor: PublicTutorProfile, slot: { day: string
       activatedAt: null,
       completedAt: null,
       slot, // Keep original slot info for display
-      studentName: user.displayName,
-      teacherName: tutor.name,
+      studentName: studentName || "Student",
+      teacherName: tutor.name || "Tutor",
       validFrom: Timestamp.fromDate(sub(sessionStartTime, { minutes: 15 })),
       validTill: Timestamp.fromDate(add(sessionEndTime, { minutes: 30 })),
       used: false,
@@ -101,22 +102,33 @@ export default function TutorsPage() {
       return;
     }
 
-    const ticketData = generateProductionTicket(tutor, slot, user);
+    let studentName = user.email || 'Student'; // Default fallback
+    try {
+        const studentDocRef = doc(firestore, 'users', user.uid);
+        const studentDoc = await getDoc(studentDocRef);
+        if (studentDoc.exists() && studentDoc.data().name) {
+            studentName = studentDoc.data().name;
+        }
+    } catch (e) {
+        console.error("Could not fetch student's name, falling back to email.", e);
+    }
+
+    const ticketData = generateProductionTicket(tutor, slot, user, studentName);
 
     try {
       await addDoc(collection(firestore, 'tickets'), ticketData);
 
       toast({
         title: "Ticket Purchased!",
-        description: `Your session with ${tutor.name} is booked. Your code is ${ticketData.ticketCode}.`,
+        description: `Your session with ${ticketData.teacherName} is booked. Your code is ${ticketData.ticketCode}.`,
       });
 
       // Redirect to the bookings page to see the new ticket
       router.push('/dashboard/bookings');
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating ticket:", error);
-      toast({ variant: 'destructive', title: "Booking Failed", description: "Could not create your ticket. Please try again." });
+      toast({ variant: 'destructive', title: "Booking Failed", description: error.message || "Could not create your ticket. Please try again." });
     }
   };
 
