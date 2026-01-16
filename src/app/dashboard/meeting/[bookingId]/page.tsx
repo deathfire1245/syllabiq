@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, doc, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, addDoc, serverTimestamp, getDoc, updateDoc } from 'firebase/firestore';
 
 type ViewMode = 'camera' | 'screen' | 'whiteboard';
 type WhiteboardTool = 'pen' | 'eraser' | 'shape' | 'text';
@@ -389,6 +389,7 @@ export default function MeetingPage() {
   const { toast } = useToast();
   const { user, firestore } = useFirebase();
   
+  const [ticketData, setTicketData] = React.useState<any | null>(null);
   const [meetingRoomId, setMeetingRoomId] = React.useState<string | null>(null);
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const [hasPermission, setHasPermission] = React.useState(true);
@@ -422,35 +423,67 @@ export default function MeetingPage() {
   const peerConnections = React.useRef<Map<string, any>>(new Map());
 
   React.useEffect(() => {
-    const roomId = params.bookingId as string;
-    if (!roomId) {
-        toast({ title: "Error", description: "No meeting room ID found." });
+    const ticketId = params.bookingId as string;
+    if (!ticketId) {
+        toast({ title: "Error", description: "No meeting ticket ID found." });
         router.replace('/dashboard');
         return;
     }
-    setMeetingRoomId(roomId);
     
-    const role = localStorage.getItem('userRole') || 'Student';
-    setUserRole(role);
+    const role = localStorage.getItem('userRole');
+    if(role) setUserRole(role);
 
     const joinMeeting = async () => {
-      // Ticket validation logic
       if (!user || !firestore) {
-          toast({ variant: "destructive", title: "Authentication Error", description: "You must be logged in to join." });
-          router.replace('/login');
-          return;
+          return; // Wait for auth to be ready
       }
-      
-      const ticketsRef = collection(firestore, "tickets");
-      const userTicketQuery = query(ticketsRef, where("meetingId", "==", roomId), where("userId", "==", user.uid));
-      const ticketSnapshot = await getDocs(userTicketQuery);
 
-      if (ticketSnapshot.empty) {
-          toast({ variant: "destructive", title: "Access Denied", description: "You do not have a valid ticket for this meeting." });
+      const ticketRef = doc(firestore, 'tickets', ticketId);
+      const ticketSnap = await getDoc(ticketRef);
+
+      if (!ticketSnap.exists()) {
+          toast({ variant: "destructive", title: "Not Found", description: "This session ticket does not exist." });
           router.replace('/dashboard/bookings');
           return;
       }
 
+      const currentTicket = ticketSnap.data();
+      setTicketData(currentTicket);
+
+      const isParticipant = user.uid === currentTicket.studentId || user.uid === currentTicket.teacherId;
+      if (!isParticipant) {
+          toast({ variant: "destructive", title: "Access Denied", description: "You are not a participant in this session." });
+          router.replace('/dashboard/bookings');
+          return;
+      }
+      
+      const terminalStatuses = ['COMPLETED', 'CANCELLED', 'REFUND_PROCESSED'];
+      if (terminalStatuses.includes(currentTicket.status)) {
+          toast({ variant: "destructive", title: "Session Over", description: "This session has already ended." });
+          router.replace('/dashboard/bookings');
+          return;
+      }
+
+      if (currentTicket.meetingId) {
+           setMeetingRoomId(currentTicket.meetingId);
+      } else {
+          console.warn("meetingId not found on ticket, using ticket ID as fallback.");
+          setMeetingRoomId(ticketId);
+      }
+
+      if (role === 'teacher' && currentTicket.status === 'WAITING_FOR_TEACHER') {
+           try {
+              await updateDoc(ticketRef, {
+                  status: 'ACTIVE',
+                  activatedAt: serverTimestamp(),
+                  updatedAt: serverTimestamp()
+              });
+           } catch (e) {
+               console.error("Failed to activate session", e);
+               toast({ variant: "destructive", title: "Error", description: "Could not activate the session." });
+               return;
+           }
+      }
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -459,8 +492,8 @@ export default function MeetingPage() {
 
         const localUser: Participant = {
           uid: user.uid,
-          name: user.displayName || role,
-          role: role,
+          name: role === 'student' ? currentTicket.studentName : currentTicket.teacherName,
+          role: role as string,
           cameraOn: true,
           micOn: true,
           isLocal: true,
@@ -469,8 +502,8 @@ export default function MeetingPage() {
 
         const otherUser: Participant = {
             uid: `user-other-${Date.now()}`,
-            name: role === 'Student' ? "Teacher" : "Student",
-            role: role === 'Student' ? "Teacher" : "Student",
+            name: role === 'student' ? currentTicket.teacherName : currentTicket.studentName,
+            role: role === 'student' ? "teacher" : "student",
             cameraOn: true,
             micOn: true,
             isLocal: false,
@@ -492,7 +525,9 @@ export default function MeetingPage() {
       }
     };
 
-    joinMeeting();
+    if (user && firestore) {
+        joinMeeting();
+    }
 
     return () => {
       localStreamRef.current?.getTracks().forEach(track => track.stop());
@@ -548,8 +583,22 @@ export default function MeetingPage() {
     }
   };
   
-  const handleLeave = () => {
-    router.replace('/dashboard');
+  const handleLeave = async () => {
+    const ticketId = params.bookingId as string;
+    if (firestore && ticketId && userRole && ticketData && ticketData.status === 'ACTIVE') {
+        const ticketRef = doc(firestore, 'tickets', ticketId);
+        try {
+            await updateDoc(ticketRef, {
+                status: 'COMPLETED',
+                endedAt: serverTimestamp(),
+                endedBy: userRole.toUpperCase(),
+                updatedAt: serverTimestamp()
+            });
+        } catch (error) {
+            console.error("Failed to update ticket status on leave:", error);
+        }
+    }
+    router.replace('/dashboard/bookings');
   };
 
    const handleStroke = async (stroke: Omit<Stroke, 'id' | 'timestamp'> & {timestamp: any}) => {
@@ -606,18 +655,18 @@ export default function MeetingPage() {
     { type: 'arrow', icon: ArrowRight }
   ] as const;
 
-  if (!meetingRoomId) {
+  if (!ticketData) {
     return <div className="fixed inset-0 bg-white flex items-center justify-center">Loading meeting...</div>;
   }
 
-  const isTeacher = userRole === 'Teacher';
+  const isTeacher = userRole === 'teacher';
   const localParticipant = participants.find(p => p.isLocal);
 
   const currentMainViewStream = viewMode === 'screen' 
         ? screenStreamRef.current 
         : mainViewParticipant?.stream;
 
-  const meetingCode = localStorage.getItem("activeMeetingCode");
+  const meetingCode = ticketData?.ticketCode;
 
   return (
     <div className="fixed inset-0 bg-white text-slate-800 flex flex-col z-50 p-4 gap-4 font-sans">
@@ -880,5 +929,3 @@ export default function MeetingPage() {
     </div>
   );
 }
-
-    
