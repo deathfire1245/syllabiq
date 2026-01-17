@@ -22,7 +22,17 @@
             "preferredSubjects": { "type": "array", "items": { "type": "string" } },
             "learningGoals": { "type": "string" },
             "interests": { "type": "array", "items": { "type": "string" } },
-            "enrolledCourses": { "type": "array", "items": { "type": "string" }, "description": "Array of course IDs the student is enrolled in." }
+            "enrolledCourses": { "type": "array", "items": { "type": "string" }, "description": "Array of course IDs the student is enrolled in." },
+            "bankDetails": {
+              "type": "object",
+              "description": "Secure bank details for processing refunds.",
+              "properties": {
+                "accountHolderName": { "type": "string" },
+                "accountNumber": { "type": "string" },
+                "ifscCode": { "type": "string" },
+                "bankName": { "type": "string" }
+              }
+            }
           }
         },
         "teacherProfile": {
@@ -40,7 +50,17 @@
                 "timeSlots": { "type": "array", "items": { "type": "string" } }
               }
             },
-            "isVerified": { "type": "boolean" }
+            "isVerified": { "type": "boolean" },
+            "bankDetails": {
+              "type": "object",
+              "description": "Secure bank details for processing payouts.",
+              "properties": {
+                "accountHolderName": { "type": "string" },
+                "accountNumber": { "type": "string" },
+                "ifscCode": { "type": "string" },
+                "bankName": { "type": "string" }
+              }
+            }
           }
         }
       },

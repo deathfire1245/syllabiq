@@ -40,11 +40,12 @@ service cloud.firestore {
     //  USER PROFILE RULES
     //----------------------------------------------------------------------
     match /users/{uid} {
-      // READ: Users can read their own profile. Admins can read any profile. Teachers can read student profiles.
-      allow get: if isOwner(uid) || isAdmin(request.auth.uid) || isTeacher(request.auth.uid);
+      // READ: Users can read their own profile. Admins can read any profile.
+      // Teachers CANNOT read student profiles to protect private data like bank details.
+      allow get: if isOwner(uid) || isAdmin(request.auth.uid);
       
-      // LIST: Only admins can list all users.
-      allow list: if isAdmin(request.auth.uid) || isTeacher(request.auth.uid);
+      // LIST: Only admins can list all users to protect user privacy.
+      allow list: if isAdmin(request.auth.uid);
 
       // CREATE: A user can only create their own profile document.
       // - The role must be 'student' or 'teacher' (admins are created manually).
