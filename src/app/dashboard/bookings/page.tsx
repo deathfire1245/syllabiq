@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -12,7 +13,8 @@ import { useUser, useFirebase, useCollection, useMemoFirebase, FirestorePermissi
 import { collection, query, where, doc, updateDoc, serverTimestamp, runTransaction, getDoc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { format } from 'date-fns';
+import { format, formatDistanceToNowStrict } from 'date-fns';
+import { Badge } from "@/components/ui/badge";
 
 interface Ticket {
   id: string;
@@ -68,11 +70,6 @@ const Countdown = ({ targetDate, onTimeout }: { targetDate: Date, onTimeout: () 
   );
 };
 
-
-/**
- * Performs an atomic transaction to "check-in" the student, marking the ticket as used.
- * This is an idempotent operation; it will only succeed once.
- */
 const joinMeetingAndCheckIn = (firestore: any, ticketId: string): Promise<boolean> => {
     const ticketRef = doc(firestore, 'tickets', ticketId);
     
@@ -127,20 +124,7 @@ const JoinButton = ({ validFrom, onJoin, isJoining }: { validFrom: any, onJoin: 
                 if (timer) clearInterval(timer);
             } else {
                 setCanJoin(false);
-                const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-                let timeLeftString = "";
-                if (days > 0) {
-                    timeLeftString = `${days}d ${hours}h`;
-                } else if (hours > 0) {
-                    timeLeftString = `${hours}h ${minutes}m`;
-                } else {
-                    timeLeftString = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-                }
-                setTimeLeft(timeLeftString);
+                setTimeLeft(formatDistanceToNowStrict(joinTime, { addSuffix: false }));
             }
         };
 
@@ -177,9 +161,7 @@ const JoinButton = ({ validFrom, onJoin, isJoining }: { validFrom: any, onJoin: 
 
 
 const StudentTicketCard = ({ ticket }: { ticket: Ticket }) => {
-    const router = useRouter();
     const { firestore } = useFirebase();
-    const { toast } = useToast();
     const [isJoining, setIsJoining] = React.useState(false);
 
     const handleEnterWaitingRoom = () => {
@@ -203,18 +185,52 @@ const StudentTicketCard = ({ ticket }: { ticket: Ticket }) => {
                 </Avatar>
                 <div>
                     <CardTitle>Session with {ticket.teacherName}</CardTitle>
-                    <CardDescription>{ticket.slot.day} at {ticket.slot.time}</CardDescription>
+                    <CardDescription>{format(ticket.sessionStartTime.toDate(), "EEE, MMM d 'at' h:mm a")}</CardDescription>
                 </div>
             </CardHeader>
             <CardContent className="p-6 text-center">
                 <h3 className="text-sm font-semibold text-muted-foreground mb-2">TICKET CODE</h3>
                 <p className="text-2xl font-bold font-mono tracking-widest text-primary">{ticket.ticketCode}</p>
             </CardContent>
-            <CardFooter className="p-4 bg-secondary/30">
+            <CardFooter className="p-4 bg-secondary/50">
                 <JoinButton validFrom={ticket.validFrom} onJoin={handleEnterWaitingRoom} isJoining={isJoining} />
             </CardFooter>
         </Card>
     )
+}
+
+const PastSessionCard = ({ ticket }: { ticket: Ticket }) => {
+    const getStatusBadge = () => {
+        switch (ticket.status) {
+            case 'COMPLETED':
+                return <Badge variant="secondary">Completed</Badge>;
+            case 'CANCELLED':
+                return <Badge variant="destructive">Refund Pending</Badge>;
+            case 'REFUND_PROCESSED':
+                return <Badge variant="outline">Refunded</Badge>;
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <Card className="overflow-hidden bg-secondary/30">
+            <CardHeader className="flex flex-row items-center gap-4 p-4">
+                <Avatar className="w-12 h-12">
+                    <AvatarImage src={`https://picsum.photos/seed/${ticket.teacherName}/100`} alt={ticket.teacherName} />
+                    <AvatarFallback>{ticket.teacherName.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div>
+                    <p className="font-semibold">Session with {ticket.teacherName}</p>
+                    <p className="text-sm text-muted-foreground">{format(ticket.sessionStartTime.toDate(), "MMM d, yyyy 'at' h:mm a")}</p>
+                </div>
+            </CardHeader>
+            <CardFooter className="p-4 bg-secondary/50 flex justify-between items-center">
+                <p className="text-xs text-muted-foreground font-mono">{ticket.ticketCode}</p>
+                {getStatusBadge()}
+            </CardFooter>
+        </Card>
+    );
 }
 
 const WaitingRoomView = ({ ticket }: { ticket: Ticket }) => {
@@ -225,23 +241,18 @@ const WaitingRoomView = ({ ticket }: { ticket: Ticket }) => {
     const handleTimeout = () => {
         if (!firestore) return;
         const ticketRef = doc(firestore, 'tickets', ticket.id);
-        const updateData = { status: 'CANCELLED', updatedAt: serverTimestamp() };
+        const updateData = { status: 'CANCELLED', cancelReason: 'TEACHER_NO_SHOW', updatedAt: serverTimestamp() };
 
         updateDoc(ticketRef, updateData)
             .then(() => {
                  toast({
                     variant: "destructive",
                     title: "Session Cancelled",
-                    description: "The teacher did not join in time. Your ticket is eligible for a refund.",
+                    description: "The teacher did not join in time. Your ticket is now waiting for refund.",
                 });
             })
             .catch(error => {
-                const permissionError = new FirestorePermissionError({
-                    path: ticketRef.path,
-                    operation: 'update',
-                    requestResourceData: updateData
-                });
-                errorEmitter.emit('permission-error', permissionError);
+                console.log("Student cannot update ticket, ignoring Firestore write.");
             });
     }
 
@@ -268,31 +279,18 @@ const WaitingRoomView = ({ ticket }: { ticket: Ticket }) => {
     )
 }
 
-const CancelledSessionView = ({ onBack }: { onBack: () => void }) => (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-lg z-50 flex items-center justify-center p-4">
-        <ScrollReveal>
-            <Card className="max-w-md w-full text-center shadow-2xl">
-                 <CardHeader>
-                    <AlertTriangle className="w-16 h-16 mx-auto text-destructive mb-4"/>
-                    <CardTitle className="text-2xl">Session Cancelled</CardTitle>
-                    <CardDescription>
-                        The teacher did not join the session in time. Your ticket is now marked for a refund.
-                    </CardDescription>
-                </CardHeader>
-                <CardFooter>
-                    <Button className="w-full" onClick={onBack}>Back to Bookings</Button>
-                </CardFooter>
-            </Card>
-        </ScrollReveal>
-    </div>
-)
-
 const TeacherBookingsView = ({ tickets }: { tickets: Ticket[] | null}) => {
+    const upcomingSessions = React.useMemo(() => tickets?.filter(t => ['PAID', 'WAITING_FOR_TEACHER'].includes(t.status))
+        .sort((a, b) => (a.sessionStartTime?.toDate() || 0) - (b.sessionStartTime?.toDate() || 0)) || [], [tickets]);
+    
+    const pastSessions = React.useMemo(() => tickets?.filter(t => ['COMPLETED', 'CANCELLED', 'REFUND_PROCESSED'].includes(t.status))
+        .sort((a, b) => (b.sessionStartTime?.toDate() || 0) - (a.sessionStartTime?.toDate() || 0)) || [], [tickets]);
+
     if (!tickets || tickets.length === 0) {
         return (
              <ScrollReveal className="flex flex-col items-center justify-center h-[60vh] text-center">
                 <Ticket className="w-16 h-16 text-muted-foreground mb-4" />
-                <h2 className="text-2xl font-bold">No Upcoming Bookings</h2>
+                <h2 className="text-2xl font-bold">No Bookings</h2>
                 <p className="text-muted-foreground mt-2">
                     You have no sessions booked by students yet.
                 </p>
@@ -300,19 +298,17 @@ const TeacherBookingsView = ({ tickets }: { tickets: Ticket[] | null}) => {
         )
     }
 
-    const upcomingSessions = tickets.filter(t => t.status === 'PAID' || t.status === 'WAITING_FOR_TEACHER');
-
      return (
         <div className="space-y-8">
             <ScrollReveal>
                 <h1 className="text-3xl md:text-4xl font-bold tracking-tight">My Bookings</h1>
                 <p className="text-muted-foreground mt-2 text-lg">
-                    Here are your upcoming scheduled sessions with students.
+                    Manage your scheduled sessions with students.
                 </p>
             </ScrollReveal>
              <Card>
                 <CardHeader>
-                    <CardTitle>Upcoming Sessions</CardTitle>
+                    <CardTitle>Upcoming & Waiting Sessions</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-4">
@@ -325,15 +321,15 @@ const TeacherBookingsView = ({ tickets }: { tickets: Ticket[] | null}) => {
                                     </Avatar>
                                     <div>
                                         <p className="font-semibold">{ticket.studentName}</p>
-                                        <p className="text-sm text-muted-foreground">{ticket.slot.day} @ {ticket.slot.time}</p>
+                                        <p className="text-sm text-muted-foreground">{format(ticket.sessionStartTime.toDate(), "EEE, MMM d 'at' h:mm a")}</p>
                                     </div>
                                 </div>
                                 {ticket.status === 'WAITING_FOR_TEACHER' ? (
-                                    <Button size="sm" asChild>
+                                    <Button size="sm" asChild className="animate-pulse">
                                         <Link href={`/dashboard/meeting/${ticket.id}`}>Join Now</Link>
                                     </Button>
                                 ) : (
-                                    <p className="text-sm text-muted-foreground">Scheduled</p>
+                                    <Badge variant="outline">Scheduled</Badge>
                                 )}
                             </div>
                         )) : (
@@ -342,18 +338,45 @@ const TeacherBookingsView = ({ tickets }: { tickets: Ticket[] | null}) => {
                     </div>
                 </CardContent>
             </Card>
+
+            {pastSessions.length > 0 && (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Session History</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {pastSessions.map(ticket => (
+                                <div key={ticket.id} className="flex items-center justify-between p-4 border rounded-lg bg-secondary/30">
+                                    <div className="flex items-center gap-4">
+                                        <Avatar>
+                                            <AvatarImage src={`https://picsum.photos/seed/${ticket.studentName}/100`} />
+                                            <AvatarFallback>{ticket.studentName.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-semibold">{ticket.studentName}</p>
+                                            <p className="text-sm text-muted-foreground">{format(ticket.sessionStartTime.toDate(), "MMM d, yyyy")}</p>
+                                        </div>
+                                    </div>
+                                    <Badge variant={ticket.status === 'COMPLETED' ? 'secondary' : 'destructive'}>{ticket.status.replace(/_/g, ' ')}</Badge>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     )
 }
 
 const StudentBookingsView = ({ tickets }: { tickets: Ticket[] | null }) => {
     const router = useRouter();
-    const { firestore } = useFirebase();
 
-    const paidTickets = React.useMemo(() => tickets?.filter(t => t.status === 'PAID') || [], [tickets]);
+    const upcomingTickets = React.useMemo(() => tickets?.filter(t => t.status === 'PAID') || [], [tickets]);
     const waitingTicket = React.useMemo(() => tickets?.find(t => t.status === 'WAITING_FOR_TEACHER'), [tickets]);
     const activeTicket = React.useMemo(() => tickets?.find(t => t.status === 'ACTIVE'), [tickets]);
-    const cancelledTicket = React.useMemo(() => tickets?.find(t => t.status === 'CANCELLED'), [tickets]);
+    const pastTickets = React.useMemo(() => tickets?.filter(t => ['COMPLETED', 'CANCELLED', 'REFUND_PROCESSED'].includes(t.status))
+        .sort((a, b) => (b.sessionStartTime?.toDate() || 0) - (a.sessionStartTime?.toDate() || 0)) || [], [tickets]);
 
     React.useEffect(() => {
         if (activeTicket) {
@@ -361,64 +384,68 @@ const StudentBookingsView = ({ tickets }: { tickets: Ticket[] | null }) => {
         }
     }, [activeTicket, router]);
 
-    const handleResetCancelled = () => {
-        if (!cancelledTicket || !firestore) return;
-        const ticketRef = doc(firestore, 'tickets', cancelledTicket.id);
-        const updateData = { status: 'REFUND_PROCESSED', updatedAt: serverTimestamp() };
-        updateDoc(ticketRef, updateData)
-            .catch(error => {
-                const permissionError = new FirestorePermissionError({
-                    path: ticketRef.path,
-                    operation: 'update',
-                    requestResourceData: updateData
-                });
-                errorEmitter.emit('permission-error', permissionError);
-            });
-    }
-    
-    if (waitingTicket) {
-        return <WaitingRoomView ticket={waitingTicket} />
-    }
+    if (waitingTicket) return <WaitingRoomView ticket={waitingTicket} />;
 
-    if (cancelledTicket) {
-        return <CancelledSessionView onBack={handleResetCancelled} />
-    }
-    
-  if (!tickets || paidTickets.length === 0) {
-    return (
-      <ScrollReveal className="flex flex-col items-center justify-center h-[60vh] text-center">
-        <Ticket className="w-16 h-16 text-muted-foreground mb-4" />
-        <h2 className="text-2xl font-bold">No Upcoming Bookings</h2>
-        <p className="text-muted-foreground mt-2">
-          You haven't purchased any tickets yet. Find a tutor to get started!
-        </p>
-        <Button asChild className="mt-6">
-          <Link href="/dashboard/tutors">Find a Tutor</Link>
-        </Button>
-      </ScrollReveal>
-    );
-  }
-
-  return (
-    <div className="space-y-8">
-      <ScrollReveal>
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">My Bookings</h1>
-        <p className="text-muted-foreground mt-2 text-lg">
-          Here are your purchased tickets. Enter the waiting room to start your session.
-        </p>
-      </ScrollReveal>
-
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {paidTickets.map((ticket, index) => (
-            <ScrollReveal key={ticket.id} delay={index * 0.1}>
-              <StudentTicketCard ticket={ticket} />
+    if (!tickets || tickets.length === 0) {
+        return (
+            <ScrollReveal className="flex flex-col items-center justify-center h-[60vh] text-center">
+                <Ticket className="w-16 h-16 text-muted-foreground mb-4" />
+                <h2 className="text-2xl font-bold">No Bookings Yet</h2>
+                <p className="text-muted-foreground mt-2">
+                    You haven't purchased any tickets yet. Find a tutor to get started!
+                </p>
+                <Button asChild className="mt-6">
+                  <Link href="/dashboard/tutors">Find a Tutor</Link>
+                </Button>
             </ScrollReveal>
-        ))}
-      </div>
-    </div>
-  );
-}
+        );
+    }
 
+    return (
+        <div className="space-y-12">
+            <div>
+                <ScrollReveal>
+                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Upcoming Sessions</h1>
+                    <p className="text-muted-foreground mt-2 text-lg">
+                        Here are your purchased tickets. Enter the waiting room to start your session.
+                    </p>
+                </ScrollReveal>
+
+                {upcomingTickets.length > 0 ? (
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+                        {upcomingTickets.map((ticket, index) => (
+                            <ScrollReveal key={ticket.id} delay={index * 0.1}>
+                                <StudentTicketCard ticket={ticket} />
+                            </ScrollReveal>
+                        ))}
+                    </div>
+                ) : (
+                     <Card className="mt-6">
+                        <CardContent className="p-6 text-center text-muted-foreground">
+                            You have no upcoming sessions.
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+
+            {pastTickets.length > 0 && (
+                <div>
+                     <ScrollReveal>
+                        <h2 className="text-2xl font-bold tracking-tight">Past Sessions</h2>
+                        <p className="text-muted-foreground mt-1">A history of your completed or cancelled sessions.</p>
+                    </ScrollReveal>
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mt-6">
+                         {pastTickets.map((ticket, index) => (
+                            <ScrollReveal key={ticket.id} delay={index * 0.1}>
+                                <PastSessionCard ticket={ticket} />
+                            </ScrollReveal>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function MyBookingsPage() {
     const { user, isUserLoading } = useUser();
