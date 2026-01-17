@@ -13,7 +13,7 @@ import { useUser, useFirebase, useCollection, useMemoFirebase, FirestorePermissi
 import { collection, query, where, doc, updateDoc, serverTimestamp, runTransaction, getDoc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { format, formatDistanceToNowStrict } from 'date-fns';
+import { format, formatDistanceToNow, formatDistanceToNowStrict, isFuture, isPast } from 'date-fns';
 import { Badge } from "@/components/ui/badge";
 
 interface Ticket {
@@ -112,13 +112,15 @@ const JoinButton = ({ validFrom, onJoin, isJoining }: { validFrom: any, onJoin: 
     const { toast } = useToast();
     const [canJoin, setCanJoin] = React.useState(false);
     const [timeLeft, setTimeLeft] = React.useState("");
-    const joinTime = validFrom.toDate();
+
+    const joinTime = validFrom?.toDate();
 
     React.useEffect(() => {
+        if (!joinTime) return;
+
         const checkTime = () => {
             const now = new Date();
-            const difference = joinTime.getTime() - now.getTime();
-            if (difference <= 0) {
+            if (isPast(joinTime)) {
                 setCanJoin(true);
                 setTimeLeft("");
                 if (timer) clearInterval(timer);
@@ -150,6 +152,10 @@ const JoinButton = ({ validFrom, onJoin, isJoining }: { validFrom: any, onJoin: 
         if (canJoin) return "Enter Waiting Room";
         return `Join in ${timeLeft}`;
     };
+
+    if (!joinTime) {
+        return <Button className="w-full" disabled={true}>Waiting for session time...</Button>
+    }
 
     return (
         <Button className="w-full" disabled={!canJoin || isJoining} onClick={handleClick}>
@@ -185,7 +191,9 @@ const StudentTicketCard = ({ ticket }: { ticket: Ticket }) => {
                 </Avatar>
                 <div>
                     <CardTitle>Session with {ticket.teacherName}</CardTitle>
-                    <CardDescription>{format(ticket.sessionStartTime.toDate(), "EEE, MMM d 'at' h:mm a")}</CardDescription>
+                    <CardDescription>
+                        {ticket.sessionStartTime ? format(ticket.sessionStartTime.toDate(), "EEE, MMM d 'at' h:mm a") : "Time not set"}
+                    </CardDescription>
                 </div>
             </CardHeader>
             <CardContent className="p-6 text-center">
@@ -222,7 +230,9 @@ const PastSessionCard = ({ ticket }: { ticket: Ticket }) => {
                 </Avatar>
                 <div>
                     <p className="font-semibold">Session with {ticket.teacherName}</p>
-                    <p className="text-sm text-muted-foreground">{format(ticket.sessionStartTime.toDate(), "MMM d, yyyy 'at' h:mm a")}</p>
+                    <p className="text-sm text-muted-foreground">
+                        {ticket.sessionStartTime ? format(ticket.sessionStartTime.toDate(), "MMM d, yyyy 'at' h:mm a") : "Date not available"}
+                    </p>
                 </div>
             </CardHeader>
             <CardFooter className="p-4 bg-secondary/50 flex justify-between items-center">
@@ -234,27 +244,37 @@ const PastSessionCard = ({ ticket }: { ticket: Ticket }) => {
 }
 
 const WaitingRoomView = ({ ticket }: { ticket: Ticket }) => {
-    const waitingUntil = new Date(ticket.waitingSince.toDate().getTime() + 10 * 60 * 1000);
     const { firestore } = useFirebase();
     const { toast } = useToast();
+    
+    if (!ticket.waitingSince) {
+        return <div>Loading waiting room...</div>
+    }
 
-    const handleTimeout = () => {
+    const waitingUntil = new Date(ticket.waitingSince.toDate().getTime() + 10 * 60 * 1000);
+
+    const handleTimeout = React.useCallback(() => {
         if (!firestore) return;
         const ticketRef = doc(firestore, 'tickets', ticket.id);
-        const updateData = { status: 'CANCELLED', cancelReason: 'TEACHER_NO_SHOW', updatedAt: serverTimestamp() };
+        
+        getDoc(ticketRef).then(docSnap => {
+            if (docSnap.exists() && docSnap.data().status === 'WAITING_FOR_TEACHER') {
+                const updateData = { status: 'CANCELLED', cancelReason: 'TEACHER_NO_SHOW', updatedAt: serverTimestamp() };
+                updateDoc(ticketRef, updateData)
+                    .then(() => {
+                         toast({
+                            variant: "destructive",
+                            title: "Session Cancelled",
+                            description: "The teacher did not join in time. Your ticket is now waiting for refund.",
+                        });
+                    })
+                    .catch(error => {
+                        console.log("Student cannot update ticket, ignoring Firestore write.");
+                    });
+            }
+        });
 
-        updateDoc(ticketRef, updateData)
-            .then(() => {
-                 toast({
-                    variant: "destructive",
-                    title: "Session Cancelled",
-                    description: "The teacher did not join in time. Your ticket is now waiting for refund.",
-                });
-            })
-            .catch(error => {
-                console.log("Student cannot update ticket, ignoring Firestore write.");
-            });
-    }
+    }, [firestore, ticket.id, toast]);
 
     return (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-lg z-50 flex items-center justify-center p-4">
@@ -281,10 +301,10 @@ const WaitingRoomView = ({ ticket }: { ticket: Ticket }) => {
 
 const TeacherBookingsView = ({ tickets }: { tickets: Ticket[] | null}) => {
     const upcomingSessions = React.useMemo(() => tickets?.filter(t => ['PAID', 'WAITING_FOR_TEACHER'].includes(t.status))
-        .sort((a, b) => (a.sessionStartTime?.toDate() || 0) - (b.sessionStartTime?.toDate() || 0)) || [], [tickets]);
+        .sort((a, b) => (a.sessionStartTime?.toDate()?.getTime() || 0) - (b.sessionStartTime?.toDate()?.getTime() || 0)) || [], [tickets]);
     
     const pastSessions = React.useMemo(() => tickets?.filter(t => ['COMPLETED', 'CANCELLED', 'REFUND_PROCESSED'].includes(t.status))
-        .sort((a, b) => (b.sessionStartTime?.toDate() || 0) - (a.sessionStartTime?.toDate() || 0)) || [], [tickets]);
+        .sort((a, b) => (b.sessionStartTime?.toDate()?.getTime() || 0) - (a.sessionStartTime?.toDate()?.getTime() || 0)) || [], [tickets]);
 
     if (!tickets || tickets.length === 0) {
         return (
@@ -321,7 +341,9 @@ const TeacherBookingsView = ({ tickets }: { tickets: Ticket[] | null}) => {
                                     </Avatar>
                                     <div>
                                         <p className="font-semibold">{ticket.studentName}</p>
-                                        <p className="text-sm text-muted-foreground">{format(ticket.sessionStartTime.toDate(), "EEE, MMM d 'at' h:mm a")}</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {ticket.sessionStartTime ? format(ticket.sessionStartTime.toDate(), "EEE, MMM d 'at' h:mm a") : "Time not set"}
+                                        </p>
                                     </div>
                                 </div>
                                 {ticket.status === 'WAITING_FOR_TEACHER' ? (
@@ -355,7 +377,9 @@ const TeacherBookingsView = ({ tickets }: { tickets: Ticket[] | null}) => {
                                         </Avatar>
                                         <div>
                                             <p className="font-semibold">{ticket.studentName}</p>
-                                            <p className="text-sm text-muted-foreground">{format(ticket.sessionStartTime.toDate(), "MMM d, yyyy")}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                               {ticket.sessionStartTime ? format(ticket.sessionStartTime.toDate(), "MMM d, yyyy") : "Date not set"}
+                                            </p>
                                         </div>
                                     </div>
                                     <Badge variant={ticket.status === 'COMPLETED' ? 'secondary' : 'destructive'}>{ticket.status.replace(/_/g, ' ')}</Badge>
@@ -376,7 +400,7 @@ const StudentBookingsView = ({ tickets }: { tickets: Ticket[] | null }) => {
     const waitingTicket = React.useMemo(() => tickets?.find(t => t.status === 'WAITING_FOR_TEACHER'), [tickets]);
     const activeTicket = React.useMemo(() => tickets?.find(t => t.status === 'ACTIVE'), [tickets]);
     const pastTickets = React.useMemo(() => tickets?.filter(t => ['COMPLETED', 'CANCELLED', 'REFUND_PROCESSED'].includes(t.status))
-        .sort((a, b) => (b.sessionStartTime?.toDate() || 0) - (a.sessionStartTime?.toDate() || 0)) || [], [tickets]);
+        .sort((a, b) => (b.sessionStartTime?.toDate()?.getTime() || 0) - (a.sessionStartTime?.toDate()?.getTime() || 0)) || [], [tickets]);
 
     React.useEffect(() => {
         if (activeTicket) {
@@ -483,3 +507,5 @@ export default function MyBookingsPage() {
         ? <TeacherBookingsView tickets={tickets} />
         : <StudentBookingsView tickets={tickets} />;
 }
+
+    
