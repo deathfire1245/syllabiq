@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Check, Sparkles, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Banknote, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
@@ -15,10 +15,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { UploadDropzone } from "@/lib/uploadthing";
 
 const steps = [
-  { id: 1, title: "Welcome to SyllabiQ!" },
+  { id: 1, title: "Your Profile Picture" },
   { id: 2, title: "Tell us about your studies" },
   { id: 3, title: "What are your goals?" },
-  { id: 4, title: "All set!" },
+  { id: 4, title: "Bank Details (for Refunds)"},
+  { id: 5, title: "All set!" },
 ];
 
 const subjects = ["Mathematics", "Science", "History", "Literature", "Art", "Music", "Computer Science"];
@@ -33,6 +34,12 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
     learningGoals: "",
     interests: [] as string[],
     profilePicture: "",
+    bankDetails: {
+        accountHolderName: "",
+        accountNumber: "",
+        ifscCode: "",
+        bankName: ""
+    }
   });
   const { toast } = useToast();
   const { user } = useUser();
@@ -69,6 +76,7 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
               preferredSubjects: formData.preferredSubjects,
               learningGoals: formData.learningGoals,
               interests: formData.interests,
+              bankDetails: formData.bankDetails,
             },
             profilePicture: formData.profilePicture,
         });
@@ -85,6 +93,21 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
     }
   };
 
+  const isStepValid = () => {
+    switch (currentStep) {
+        case 1:
+            return formData.profilePicture.trim() !== '';
+        case 2:
+            return formData.gradeLevel.trim() !== '' && formData.preferredSubjects.length > 0;
+        case 3:
+            return formData.learningGoals.trim() !== '';
+        case 4:
+            return Object.values(formData.bankDetails).every(value => value.trim() !== '');
+        default:
+            return true;
+    }
+  };
+
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
@@ -92,6 +115,7 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
           <div className="text-center">
              <User className="mx-auto h-16 w-16 text-primary bg-primary/10 rounded-full p-3 mb-6" />
             <h2 className="text-3xl font-bold mb-2">Upload a Profile Picture</h2>
+            <p className="text-muted-foreground mb-4">A good profile picture helps teachers recognize you.</p>
              <UploadDropzone
                 endpoint="profileUploader"
                 onClientUploadComplete={(res) => {
@@ -119,7 +143,7 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
           <>
             <div className="grid sm:grid-cols-2 gap-4 mb-6">
                 <div className="space-y-2">
-                    <Label htmlFor="gradeLevel">What grade are you in?</Label>
+                    <Label htmlFor="gradeLevel">What grade are you in? <span className="text-destructive">*</span></Label>
                     <Input id="gradeLevel" placeholder="e.g., Grade 10" value={formData.gradeLevel} onChange={(e) => setFormData({...formData, gradeLevel: e.target.value})} />
                 </div>
                 <div className="space-y-2">
@@ -128,7 +152,7 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
                 </div>
             </div>
             <div className="space-y-3">
-              <Label>Which are your preferred subjects?</Label>
+              <Label>Which are your preferred subjects? <span className="text-destructive">*</span></Label>
               <div className="flex flex-wrap gap-2">
                 {subjects.map(subject => (
                   <Badge 
@@ -148,11 +172,11 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
         return (
            <div className="space-y-6">
             <div className="space-y-2">
-              <Label>What are your main learning goals?</Label>
+              <Label>What are your main learning goals? <span className="text-destructive">*</span></Label>
               <Textarea placeholder="e.g., Score 90% in Math, understand Physics concepts better..." value={formData.learningGoals} onChange={(e) => setFormData({...formData, learningGoals: e.target.value})}/>
             </div>
             <div className="space-y-3">
-                <Label>What are some of your interests or hobbies?</Label>
+                <Label>What are some of your interests or hobbies? (Optional)</Label>
                 <div className="flex flex-wrap gap-2">
                     {interests.map(interest => (
                     <Badge 
@@ -169,6 +193,36 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
            </div>
         );
       case 4:
+        return (
+             <div className="space-y-6">
+                <div className="text-center mb-4">
+                    <Banknote className="mx-auto h-12 w-12 text-primary" />
+                    <h3 className="text-2xl font-bold mt-2">Bank Account Details</h3>
+                    <p className="text-muted-foreground">This information is required for processing refunds. It is kept secure and private.</p>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="accountHolderName">Account Holder Name <span className="text-destructive">*</span></Label>
+                        <Input id="accountHolderName" placeholder="e.g., John Doe" value={formData.bankDetails.accountHolderName} onChange={(e) => setFormData({...formData, bankDetails: {...formData.bankDetails, accountHolderName: e.target.value}})} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="bankName">Bank Name <span className="text-destructive">*</span></Label>
+                        <Input id="bankName" placeholder="e.g., State Bank of India" value={formData.bankDetails.bankName} onChange={(e) => setFormData({...formData, bankDetails: {...formData.bankDetails, bankName: e.target.value}})} />
+                    </div>
+                </div>
+                 <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="accountNumber">Account Number <span className="text-destructive">*</span></Label>
+                        <Input id="accountNumber" placeholder="e.g., 1234567890" value={formData.bankDetails.accountNumber} onChange={(e) => setFormData({...formData, bankDetails: {...formData.bankDetails, accountNumber: e.target.value}})} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="ifscCode">IFSC Code <span className="text-destructive">*</span></Label>
+                        <Input id="ifscCode" placeholder="e.g., SBIN0001234" value={formData.bankDetails.ifscCode} onChange={(e) => setFormData({...formData, bankDetails: {...formData.bankDetails, ifscCode: e.target.value}})} />
+                    </div>
+                </div>
+            </div>
+        );
+      case 5:
         return (
            <div className="text-center">
              <Check className="mx-auto h-16 w-16 text-green-500 bg-green-100 rounded-full p-3 mb-6" />
@@ -197,6 +251,7 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
             </div>
           </div>
           <CardTitle className="text-2xl">{steps[currentStep - 1].title}</CardTitle>
+          {currentStep === 4 && <CardDescription>This information is kept strictly confidential.</CardDescription>}
         </CardHeader>
         <CardContent className="min-h-[300px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
@@ -216,12 +271,12 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
             <ArrowLeft className="mr-2 h-4 w-4" /> Previous
           </Button>
           {currentStep < steps.length - 1 && (
-            <Button onClick={nextStep}>
+            <Button onClick={nextStep} disabled={!isStepValid()}>
               Next <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           )}
           {currentStep === steps.length -1 && (
-             <Button onClick={nextStep}>
+             <Button onClick={nextStep} disabled={!isStepValid()}>
                Finish Setup
             </Button>
           )}
@@ -235,5 +290,3 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
     </div>
   );
 }
-
-    
