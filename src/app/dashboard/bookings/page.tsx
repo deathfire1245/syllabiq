@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -392,80 +393,14 @@ const TeacherBookingsView = ({ tickets }: { tickets: Ticket[] | null}) => {
 }
 
 const StudentBookingsView = ({ tickets }: { tickets: Ticket[] | null }) => {
-    const router = useRouter();
-
-    const upcomingTickets = React.useMemo(() => tickets?.filter(t => t.status === 'PAID') || [], [tickets]);
-    const waitingTicket = React.useMemo(() => tickets?.find(t => t.status === 'WAITING_FOR_TEACHER'), [tickets]);
-    const activeTicket = React.useMemo(() => tickets?.find(t => t.status === 'ACTIVE'), [tickets]);
-    const pastTickets = React.useMemo(() => tickets?.filter(t => ['COMPLETED', 'CANCELLED', 'REFUND_PROCESSED'].includes(t.status))
-        .sort((a, b) => (b.sessionStartTime?.toDate()?.getTime() || 0) - (a.sessionStartTime?.toDate()?.getTime() || 0)) || [], [tickets]);
-
-    React.useEffect(() => {
-        if (activeTicket) {
-             router.push(`/dashboard/meeting/${activeTicket.id}`);
-        }
-    }, [activeTicket, router]);
-
-    if (waitingTicket) return <WaitingRoomView ticket={waitingTicket} />;
-
-    if (!tickets || tickets.length === 0) {
-        return (
-            <ScrollReveal className="flex flex-col items-center justify-center h-[60vh] text-center">
-                <Ticket className="w-16 h-16 text-muted-foreground mb-4" />
-                <h2 className="text-2xl font-bold">No Bookings Yet</h2>
-                <p className="text-muted-foreground mt-2">
-                    You haven't purchased any tickets yet. Find a tutor to get started!
-                </p>
-                <Button asChild className="mt-6">
-                  <Link href="/dashboard/tutors">Find a Tutor</Link>
-                </Button>
-            </ScrollReveal>
-        );
-    }
-
     return (
-        <div className="space-y-12">
-            <div>
-                <ScrollReveal>
-                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Upcoming Sessions</h1>
-                    <p className="text-muted-foreground mt-2 text-lg">
-                        Here are your purchased tickets. Enter the waiting room to start your session.
-                    </p>
-                </ScrollReveal>
-
-                {upcomingTickets.length > 0 ? (
-                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                        {upcomingTickets.map((ticket, index) => (
-                            <ScrollReveal key={ticket.id} delay={index * 0.1}>
-                                <StudentTicketCard ticket={ticket} />
-                            </ScrollReveal>
-                        ))}
-                    </div>
-                ) : (
-                     <Card className="mt-6">
-                        <CardContent className="p-6 text-center text-muted-foreground">
-                            You have no upcoming sessions.
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
-
-            {pastTickets.length > 0 && (
-                <div>
-                     <ScrollReveal>
-                        <h2 className="text-2xl font-bold tracking-tight">Past Sessions</h2>
-                        <p className="text-muted-foreground mt-1">A history of your completed or cancelled sessions.</p>
-                    </ScrollReveal>
-                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mt-6">
-                         {pastTickets.map((ticket, index) => (
-                            <ScrollReveal key={ticket.id} delay={index * 0.1}>
-                                <PastSessionCard ticket={ticket} />
-                            </ScrollReveal>
-                        ))}
-                    </div>
-                </div>
-            )}
-        </div>
+        <ScrollReveal className="flex flex-col items-center justify-center h-[60vh] text-center">
+            <Video className="w-16 h-16 text-muted-foreground mb-4" />
+            <h2 className="text-2xl font-bold">Coming Soon</h2>
+            <p className="text-muted-foreground mt-2">
+                This feature will be available in a future update.
+            </p>
+        </ScrollReveal>
     );
 }
 
@@ -513,3 +448,5 @@ export default function MyBookingsPage() {
         : <StudentBookingsView tickets={tickets} />;
 }
  
+
+    
