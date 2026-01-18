@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -13,7 +12,7 @@ import { useUser, useFirebase, useCollection, useMemoFirebase, FirestorePermissi
 import { collection, query, where, doc, updateDoc, serverTimestamp, runTransaction, getDoc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { format, formatDistanceToNow, formatDistanceToNowStrict, isFuture, isPast } from 'date-fns';
+import { format, formatDistanceToNowStrict, isPast } from 'date-fns';
 import { Badge } from "@/components/ui/badge";
 
 interface Ticket {
@@ -164,7 +163,6 @@ const JoinButton = ({ validFrom, onJoin, isJoining }: { validFrom: any, onJoin: 
         </Button>
     );
 };
-
 
 const StudentTicketCard = ({ ticket }: { ticket: Ticket }) => {
     const { firestore } = useFirebase();
@@ -368,7 +366,7 @@ const TeacherBookingsView = ({ tickets }: { tickets: Ticket[] | null}) => {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
-                            {pastSessions.map(ticket => (
+                            {pastSessions.map((ticket, index) => (
                                 <div key={ticket.id} className="flex items-center justify-between p-4 border rounded-lg bg-secondary/30">
                                     <div className="flex items-center gap-4">
                                         <Avatar>
@@ -481,14 +479,21 @@ export default function MyBookingsPage() {
         setUserRole(role);
     }, []);
 
+    // ✅ FIXED Firestore query
     const ticketsQuery = useMemoFirebase(() => {
         if (!user || !firestore || !userRole) return null;
-        
-        const filterField = userRole === 'student' ? 'studentId' : 'teacherId';
-        return query(collection(firestore, "tickets"), where(filterField, "==", user.uid));
 
+        if (userRole === 'student') {
+            return query(collection(firestore, "tickets"), where("studentId", "==", user.uid));
+        } else if (userRole === 'teacher') {
+            return query(collection(firestore, "tickets"), where("teacherId", "==", user.uid));
+        } else if (userRole === 'admin') {
+            return collection(firestore, "tickets"); // Admin can list all tickets
+        }
+
+        return null;
     }, [user, firestore, userRole]);
-    
+
     const { data: tickets, isLoading: areTicketsLoading } = useCollection<Ticket>(ticketsQuery);
 
     if (areTicketsLoading || isUserLoading || !userRole) {
@@ -507,5 +512,4 @@ export default function MyBookingsPage() {
         ? <TeacherBookingsView tickets={tickets} />
         : <StudentBookingsView tickets={tickets} />;
 }
-
-    
+ 
