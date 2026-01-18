@@ -49,6 +49,7 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
   const { user } = useUser();
   const { firestore } = useFirebase();
   const [isSaving, setIsSaving] = React.useState(false);
+  const [bankErrors, setBankErrors] = React.useState({ accountNumber: "", ifscCode: "" });
 
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, steps.length));
@@ -150,13 +151,46 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
                 if (formData.bio.trim() === '' || formData.hourlyRate.trim() === '' || formData.availability.days.length === 0) return false;
                 break;
             case 3:
-                if (Object.values(formData.bankDetails).some(v => v.trim() === '')) return false;
+                const bankDetails = formData.bankDetails;
+                const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+                const isIfscValid = ifscRegex.test(bankDetails.ifscCode);
+                const isAccountNumValid = /^\d{9,18}$/.test(bankDetails.accountNumber);
+                if (!(
+                    bankDetails.accountHolderName.trim() !== '' &&
+                    bankDetails.bankName.trim() !== '' &&
+                    isAccountNumValid &&
+                    isIfscValid
+                )) return false;
                 break;
             default:
                 break;
         }
     }
     return true;
+  };
+  
+  const handleAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+    if (value.length > 18) return; // Max length
+    setFormData({ ...formData, bankDetails: { ...formData.bankDetails, accountNumber: value } });
+    if (value.length > 0 && (value.length < 9 || value.length > 18)) {
+        setBankErrors(prev => ({ ...prev, accountNumber: "Account number must be 9-18 digits." }));
+    } else {
+        setBankErrors(prev => ({ ...prev, accountNumber: "" }));
+    }
+  };
+
+  const handleIfscChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (value.length > 11) return; // Max length
+      setFormData({ ...formData, bankDetails: { ...formData.bankDetails, ifscCode: value } });
+
+      const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+      if (value.length > 0 && !ifscRegex.test(value)) {
+          setBankErrors(prev => ({ ...prev, ifscCode: "Must be 11 chars, e.g. HDFC0001234" }));
+      } else {
+          setBankErrors(prev => ({ ...prev, ifscCode: "" }));
+      }
   };
 
 
@@ -251,13 +285,29 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
                     </div>
                 </div>
                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                     <div className="space-y-2">
                         <Label htmlFor="accountNumber">Account Number <span className="text-destructive">*</span></Label>
-                        <Input id="accountNumber" placeholder="e.g., 1234567890" value={formData.bankDetails.accountNumber} onChange={(e) => setFormData({...formData, bankDetails: {...formData.bankDetails, accountNumber: e.target.value}})} />
+                        <Input 
+                          id="accountNumber" 
+                          placeholder="9 to 18 digits" 
+                          value={formData.bankDetails.accountNumber} 
+                          onChange={handleAccountNumberChange}
+                          className={bankErrors.accountNumber ? "border-destructive focus-visible:ring-destructive" : ""}
+                          maxLength={18}
+                        />
+                         {bankErrors.accountNumber && <p className="text-sm text-destructive">{bankErrors.accountNumber}</p>}
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="ifscCode">IFSC Code <span className="text-destructive">*</span></Label>
-                        <Input id="ifscCode" placeholder="e.g., HDFC0001234" value={formData.bankDetails.ifscCode} onChange={(e) => setFormData({...formData, bankDetails: {...formData.bankDetails, ifscCode: e.target.value}})} />
+                        <Input 
+                          id="ifscCode" 
+                          placeholder="e.g., HDFC0001234" 
+                          value={formData.bankDetails.ifscCode}
+                          onChange={handleIfscChange}
+                          className={bankErrors.ifscCode ? "border-destructive focus-visible:ring-destructive" : ""}
+                          maxLength={11}
+                        />
+                         {bankErrors.ifscCode && <p className="text-sm text-destructive">{bankErrors.ifscCode}</p>}
                     </div>
                 </div>
             </div>
