@@ -8,19 +8,18 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Check, IndianRupee, User, Banknote } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, IndianRupee, Banknote } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase } from "@/firebase";
 import { doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
-import { UploadDropzone } from "@/lib/uploadthing";
 import type { OurFileRouter } from "@/app/api/uploadthing/route";
+import { UploadDropzone } from "@/lib/uploadthing";
 
 const steps = [
-  { id: 1, title: "Welcome, Educator!" },
-  { id: 2, title: "Your Expertise" },
-  { id: 3, title: "Bio & Availability" },
-  { id: 4, title: "Payout Information" },
-  { id: 5, title: "All Set!" },
+  { id: 1, title: "Your Expertise" },
+  { id: 2, title: "Bio & Availability" },
+  { id: 3, title: "Payout Information" },
+  { id: 4, title: "All Set!" },
 ];
 
 const subjects = ["Mathematics", "Science", "History", "Literature", "Computer Science", "Physics", "Chemistry", "Biology"];
@@ -39,7 +38,6 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
       days: [] as string[],
       timeSlots: [] as string[], // Placeholder for now
     },
-    profilePicture: "",
     bankDetails: {
         accountHolderName: "",
         accountNumber: "",
@@ -114,14 +112,12 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
         };
         await updateDoc(userDocRef, {
             teacherProfile: teacherProfileData,
-            profilePicture: formData.profilePicture,
         });
 
         // 2. Create/update public tutor document
         const tutorDocRef = doc(firestore, 'tutors', user.uid);
         const publicTutorData = {
             name: userName,
-            profilePicture: formData.profilePicture,
             subjects: formData.subjects,
             hourlyRate: Number(formData.hourlyRate),
             availability: formData.availability,
@@ -143,20 +139,17 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
   };
 
   const isStepValid = (checkAll = false) => {
-    const stepsToValidate = checkAll ? [1, 2, 3, 4] : [currentStep];
+    const stepsToValidate = checkAll ? [1, 2, 3] : [currentStep];
     
     for (const step of stepsToValidate) {
         switch (step) {
             case 1:
-                if (formData.profilePicture.trim() === '') return false;
-                break;
-            case 2:
                 if (formData.subjects.length === 0 || formData.qualifications.length === 0 || formData.experienceYears.trim() === '') return false;
                 break;
-            case 3:
+            case 2:
                 if (formData.bio.trim() === '' || formData.hourlyRate.trim() === '' || formData.availability.days.length === 0) return false;
                 break;
-            case 4:
+            case 3:
                 if (Object.values(formData.bankDetails).some(v => v.trim() === '')) return false;
                 break;
             default:
@@ -170,34 +163,6 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
-        return (
-          <div className="text-center">
-            <User className="mx-auto h-16 w-16 text-primary bg-primary/10 rounded-full p-3 mb-6" />
-            <h2 className="text-3xl font-bold mb-2">Upload Your Profile Picture</h2>
-            <p className="text-muted-foreground text-lg max-w-md mx-auto mb-4">A professional photo helps build trust with students.</p>
-             <UploadDropzone
-                endpoint="profileUploader"
-                onClientUploadComplete={(res) => {
-                    if (res && res.length > 0 && res[0].url) {
-                        setFormData({...formData, profilePicture: res[0].url});
-                        toast({
-                            title: "Upload Complete!",
-                            description: "Your profile picture has been uploaded.",
-                        });
-                    }
-                }}
-                onUploadError={(error: Error) => {
-                    toast({
-                        variant: "destructive",
-                        title: "Upload Failed",
-                        description: error.message,
-                    });
-                }}
-                className="mt-4 ut-label:text-lg ut-button:bg-primary ut-button:ut-readying:bg-primary/50"
-            />
-          </div>
-        );
-      case 2:
         return (
           <div className="space-y-6">
             <div className="space-y-3">
@@ -236,7 +201,7 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
             </div>
           </div>
         );
-      case 3:
+      case 2:
         return (
           <div className="space-y-6">
             <div className="space-y-2">
@@ -267,7 +232,7 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
             </div>
           </div>
         );
-    case 4:
+    case 3:
         return (
              <div className="space-y-6">
                 <div className="text-center mb-4">
@@ -297,7 +262,7 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
                 </div>
             </div>
         );
-    case 5:
+    case 4:
         return (
            <div className="text-center">
              <Check className="mx-auto h-16 w-16 text-green-500 bg-green-100 rounded-full p-3 mb-6" />
@@ -326,8 +291,8 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
             </div>
           </div>
           <CardTitle className="text-2xl">{steps[currentStep - 1].title}</CardTitle>
-          {currentStep === 3 && <CardDescription>This information will be displayed on your public profile.</CardDescription>}
-           {currentStep === 4 && <CardDescription>This information is kept strictly confidential and is only used for payment processing.</CardDescription>}
+          {currentStep === 2 && <CardDescription>This information will be displayed on your public profile.</CardDescription>}
+           {currentStep === 3 && <CardDescription>This information is kept strictly confidential and is only used for payment processing.</CardDescription>}
         </CardHeader>
         <CardContent className="min-h-[350px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
