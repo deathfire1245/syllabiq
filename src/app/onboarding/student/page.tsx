@@ -7,20 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Check, Banknote, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Banknote } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { Textarea } from "@/components/ui/textarea";
-import { UploadDropzone } from "@/lib/uploadthing";
 import type { OurFileRouter } from "@/app/api/uploadthing/route";
+import { UploadDropzone } from "@/lib/uploadthing";
 
 const steps = [
-  { id: 1, title: "Your Profile Picture" },
-  { id: 2, title: "Tell us about your studies" },
-  { id: 3, title: "What are your goals?" },
-  { id: 4, title: "Bank Details (for Refunds)"},
-  { id: 5, title: "All set!" },
+  { id: 1, title: "Tell us about your studies" },
+  { id: 2, title: "What are your goals?" },
+  { id: 3, title: "Bank Details (for Refunds)"},
+  { id: 4, title: "All set!" },
 ];
 
 const subjects = ["Mathematics", "Science", "History", "Literature", "Art", "Music", "Computer Science"];
@@ -34,7 +33,6 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
     preferredSubjects: [] as string[],
     learningGoals: "",
     interests: [] as string[],
-    profilePicture: "",
     bankDetails: {
         accountHolderName: "",
         accountNumber: "",
@@ -79,7 +77,6 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
               interests: formData.interests,
               bankDetails: formData.bankDetails,
             },
-            profilePicture: formData.profilePicture,
         });
         toast({
             title: "Profile setup complete!",
@@ -97,12 +94,10 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
   const isStepValid = () => {
     switch (currentStep) {
         case 1:
-            return formData.profilePicture.trim() !== '';
-        case 2:
             return formData.gradeLevel.trim() !== '' && formData.preferredSubjects.length > 0;
-        case 3:
+        case 2:
             return formData.learningGoals.trim() !== '';
-        case 4:
+        case 3:
             return Object.values(formData.bankDetails).every(value => value.trim() !== '');
         default:
             return true;
@@ -112,34 +107,6 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
-        return (
-          <div className="text-center">
-             <User className="mx-auto h-16 w-16 text-primary bg-primary/10 rounded-full p-3 mb-6" />
-            <h2 className="text-3xl font-bold mb-2">Upload a Profile Picture</h2>
-            <p className="text-muted-foreground mb-4">A good profile picture helps teachers recognize you.</p>
-             <UploadDropzone
-                endpoint="profileUploader"
-                onClientUploadComplete={(res) => {
-                    if (res && res.length > 0 && res[0].url) {
-                        setFormData({...formData, profilePicture: res[0].url});
-                        toast({
-                            title: "Upload Complete!",
-                            description: "Your profile picture has been uploaded.",
-                        });
-                    }
-                }}
-                onUploadError={(error: Error) => {
-                    toast({
-                        variant: "destructive",
-                        title: "Upload Failed",
-                        description: error.message,
-                    });
-                }}
-                className="mt-4 ut-label:text-lg ut-button:bg-primary ut-button:ut-readying:bg-primary/50"
-            />
-          </div>
-        );
-      case 2:
         return (
           <>
             <div className="grid sm:grid-cols-2 gap-4 mb-6">
@@ -169,7 +136,7 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
             </div>
           </>
         );
-      case 3:
+      case 2:
         return (
            <div className="space-y-6">
             <div className="space-y-2">
@@ -193,7 +160,7 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
             </div>
            </div>
         );
-      case 4:
+      case 3:
         return (
              <div className="space-y-6">
                 <div className="text-center mb-4">
@@ -223,7 +190,7 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
                 </div>
             </div>
         );
-      case 5:
+      case 4:
         return (
            <div className="text-center">
              <Check className="mx-auto h-16 w-16 text-green-500 bg-green-100 rounded-full p-3 mb-6" />
@@ -252,7 +219,7 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
             </div>
           </div>
           <CardTitle className="text-2xl">{steps[currentStep - 1].title}</CardTitle>
-          {currentStep === 4 && <CardDescription>This information is kept strictly confidential.</CardDescription>}
+          {currentStep === 3 && <CardDescription>This information is kept strictly confidential.</CardDescription>}
         </CardHeader>
         <CardContent className="min-h-[300px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
