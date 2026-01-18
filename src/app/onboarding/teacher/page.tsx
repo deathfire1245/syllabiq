@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -178,7 +179,7 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
                 endpoint="profileUploader"
                 onClientUploadComplete={(res) => {
                     if (res && res.length > 0 && res[0].url) {
-                        setFormData({...formData, profilePicture: res[0].url});
+                        setFormData(prev => ({...prev, profilePicture: res[0].url}));
                         toast({
                             title: "Upload Complete!",
                             description: "Your profile picture has been uploaded.",
@@ -365,3 +366,5 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
     </div>
   );
 }
+
+    
