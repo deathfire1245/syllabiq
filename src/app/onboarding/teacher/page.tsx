@@ -177,7 +177,7 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
              <UploadDropzone
                 endpoint="profileUploader"
                 onClientUploadComplete={(res) => {
-                     if (res && res.length > 0) {
+                    if (res && res.length > 0 && res[0].url) {
                         setFormData({...formData, profilePicture: res[0].url});
                         toast({
                             title: "Upload Complete!",
