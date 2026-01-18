@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -14,6 +13,7 @@ import { useUser, useFirebase } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { Textarea } from "@/components/ui/textarea";
 import { UploadDropzone } from "@/lib/uploadthing";
+import type { OurFileRouter } from "@/app/api/uploadthing/route";
 
 const steps = [
   { id: 1, title: "Your Profile Picture" },
@@ -291,5 +291,3 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
     </div>
   );
 }
-
-    

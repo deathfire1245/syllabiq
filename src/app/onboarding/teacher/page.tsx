@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -14,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase } from "@/firebase";
 import { doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
 import { UploadDropzone } from "@/lib/uploadthing";
+import type { OurFileRouter } from "@/app/api/uploadthing/route";
 
 const steps = [
   { id: 1, title: "Welcome, Educator!" },
@@ -366,5 +366,3 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
     </div>
   );
 }
-
-    
