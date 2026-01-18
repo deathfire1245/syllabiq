@@ -54,50 +54,44 @@ const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?
 };
 
 
-const iconMap: { [key:string]: React.ElementType } = {
-  TrendingUp,
-  Clock,
-  Target,
-  History,
-  Users,
-  BookOpen,
-  Calendar
-};
-
-const TeacherDashboard = () => {
+const TeacherDashboard = ({ userRole }: { userRole: string }) => {
     const router = useRouter();
     const { user, isUserLoading } = useUser();
     const { firestore } = useFirebase();
 
+    const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+    
+    // ------------------ FIXED: Ticket queries ------------------
     const waitingTicketsQuery = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
+        if (!user || !firestore || userRole !== "teacher") return null;
         return query(
             collection(firestore, "tickets"), 
             where("teacherId", "==", user.uid), 
             where("status", "==", "WAITING_FOR_TEACHER")
         );
-    }, [user, firestore]);
+    }, [user, firestore, userRole]);
     
     const { data: waitingTickets } = useCollection(waitingTicketsQuery);
     
     const completedSessionsQuery = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
+        if (!user || !firestore || userRole !== "teacher") return null;
         return query(
             collection(firestore, "tickets"),
             where("teacherId", "==", user.uid),
             where("status", "==", "COMPLETED")
         );
-    }, [user, firestore]);
+    }, [user, firestore, userRole]);
     const { data: completedSessions, isLoading: areSessionsLoading } = useCollection(completedSessionsQuery);
 
     const upcomingSessionsQuery = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
+        if (!user || !firestore || userRole !== "teacher") return null;
         return query(
             collection(firestore, "tickets"),
             where("teacherId", "==", user.uid),
             where("status", "in", ["PAID", "WAITING_FOR_TEACHER"])
         );
-    }, [user, firestore]);
+    }, [user, firestore, userRole]);
     const { data: upcomingSessions, isLoading: areUpcomingSessionsLoading } = useCollection(upcomingSessionsQuery);
 
     const totalEarnings = React.useMemo(() => {
@@ -134,116 +128,124 @@ const TeacherDashboard = () => {
         router.push(`/dashboard/meeting/${ticketId}`);
     }
     
-    if (isUserLoading) return <div>Loading...</div>
-
-    return (
-        <div className="space-y-8">
-             <ScrollReveal>
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Teacher Dashboard</h1>
-                <p className="text-muted-foreground mt-2 text-lg">Welcome back, {user?.displayName}! Here's your teaching overview.</p>
-            </ScrollReveal>
-            
-            {waitingTickets && waitingTickets.length > 0 && (
-                <ScrollReveal delay={0.1}>
-                    <Card className="bg-blue-50 border-blue-200 shadow-lg">
-                        <CardHeader>
-                            <CardTitle className="text-2xl flex items-center gap-2 text-blue-800"><Video className="w-6 h-6"/> Student is Waiting!</CardTitle>
-                            <CardDescription className="text-blue-700">A student has entered the waiting room for their session.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {waitingTickets.map((ticket: any) => (
-                                <div key={ticket.id} className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white rounded-lg border">
-                                    <div>
-                                        <p className="font-semibold">Student: {ticket.studentName}</p>
-                                        <p className="text-sm text-muted-foreground">Ticket: {ticket.ticketCode}</p>
-                                    </div>
-                                    <Button onClick={() => handleJoinSession(ticket.id)}>
-                                        <Video className="mr-2 h-5 w-5" />
-                                        Join Session Now
-                                    </Button>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-                </ScrollReveal>
-            )}
-
-            {/* Quick Stats */}
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                 {teacherStats.map((stat, index) => {
-                    const Icon = stat.icon;
-                    return (
-                        <ScrollReveal key={stat.title} delay={index * 0.1}>
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                    <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                                    <Icon className="w-4 h-4 text-muted-foreground" />
-                                </CardHeader>
-                                <CardContent>
-                                    {stat.isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold"><AnimatedCounter to={stat.value} prefix={stat.prefix} /></div>}
-                                    <p className="text-xs text-muted-foreground mt-1">{stat.footer}</p>
-                                </CardContent>
-                            </Card>
-                        </ScrollReveal>
-                    )
-                })}
-            </div>
-
-            {/* Recent Activity & Quick Actions */}
-            <div className="grid lg:grid-cols-2 gap-8">
-                <ScrollReveal delay={0.2}>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Recent Content</CardTitle>
-                            <CardDescription>Your recently created or updated content.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                           {isRecentContentLoading ? <Skeleton className="h-24 w-full" /> : (
-                             <ul className="space-y-4">
-                                {recentContent && recentContent.length > 0 ? recentContent.map(item => (
-                                    <li key={item.id} className="flex items-center justify-between">
-                                        <div>
-                                            <p className="font-semibold">{item.name}</p>
-                                            <Badge variant="outline" className="mt-1">Topic</Badge>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground">{item.createdAt?.toDate().toLocaleDateString()}</p>
-                                    </li>
-                                )) : <p className="text-sm text-muted-foreground text-center">No recent content.</p>}
-                           </ul>
-                           )}
-                        </CardContent>
-                    </Card>
-                </ScrollReveal>
-                 <ScrollReveal delay={0.3}>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Quick Actions</CardTitle>
-                            <CardDescription>Jump right into creating new material.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="grid sm:grid-cols-2 gap-4">
-                            <Button asChild variant="outline" size="lg" className="h-auto py-4">
-                                <Link href="/dashboard/create/courses" className="flex flex-col items-center gap-2">
-                                    <BookOpen className="w-8 h-8 text-primary"/>
-                                    <span className="font-semibold">Create New Course</span>
-                                </Link>
-                            </Button>
-                            <Button asChild variant="outline" size="lg" className="h-auto py-4">
-                               <Link href="/dashboard/create/classes" className="flex flex-col items-center gap-2">
-                                    <Calendar className="w-8 h-8 text-primary"/>
-                                    <span className="font-semibold">Manage Schedule</span>
-                                </Link>
-                            </Button>
-                        </CardContent>
-                    </Card>
-                </ScrollReveal>
+    if (isUserLoading || isProfileLoading) return <div className="p-8">
+            <div className="space-y-8">
+                <Skeleton className="h-12 w-1/2" />
+                <Skeleton className="h-40 w-full" />
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                    <Skeleton className="h-28 w-full" />
+                    <Skeleton className="h-28 w-full" />
+                    <Skeleton className="h-28 w-full" />
+                    <Skeleton className="h-28 w-full" />
+                </div>
             </div>
         </div>
+
+    return (
+      <div className="space-y-8">
+        <ScrollReveal>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Welcome, {userProfile?.name || 'Educator'}!</h1>
+            <p className="text-muted-foreground mt-2 text-lg">Here's what's happening today.</p>
+        </ScrollReveal>
+
+        {waitingTickets && waitingTickets.length > 0 && (
+            <ScrollReveal delay={0.1}>
+                <Card className="bg-yellow-100 border-yellow-300 text-yellow-900">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Video className="w-6 h-6 animate-pulse"/>
+                            Students are waiting for you!
+                        </CardTitle>
+                        <CardDescription className="text-yellow-800">A student has entered the waiting room for a session. Join now to begin.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {waitingTickets.map(ticket => (
+                            <div key={ticket.id} className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
+                                <div>
+                                    <p className="font-bold">{ticket.studentName}</p>
+                                    <p className="text-sm">Ticket: {ticket.ticketCode}</p>
+                                </div>
+                                <Button onClick={() => handleJoinSession(ticket.id)} className="bg-yellow-500 hover:bg-yellow-600 text-white">Join Session</Button>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+            </ScrollReveal>
+        )}
+
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {teacherStats.map((stat, index) => {
+                const Icon = stat.icon;
+                return (
+                <ScrollReveal key={stat.title} delay={0.1 + index * 0.05}>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                            {Icon && <Icon className="w-4 h-4 text-muted-foreground" />}
+                        </CardHeader>
+                        <CardContent>
+                            {stat.isLoading ? <Skeleton className="h-8 w-1/2" /> : (
+                                <div className="text-2xl font-bold">
+                                    <AnimatedCounter to={stat.value} prefix={stat.prefix} />
+                                </div>
+                            )}
+                            <p className="text-xs text-muted-foreground">{stat.footer}</p>
+                        </CardContent>
+                    </Card>
+                </ScrollReveal>
+            )})}
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-8">
+            <ScrollReveal className="md:col-span-2" delay={0.3}>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Recent Content</CardTitle>
+                        <CardDescription>Your most recently created topics.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {isRecentContentLoading ? <Skeleton className="h-32 w-full" /> : 
+                        recentContent && recentContent.length > 0 ? (
+                            <div className="space-y-4">
+                                {recentContent.map(topic => (
+                                    <div key={topic.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                                        <div>
+                                            <p className="font-semibold">{topic.name}</p>
+                                            <p className="text-sm text-muted-foreground">{topic.chapter}</p>
+                                        </div>
+                                        <Badge variant="outline">{topic.subjectId.split('-')[0]}</Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-center text-muted-foreground py-8">You haven't created any content yet.</p>
+                        )}
+                    </CardContent>
+                </Card>
+            </ScrollReveal>
+            <ScrollReveal delay={0.4}>
+                <Card className="bg-gradient-to-br from-primary/80 to-primary text-primary-foreground h-full flex flex-col justify-center text-center">
+                    <CardHeader>
+                        <CardTitle className="text-2xl">Create Something New</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="mb-6">Share your knowledge with the world. Create a new course or set up your availability for live classes.</p>
+                        <Button variant="secondary" asChild>
+                            <Link href="/dashboard/create">Start Creating</Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+            </ScrollReveal>
+        </div>
+    </div>
     );
 };
 
-const StudentDashboard = () => {
+const StudentDashboard = ({ userRole }: { userRole: string }) => {
     const { user, isUserLoading } = useUser();
     const { firestore } = useFirebase();
+    const router = useRouter();
+    const { toast } = useToast();
     
     const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
     const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
@@ -255,19 +257,18 @@ const StudentDashboard = () => {
     const totalTopicsCount = allTopics?.length || 0;
 
     const completedSessionsQuery = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
+        if (!user || !firestore || userRole !== "student") return null;
         return query(
             collection(firestore, "tickets"),
             where("studentId", "==", user.uid),
             where("status", "==", "COMPLETED")
         );
-    }, [user, firestore]);
+    }, [user, firestore, userRole]);
     const { data: completedSessions, isLoading: areSessionsLoading } = useCollection(completedSessionsQuery);
     
     const recentlyAccessedIds = userProfile?.studentProfile?.recentlyAccessed || [];
     const recentTopics = React.useMemo(() => {
       if (!allTopics || recentlyAccessedIds.length === 0) return [];
-      // Combine Firestore topics with any static topics if they exist
       const staticTopics = getStaticTopics();
       const combinedTopics = [...(allTopics || []), ...staticTopics];
       return [...new Set(recentlyAccessedIds)]
@@ -276,138 +277,132 @@ const StudentDashboard = () => {
         .slice(0, 3);
     }, [allTopics, recentlyAccessedIds]);
 
-    const userStats = [
-        { title: "Topics Completed", icon: TrendingUp, value: completedTopicsCount, total: totalTopicsCount, footer: "Keep it up!", isLoading: isProfileLoading || areTopicsLoading },
-        { title: "Study Hours", icon: Clock, value: completedSessions?.length ?? 0, footer: "Total sessions attended", isLoading: areSessionsLoading },
-    ];
-    
-    const subjectsWithProgress = React.useMemo(() => {
-        return getSubjects().slice(0, 3).map(subject => {
-            if (!allTopics || !userProfile?.studentProfile?.completedTopics) {
-                return { ...subject, progress: 0 };
-            }
-            const topicsInSubject = allTopics.filter(t => t.subjectId === subject.id);
-            const completedInSubject = userProfile.studentProfile.completedTopics.filter((topicId: string) => 
-                topicsInSubject.some(t => t.id === topicId)
-            ).length;
-            const progress = topicsInSubject.length > 0 ? Math.round((completedInSubject / topicsInSubject.length) * 100) : 0;
-            return { ...subject, progress };
-        });
-    }, [allTopics, userProfile]);
+    const handleViewTopic = (topic: Topic) => {
+        try {
+            sessionStorage.setItem('activeTopic', JSON.stringify(topic));
+            router.push('/dashboard/subjects/topic-content');
+        } catch (e) {
+            console.error("Failed to save topic to session storage or navigate", e);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Could not open the topic. Please try again.",
+            });
+        }
+    };
+
+    if (isUserLoading || isProfileLoading) return <div className="p-8">
+            <div className="space-y-8">
+                <Skeleton className="h-12 w-1/2" />
+                <Skeleton className="h-40 w-full" />
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                    <Skeleton className="h-28 w-full" />
+                    <Skeleton className="h-28 w-full" />
+                    <Skeleton className="h-28 w-full" />
+                    <Skeleton className="h-28 w-full" />
+                </div>
+            </div>
+        </div>
 
     return (
         <div className="space-y-8">
             <ScrollReveal>
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Student Dashboard</h1>
-                <p className="text-muted-foreground mt-2 text-lg">Welcome back, {user?.displayName || 'student'}! Ready to learn something new?</p>
-            </ScrollReveal>
-
-            <ScrollReveal delay={0.1}>
-                 <Card className="bg-primary/10 border-primary/20 shadow-lg">
+                <Card className="bg-gradient-to-r from-primary/80 to-primary text-primary-foreground">
                     <CardHeader>
-                        <CardTitle className="text-2xl flex items-center gap-2"><Video className="w-6 h-6"/> Join a Live Session</CardTitle>
-                        <CardDescription>Have a ticket? Go to 'My Bookings' to enter the waiting room for your session.</CardDescription>
+                        <CardTitle className="text-3xl">Welcome back, {userProfile?.name || 'Student'}!</CardTitle>
+                        <CardDescription className="text-primary-foreground/80 text-lg">Ready to dive back in and continue your learning journey?</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                         <Button asChild size="lg">
-                            <Link href="/dashboard/bookings">Go to My Bookings</Link>
-                         </Button>
-                    </CardContent>
                 </Card>
             </ScrollReveal>
 
-            {/* User Stats Section */}
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                 {userStats.map((stat, index) => {
-                    const Icon = stat.icon;
-                    return (
-                        <ScrollReveal key={stat.title} delay={index * 0.1}>
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                    <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                                    <Icon className="w-4 h-4 text-muted-foreground" />
-                                </CardHeader>
-                                <CardContent>
-                                    {stat.isLoading ? (
-                                      <Skeleton className="h-8 w-1/2" />
-                                    ) : (
-                                      <div className="text-2xl font-bold">
-                                          <AnimatedCounter to={stat.value} suffix={stat.suffix} />
-                                          {stat.total != null && <span className="text-lg text-muted-foreground">/ {stat.total}</span>}
-                                      </div>
-                                    )}
-                                    <p className="text-xs text-muted-foreground mt-1">{stat.footer}</p>
-                                </CardContent>
-                            </Card>
-                        </ScrollReveal>
-                    )
-                })}
-                <ScrollReveal className="sm:col-span-2 lg:col-span-2" delay={0.3}>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <ScrollReveal delay={0.1}>
                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium">Recently Accessed</CardTitle>
-                            <History className="w-4 h-4 text-muted-foreground" />
+                        <CardHeader className="pb-2">
+                            <CardDescription>Overall Progress</CardDescription>
+                            <CardTitle className="text-3xl">{totalTopicsCount > 0 ? Math.round((completedTopicsCount / totalTopicsCount) * 100) : 0}%</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-3 pt-4">
-                        {(isProfileLoading || areTopicsLoading) ? <Skeleton className="h-24 w-full" /> : (
-                            recentTopics.length > 0 ? recentTopics.map(topic => (
-                                <Link href={`/dashboard/subjects/topic-content`} onClick={() => sessionStorage.setItem('activeTopic', JSON.stringify(topic))} key={topic.id} className="flex items-center gap-3 group">
-                                    <Image src={topic.coverImage.src} alt={topic.name} width={40} height={40} className="rounded-md object-cover"/>
-                                    <div>
-                                    <p className="text-sm font-medium line-clamp-1 group-hover:text-primary transition-colors">{topic.name}</p>
-                                    <p className="text-xs text-muted-foreground">{topic.chapter}</p>
-                                    </div>
-                                </Link>
-                            )) : <p className="text-sm text-muted-foreground text-center">No recent topics.</p>
-                        )}
+                        <CardContent>
+                            <Progress value={totalTopicsCount > 0 ? (completedTopicsCount / totalTopicsCount) * 100 : 0} className="h-2" />
+                            <p className="text-xs text-muted-foreground mt-2">{completedTopicsCount} of {totalTopicsCount} topics completed</p>
+                        </CardContent>
+                    </Card>
+                </ScrollReveal>
+                <ScrollReveal delay={0.15}>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardDescription>Topics Completed</CardDescription>
+                            <CardTitle className="text-3xl">{completedTopicsCount}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-xs text-muted-foreground">Keep up the great work!</p>
+                        </CardContent>
+                    </Card>
+                </ScrollReveal>
+                <ScrollReveal delay={0.2}>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardDescription>Sessions Attended</CardDescription>
+                            <CardTitle className="text-3xl">{areSessionsLoading ? <Skeleton className="h-8 w-1/2" /> : completedSessions?.length ?? 0}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-xs text-muted-foreground">Live learning sessions.</p>
+                        </CardContent>
+                    </Card>
+                </ScrollReveal>
+                <ScrollReveal delay={0.25}>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardDescription>Subjects Explored</CardDescription>
+                            <CardTitle className="text-3xl">{userProfile?.studentProfile?.preferredSubjects?.length || 0}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-xs text-muted-foreground">Across all your grades.</p>
                         </CardContent>
                     </Card>
                 </ScrollReveal>
             </div>
-            
-            {/* Your Subjects Section */}
-            <ScrollReveal>
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-2xl font-bold tracking-tight">Continue Learning</h2>
-                    <Button variant="ghost" asChild>
-                        <Link href="/dashboard/subjects">View All Subjects <Copy className="ml-2 w-4 h-4"/></Link>
-                    </Button>
-                </div>
-            </ScrollReveal>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {subjectsWithProgress.map((subject, index) => (
-                    <ScrollReveal key={subject.id} delay={index * 0.1}>
-                        <Link href={`/dashboard/subjects/${subject.id}`}>
-                            <Card
-                            className="group relative overflow-hidden transform transition-all duration-300 hover:scale-[1.03] hover:shadow-primary/20"
-                            >
-                                <Image
-                                    src={subject.coverImage.src}
-                                    alt={subject.name}
-                                    width={600}
-                                    height={400}
-                                    className="object-cover w-full h-32 transition-transform duration-300 group-hover:scale-110"
-                                    data-ai-hint={subject.coverImage.hint}
-                                />
-                                <CardHeader className="relative z-10 p-4">
-                                     <CardTitle className="text-lg font-bold group-hover:text-primary">
-                                        {subject.name}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-4 pt-0">
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center text-sm">
-                                            <p className="text-muted-foreground">Progress</p>
-                                            <p className="font-medium text-primary">{subject.progress}%</p>
-                                        </div>
-                                        {(isProfileLoading || areTopicsLoading) ? <Skeleton className="h-2 w-full" /> : <Progress value={subject.progress} className="h-2" />}
+
+            <ScrollReveal delay={0.3}>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Continue Learning</CardTitle>
+                        <CardDescription>Pick up where you left off.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {areTopicsLoading || isProfileLoading ? (
+                            <div className="grid md:grid-cols-3 gap-4">
+                                <Skeleton className="h-40 w-full"/>
+                                <Skeleton className="h-40 w-full"/>
+                                <Skeleton className="h-40 w-full"/>
+                            </div>
+                        ) : recentTopics.length > 0 ? (
+                            <div className="grid md:grid-cols-3 gap-4">
+                                {recentTopics.map(topic => (
+                                     <div key={topic.id} className="block group cursor-pointer" onClick={() => handleViewTopic(topic)}>
+                                        <Card className="overflow-hidden h-full transition-shadow hover:shadow-lg">
+                                            <div className="relative h-24 w-full">
+                                                <Image src={topic.coverImage.src} alt={topic.name} fill className="object-cover" />
+                                            </div>
+                                            <CardContent className="p-4">
+                                                <Badge variant="outline" className="mb-1">{topic.chapter}</Badge>
+                                                <h3 className="font-semibold line-clamp-1 group-hover:text-primary">{topic.name}</h3>
+                                            </CardContent>
+                                        </Card>
                                     </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-                    </ScrollReveal>
-                  ))}
-            </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-10">
+                                <p className="text-muted-foreground mb-4">You haven't accessed any topics recently.</p>
+                                <Button asChild>
+                                    <Link href="/dashboard/subjects">Explore Subjects</Link>
+                                </Button>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </ScrollReveal>
         </div>
     );
 };
@@ -442,7 +437,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      {userRole === "teacher" ? <TeacherDashboard /> : <StudentDashboard />}
+      {userRole === "teacher" ? <TeacherDashboard userRole={userRole} /> : <StudentDashboard userRole={userRole} />}
     </>
   )
 }
