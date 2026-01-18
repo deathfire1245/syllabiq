@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -23,6 +24,7 @@ import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase
 import { addDoc, collection, serverTimestamp, Timestamp, getDoc, doc } from "firebase/firestore";
 import { add, sub, parse } from 'date-fns';
 import { Skeleton } from "@/components/ui/skeleton";
+import { Briefcase } from "lucide-react";
 
 interface PublicTutorProfile {
   id: string;
@@ -109,11 +111,17 @@ export default function TutorsPage() {
   const router = useRouter();
   const { user } = useUser();
   const { firestore } = useFirebase();
+  const [userRole, setUserRole] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const role = localStorage.getItem("userRole");
+    setUserRole(role);
+  }, []);
 
   const tutorsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || userRole === 'student') return null; // Skip query for students
     return collection(firestore, "tutors");
-  }, [firestore]);
+  }, [firestore, userRole]);
 
   const { data: tutors, isLoading } = useCollection<PublicTutorProfile>(tutorsQuery);
 
@@ -158,7 +166,7 @@ export default function TutorsPage() {
     return name.split(' ').map(n => n[0]).join('').substring(0, 2);
   }
 
-  if (isLoading) {
+  if (isLoading || !userRole) {
     return (
       <div className="space-y-8">
         <div className="space-y-2">
@@ -171,6 +179,18 @@ export default function TutorsPage() {
           ))}
         </div>
       </div>
+    );
+  }
+
+  if (userRole === 'student') {
+    return (
+        <ScrollReveal className="flex flex-col items-center justify-center h-[60vh] text-center">
+            <Briefcase className="w-16 h-16 text-muted-foreground mb-4" />
+            <h2 className="text-2xl font-bold">Coming Soon</h2>
+            <p className="text-muted-foreground mt-2">
+                This feature will be available in a future update.
+            </p>
+        </ScrollReveal>
     );
   }
 
@@ -254,3 +274,5 @@ export default function TutorsPage() {
     </div>
   );
 }
+
+    
