@@ -11,9 +11,9 @@ export function Logo({ size = 'md', className }: { size?: 'sm' | 'md' | 'lg', cl
   };
 
   const imageSize = {
-    sm: 24,
-    md: 28,
-    lg: 32,
+    sm: 28,
+    md: 32,
+    lg: 36,
   };
 
   return (
