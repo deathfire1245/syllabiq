@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -19,11 +18,15 @@ import { getFirebaseErrorMessage } from "@/lib/firebase-errors";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { GraduationCap, Briefcase } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const signupSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  terms: z.literal(true, {
+    errorMap: () => ({ message: "You must accept the terms and policies." }),
+  }),
 });
 
 export default function SignupPage() {
@@ -39,6 +42,7 @@ export default function SignupPage() {
       name: "",
       email: "",
       password: "",
+      terms: false,
     },
   });
 
@@ -175,6 +179,40 @@ export default function SignupPage() {
                         <Input type="password" placeholder="••••••••" {...field} className="bg-white/10 text-white placeholder:text-gray-400 border-white/20 focus:ring-primary/50" />
                       </FormControl>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="terms"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 pt-2">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          id="terms"
+                          className="border-white/50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <Label
+                          htmlFor="terms"
+                          className="text-sm font-normal text-gray-300"
+                        >
+                          I accept the{" "}
+                          <Link href="/terms" target="_blank" className="font-medium text-primary underline-offset-4 hover:underline">
+                            Terms of Service
+                          </Link>{" "}
+                          and{" "}
+                          <Link href="/privacy" target="_blank" className="font-medium text-primary underline-offset-4 hover:underline">
+                            Privacy Policy
+                          </Link>
+                          .
+                        </Label>
+                        <FormMessage />
+                      </div>
                     </FormItem>
                   )}
                 />
