@@ -16,7 +16,9 @@ const ptSans = PT_Sans({
 export const metadata: Metadata = {
   title: "SyllabiQ",
   description: "Your Syllabus, Simplified. Access syllabus-based study material and organize your learning efficiently.",
-  icons: AppLogo,
+  icons: {
+    icon: AppLogo.src,
+  },
 };
 
 export default function RootLayout({
