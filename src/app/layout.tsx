@@ -5,6 +5,7 @@ import "./globals.css";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import { GeistSans } from "geist/font/sans";
 import { PT_Sans } from "next/font/google";
+import AppLogo from "@/app/logo.png";
 
 const ptSans = PT_Sans({
   subsets: ["latin"],
@@ -15,6 +16,7 @@ const ptSans = PT_Sans({
 export const metadata: Metadata = {
   title: "SyllabiQ",
   description: "Your Syllabus, Simplified. Access syllabus-based study material and organize your learning efficiently.",
+  icons: AppLogo,
 };
 
 export default function RootLayout({
