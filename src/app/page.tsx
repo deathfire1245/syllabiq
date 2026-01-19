@@ -352,7 +352,7 @@ export default function Home() {
              <div>
               <h4 className="font-semibold mb-3">Legal</h4>
               <nav className="flex flex-col gap-2 text-sm">
-                <Link href="#" className="text-muted-foreground hover:text-primary">Privacy Policy</Link>
+                <Link href="/privacy" className="text-muted-foreground hover:text-primary">Privacy Policy</Link>
                 <Link href="/terms" className="text-muted-foreground hover:text-primary">Terms of Service</Link>
               </nav>
             </div>
