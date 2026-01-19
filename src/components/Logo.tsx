@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { BookOpenCheck } from 'lucide-react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import logoImage from '@/app/logo.png';
 
 export function Logo({ size = 'md', className }: { size?: 'sm' | 'md' | 'lg', className?: string }) {
   const sizeClasses = {
@@ -8,9 +9,16 @@ export function Logo({ size = 'md', className }: { size?: 'sm' | 'md' | 'lg', cl
     md: 'text-2xl',
     lg: 'text-3xl',
   };
+
+  const imageSize = {
+    sm: 24,
+    md: 28,
+    lg: 32,
+  };
+
   return (
     <Link href="/" className={cn("flex items-center gap-2 text-foreground hover:text-primary transition-colors", className)}>
-      <BookOpenCheck className="text-primary h-6 w-6 sm:h-7 sm:w-7" />
+      <Image src={logoImage} alt="SyllabiQ Logo" width={imageSize[size]} height={imageSize[size]} />
       <span className={cn('font-headline font-bold', sizeClasses[size])}>SyllabiQ</span>
     </Link>
   );
