@@ -12,8 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { Textarea } from "@/components/ui/textarea";
-import type { OurFileRouter } from "@/app/api/uploadthing/route";
-import { UploadDropzone } from "@/lib/uploadthing";
 
 const steps = [
   { id: 1, title: "Tell us about your studies" },
@@ -66,6 +64,13 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
         toast({ title: 'Error', description: 'Could not save profile. User not found.', variant: 'destructive' });
         return;
     }
+     if (!isStepValid(true)) {
+        toast({ title: 'Missing Information', description: 'Please ensure all required fields are filled correctly.', variant: 'destructive' });
+        if (formData.gradeLevel.trim() === '' || formData.preferredSubjects.length === 0) setCurrentStep(1);
+        else if (formData.learningGoals.trim() === '') setCurrentStep(2);
+        else setCurrentStep(3);
+        return;
+    }
     setIsSaving(true);
     try {
         const userDocRef = doc(firestore, 'users', user.uid);
@@ -92,31 +97,57 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
     }
   };
 
-  const isStepValid = () => {
-    switch (currentStep) {
-        case 1:
-            return formData.gradeLevel.trim() !== '' && formData.preferredSubjects.length > 0;
-        case 2:
-            return formData.learningGoals.trim() !== '';
-        case 3:
-            return true;
-        default:
-            return true;
+  const isStepValid = (checkAll = false) => {
+    const stepsToValidate = checkAll ? [1, 2, 3] : [currentStep];
+
+    for (const step of stepsToValidate) {
+        switch (step) {
+            case 1:
+                if (formData.gradeLevel.trim() === '' || formData.preferredSubjects.length === 0) return false;
+                break;
+            case 2:
+                if (formData.learningGoals.trim() === '') return false;
+                break;
+            case 3:
+                const { accountHolderName, bankName, accountNumber, ifscCode } = formData.bankDetails;
+                if (
+                    accountHolderName.trim() === '' ||
+                    bankName.trim() === '' ||
+                    !/^\d{9,18}$/.test(accountNumber) ||
+                    !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)
+                ) {
+                    return false;
+                }
+                break;
+            default:
+                break;
+        }
     }
+    return true;
   };
 
   const handleAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
     if (value.length > 18) return; // Max length
     setFormData({ ...formData, bankDetails: { ...formData.bankDetails, accountNumber: value } });
-    setBankErrors(prev => ({ ...prev, accountNumber: "" }));
+
+    if (value.length > 0 && (value.length < 9 || value.length > 18)) {
+        setBankErrors(prev => ({ ...prev, accountNumber: "Account number must be 9-18 digits." }));
+    } else {
+        setBankErrors(prev => ({ ...prev, accountNumber: "" }));
+    }
   };
 
   const handleIfscChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (value.length > 11) return; // Max length
       setFormData({ ...formData, bankDetails: { ...formData.bankDetails, ifscCode: value } });
-      setBankErrors(prev => ({ ...prev, ifscCode: "" }));
+
+      if (value.length > 0 && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(value)) {
+          setBankErrors(prev => ({ ...prev, ifscCode: "Must be a valid 11-character IFSC code."}));
+      } else {
+          setBankErrors(prev => ({ ...prev, ifscCode: "" }));
+      }
   };
 
   const renderStepContent = () => {
