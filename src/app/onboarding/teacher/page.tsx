@@ -12,8 +12,6 @@ import { ArrowLeft, ArrowRight, Check, IndianRupee, Banknote } from "lucide-reac
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase } from "@/firebase";
 import { doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
-import type { OurFileRouter } from "@/app/api/uploadthing/route";
-import { UploadDropzone } from "@/lib/uploadthing";
 
 const steps = [
   { id: 1, title: "Your Expertise" },
@@ -151,7 +149,15 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
                 if (formData.bio.trim() === '' || formData.hourlyRate.trim() === '' || formData.availability.days.length === 0) return false;
                 break;
             case 3:
-                // Validation for bank details is temporarily made optional.
+                 const { accountHolderName, bankName, accountNumber, ifscCode } = formData.bankDetails;
+                if (
+                    accountHolderName.trim() === '' ||
+                    bankName.trim() === '' ||
+                    !/^\d{9,18}$/.test(accountNumber) ||
+                    !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)
+                ) {
+                    return false;
+                }
                 break;
             default:
                 break;
@@ -164,14 +170,22 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
     const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
     if (value.length > 18) return; // Max length
     setFormData({ ...formData, bankDetails: { ...formData.bankDetails, accountNumber: value } });
-    setBankErrors(prev => ({ ...prev, accountNumber: "" }));
+    if (value.length > 0 && (value.length < 9 || value.length > 18)) {
+        setBankErrors(prev => ({ ...prev, accountNumber: "Account number must be 9-18 digits." }));
+    } else {
+        setBankErrors(prev => ({ ...prev, accountNumber: "" }));
+    }
   };
 
   const handleIfscChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (value.length > 11) return; // Max length
       setFormData({ ...formData, bankDetails: { ...formData.bankDetails, ifscCode: value } });
-      setBankErrors(prev => ({ ...prev, ifscCode: "" }));
+      if (value.length > 0 && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(value)) {
+          setBankErrors(prev => ({ ...prev, ifscCode: "Must be a valid 11-character IFSC code."}));
+      } else {
+          setBankErrors(prev => ({ ...prev, ifscCode: "" }));
+      }
   };
 
 
