@@ -99,16 +99,7 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
         case 2:
             return formData.learningGoals.trim() !== '';
         case 3:
-            const bankDetails = formData.bankDetails;
-            const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-            const isIfscValid = ifscRegex.test(bankDetails.ifscCode);
-            const isAccountNumValid = /^\d{9,18}$/.test(bankDetails.accountNumber);
-            return (
-                bankDetails.accountHolderName.trim() !== '' &&
-                bankDetails.bankName.trim() !== '' &&
-                isAccountNumValid &&
-                isIfscValid
-            );
+            return true;
         default:
             return true;
     }
@@ -118,24 +109,14 @@ export default function StudentOnboarding({ onComplete }: { onComplete: () => vo
     const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
     if (value.length > 18) return; // Max length
     setFormData({ ...formData, bankDetails: { ...formData.bankDetails, accountNumber: value } });
-    if (value.length > 0 && (value.length < 9 || value.length > 18)) {
-        setBankErrors(prev => ({ ...prev, accountNumber: "Account number must be 9-18 digits." }));
-    } else {
-        setBankErrors(prev => ({ ...prev, accountNumber: "" }));
-    }
+    setBankErrors(prev => ({ ...prev, accountNumber: "" }));
   };
 
   const handleIfscChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (value.length > 11) return; // Max length
       setFormData({ ...formData, bankDetails: { ...formData.bankDetails, ifscCode: value } });
-
-      const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-      if (value.length > 0 && !ifscRegex.test(value)) {
-          setBankErrors(prev => ({ ...prev, ifscCode: "Must be 11 chars, e.g. SBIN0001234" }));
-      } else {
-          setBankErrors(prev => ({ ...prev, ifscCode: "" }));
-      }
+      setBankErrors(prev => ({ ...prev, ifscCode: "" }));
   };
 
   const renderStepContent = () => {
