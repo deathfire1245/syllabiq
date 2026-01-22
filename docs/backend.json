@@ -147,7 +147,7 @@
     "Ticket": {
       "title": "Ticket",
       "type": "object",
-      "description": "Represents a paid ticket for a one-on-one session.",
+      "description": "Represents a paid ticket for a one-on-one session or a course purchase.",
       "properties": {
         "ticketCode": { "type": "string", "description": "Unique human-readable code for the ticket." },
         "orderId": { "type": "string", "description": "Idempotent unique identifier for the transaction (e.g., from a payment gateway)." },
@@ -166,7 +166,10 @@
         "endedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the session ended." },
         "refundable": { "type": "boolean", "description": "Indicates if the ticket is eligible for a refund." },
         "cancelReason": { "type": "string", "enum": ["TEACHER_NO_SHOW"], "description": "Reason for cancellation, if any." },
-        "endedBy": { "type": "string", "enum": ["TEACHER", "STUDENT", "SYSTEM"], "description": "Who or what ended the session." }
+        "endedBy": { "type": "string", "enum": ["TEACHER", "STUDENT", "SYSTEM"], "description": "Who or what ended the session." },
+        "saleType": { "type": "string", "enum": ["SESSION", "COURSE"], "description": "The type of sale this ticket represents." },
+        "courseId": { "type": "string", "description": "ID of the course purchased, if applicable." },
+        "courseTitle": { "type": "string", "description": "Title of the course purchased, if applicable." }
       },
       "required": ["ticketCode", "orderId", "studentId", "teacherId", "status", "price", "duration", "createdAt", "validFrom", "validTill", "used"]
     },

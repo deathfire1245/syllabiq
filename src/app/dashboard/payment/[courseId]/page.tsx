@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useFirebase, useUser, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, addDoc, collection, serverTimestamp, getDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,7 +30,7 @@ export default function MockPaymentPage() {
     const [isProcessing, setIsProcessing] = React.useState(false);
 
     const handlePurchase = async () => {
-        if (!user || !firestore || !courseId) {
+        if (!user || !firestore || !courseId || !course) {
             toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to make a purchase.' });
             return;
         }
@@ -41,6 +41,35 @@ export default function MockPaymentPage() {
         await new Promise(resolve => setTimeout(resolve, 1500));
 
         try {
+            // 1. Log the transaction in the 'tickets' collection for admin tracking
+            const userDoc = await getDoc(doc(firestore, 'users', user.uid));
+            const studentName = userDoc.exists() ? userDoc.data().name : 'Unknown Student';
+
+            const ticketPayload = {
+                ticketCode: `CS-${Date.now().toString().slice(-6)}`,
+                orderId: `ord_${courseId.slice(0, 5)}_${user.uid.slice(0, 5)}`,
+                studentId: user.uid,
+                studentName: studentName,
+                teacherId: course.authorId,
+                teacherName: course.author,
+                status: 'COMPLETED',
+                price: Number(course.price),
+                duration: 0,
+                commissionPercent: 10,
+                createdAt: serverTimestamp(),
+                validFrom: serverTimestamp(),
+                validTill: serverTimestamp(),
+                used: true,
+                saleType: 'COURSE',
+                courseId: courseId,
+                courseTitle: course.title,
+                refundable: false,
+                cancelReason: null,
+                endedBy: 'SYSTEM'
+            };
+            await addDoc(collection(firestore, 'tickets'), ticketPayload);
+            
+            // 2. Add course to the student's enrolled courses
             const userDocRef = doc(firestore, 'users', user.uid);
             await updateDoc(userDocRef, {
                 'studentProfile.enrolledCourses': arrayUnion(courseId),
