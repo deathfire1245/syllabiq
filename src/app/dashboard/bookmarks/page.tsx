@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { getSubjects, getTopicById } from "@/lib/data";
+import { getSubjects, getTopicById, getTopicImage } from "@/lib/data";
 import { useBookmarks } from "@/contexts/BookmarkContext";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,12 +23,22 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
+import { collection } from "firebase/firestore";
+import type { Topic } from "@/lib/types";
 
 export default function BookmarksPage() {
   const { bookmarkedTopics, removeBookmark } = useBookmarks();
   const { toast } = useToast();
+  const { firestore } = useFirebase();
 
-  const topics = bookmarkedTopics.map(id => getTopicById(id)).filter(Boolean);
+  const { data: allTopics } = useCollection<Topic>(useMemoFirebase(() => firestore ? collection(firestore, 'topics') : null, [firestore]));
+
+  const topics = React.useMemo(() => {
+    if (!allTopics) return [];
+    return bookmarkedTopics.map(id => getTopicById(id, allTopics)).filter((t): t is Topic => !!t);
+  }, [bookmarkedTopics, allTopics]);
+
   const subjects = getSubjects();
 
   const handleRemoveBookmark = (topicId: string, topicName: string) => {
@@ -61,8 +71,9 @@ export default function BookmarksPage() {
       </ScrollReveal>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {topics.map((topic, index) => {
-             if (!topic) return null;
+            if (!topic) return null;
             const subject = subjects.find(s => s.id === topic.subjectId);
+            const topicImage = getTopicImage(topic);
             return (
               <ScrollReveal
                 key={topic.id}
@@ -73,12 +84,12 @@ export default function BookmarksPage() {
                 >
                   <Link href={`/dashboard/subjects/${subject?.id}/${topic.id}`}>
                     <Image
-                      src={topic.coverImage.src}
+                      src={topicImage.src}
                       alt={topic.name}
                       width={600}
                       height={400}
                       className="object-cover w-full h-40 transition-transform duration-300 group-hover:scale-110"
-                      data-ai-hint={topic.coverImage.hint}
+                      data-ai-hint={topicImage.hint}
                     />
                   </Link>
                   <CardHeader>

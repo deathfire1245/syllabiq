@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { getSubjectById } from "@/lib/data";
+import { getSubjectById, getTopicImage } from "@/lib/data";
 import { useParams, notFound, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -22,6 +22,7 @@ import { useFirebase, useCollection, useMemoFirebase, useUser } from "@/firebase
 import { collection, query, where, addDoc, serverTimestamp } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function SubjectDetailsPage() {
   const params = useParams();
@@ -144,6 +145,8 @@ export default function SubjectDetailsPage() {
     const finalKeyPoints = keyPoints.map(p => p.trim()).filter(p => p);
     const finalQuestions = questions.filter(q => q.question.trim() && q.answer.trim());
     
+    const randomImage = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
+    
     const payload: any = {
       name: newTopic.title,
       chapter: newTopic.chapter,
@@ -151,8 +154,8 @@ export default function SubjectDetailsPage() {
       subjectId: subjectId,
       createdBy: user.uid,
       coverImage: { 
-        src: `https://picsum.photos/seed/${newTopic.title.replace(/\s+/g, '-')}/600/400`,
-        hint: "educational content"
+        src: randomImage.imageUrl,
+        hint: randomImage.imageHint
       },
       keyPoints: finalKeyPoints,
       questions: finalQuestions,
@@ -373,43 +376,46 @@ export default function SubjectDetailsPage() {
       </ScrollReveal>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {topics && topics.map((topic, index) => (
-          <ScrollReveal key={topic.id} delay={index * 0.1}>
-            <div onClick={() => handleViewTopic(topic)} className="cursor-pointer h-full">
-              <Card
-                className="group relative overflow-hidden transform transition-all duration-300 hover:shadow-xl h-full"
-              >
-                <Image
-                  src={topic.coverImage.src}
-                  alt={topic.name}
-                  width={600}
-                  height={400}
-                  className="object-cover w-full h-40 transition-transform duration-300 group-hover:scale-110"
-                  data-ai-hint={topic.coverImage.hint}
-                />
-                <Button 
-                    variant="outline" 
-                    size="icon" 
-                    className="absolute top-3 right-3 z-10 bg-card/80 backdrop-blur-sm rounded-full h-9 w-9 text-muted-foreground hover:text-primary transition-all group-hover:opacity-100 opacity-80"
-                    onClick={(e) => handleBookmarkToggle(e, topic)}
+        {topics && topics.map((topic, index) => {
+          const topicImage = getTopicImage(topic);
+          return (
+            <ScrollReveal key={topic.id} delay={index * 0.1}>
+              <div onClick={() => handleViewTopic(topic)} className="cursor-pointer h-full">
+                <Card
+                  className="group relative overflow-hidden transform transition-all duration-300 hover:shadow-xl h-full"
                 >
-                    <Bookmark className={cn("h-5 w-5", isBookmarked(topic.id) ? "fill-primary text-primary" : "")} />
-                </Button>
-                <CardHeader>
-                  <Badge variant="outline" className="mb-1 w-fit">{topic.chapter}</Badge>
-                  <CardTitle className="text-lg font-bold line-clamp-1 group-hover:text-primary transition-colors">
-                    {topic.name}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {topic.summary}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </ScrollReveal>
-        ))}
+                  <Image
+                    src={topicImage.src}
+                    alt={topic.name}
+                    width={600}
+                    height={400}
+                    className="object-cover w-full h-40 transition-transform duration-300 group-hover:scale-110"
+                    data-ai-hint={topicImage.hint}
+                  />
+                  <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="absolute top-3 right-3 z-10 bg-card/80 backdrop-blur-sm rounded-full h-9 w-9 text-muted-foreground hover:text-primary transition-all group-hover:opacity-100 opacity-80"
+                      onClick={(e) => handleBookmarkToggle(e, topic)}
+                  >
+                      <Bookmark className={cn("h-5 w-5", isBookmarked(topic.id) ? "fill-primary text-primary" : "")} />
+                  </Button>
+                  <CardHeader>
+                    <Badge variant="outline" className="mb-1 w-fit">{topic.chapter}</Badge>
+                    <CardTitle className="text-lg font-bold line-clamp-1 group-hover:text-primary transition-colors">
+                      {topic.name}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {topic.summary}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </ScrollReveal>
+          )
+        })}
         {topics && topics.length === 0 && (
           <ScrollReveal className="col-span-full text-center py-12">
             <h3 className="text-lg font-medium">No topics yet.</h3>

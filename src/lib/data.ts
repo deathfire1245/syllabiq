@@ -260,3 +260,17 @@ export const getStaticTopics = () => topics;
 
 export const getSubjectById = (id: string) => subjects.find(s => s.id === id);
 export const getTopicsBySubjectId = (subjectId: string, dbTopics: Topic[]) => dbTopics.filter(t => t.subjectId === subjectId);
+
+export const getTopicImage = (topic: Topic) => {
+    const arithmeticProgressionImage = PlaceHolderImages.find(p => p.id === 'arithmetic-progressions-topic');
+    if (topic.name === 'Arithmetic Progressions (AP) & Geometric Progressions (GP)' && arithmeticProgressionImage) {
+        return { src: arithmeticProgressionImage.imageUrl, hint: arithmeticProgressionImage.imageHint };
+    }
+    // Ensure coverImage exists and has a src property
+    if (topic.coverImage && topic.coverImage.src) {
+        return topic.coverImage;
+    }
+    // Fallback if coverImage is missing
+    const fallbackImage = PlaceHolderImages.find(p => p.id === 'math-cover') || { imageUrl: 'https://picsum.photos/seed/placeholder/600/400', imageHint: 'placeholder' };
+    return { src: fallbackImage.imageUrl, hint: fallbackImage.imageHint };
+}

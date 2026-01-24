@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useFirebase, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { getTopicImage } from '@/lib/data';
 
 export default function TopicContentPage() {
     const router = useRouter();
@@ -228,6 +229,8 @@ export default function TopicContentPage() {
         );
     };
 
+    const topicImage = getTopicImage(topic);
+
     return (
         <div className="space-y-8">
             {/* Header */}
@@ -255,11 +258,11 @@ export default function TopicContentPage() {
                 <div className="md:col-span-2 space-y-6">
                     <div className="relative aspect-video w-full overflow-hidden rounded-lg shadow-lg">
                         <Image
-                            src={topic.coverImage.src}
+                            src={topicImage.src}
                             alt={topic.name}
                             fill
                             className="object-cover"
-                            data-ai-hint={topic.coverImage.hint}
+                            data-ai-hint={topicImage.hint}
                         />
                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                          <Button

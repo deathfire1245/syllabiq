@@ -13,6 +13,12 @@
       "imageHint": "science laboratory"
     },
     {
+      "id": "arithmetic-progressions-topic",
+      "description": "Abstract math background for arithmetic progressions",
+      "imageUrl": "https://images.unsplash.com/photo-1632207190829-a97e41017175?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxNXx8bWF0aHN8ZW58MHx8fHwxNzY5MjcwNzg0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "maths abstract"
+    },
+    {
       "id": "history-cover",
       "description": "Ancient scrolls and artifacts for history",
       "imageUrl": "https://images.unsplash.com/photo-1748187318527-b257c0de6aaa?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxoaXN0b3J5JTIwYW5jaWVudHxlbnwwfHx8fDE3NjM0NzQ0MjZ8MA&ixlib=rb-4.1.0&q=80&w=1080",

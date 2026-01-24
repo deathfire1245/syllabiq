@@ -14,7 +14,7 @@ import {
   Calendar,
   IndianRupee,
 } from "lucide-react";
-import { getSubjects, getStaticTopics } from "@/lib/data";
+import { getSubjects, getStaticTopics, getTopicImage } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Image from "next/image";
 import { Progress } from "@/components/ui/progress";
@@ -378,11 +378,13 @@ const StudentDashboard = ({ userRole }: { userRole: string }) => {
                             </div>
                         ) : recentTopics.length > 0 ? (
                             <div className="grid md:grid-cols-3 gap-4">
-                                {recentTopics.map(topic => (
+                                {recentTopics.map(topic => {
+                                    const topicImage = getTopicImage(topic);
+                                    return (
                                      <div key={topic.id} className="block group cursor-pointer" onClick={() => handleViewTopic(topic)}>
                                         <Card className="overflow-hidden h-full transition-shadow hover:shadow-lg">
                                             <div className="relative h-24 w-full">
-                                                <Image src={topic.coverImage.src} alt={topic.name} fill className="object-cover" />
+                                                <Image src={topicImage.src} alt={topic.name} fill className="object-cover" data-ai-hint={topicImage.hint} />
                                             </div>
                                             <CardContent className="p-4">
                                                 <Badge variant="outline" className="mb-1">{topic.chapter}</Badge>
@@ -390,7 +392,7 @@ const StudentDashboard = ({ userRole }: { userRole: string }) => {
                                             </CardContent>
                                         </Card>
                                     </div>
-                                ))}
+                                )})}
                             </div>
                         ) : (
                             <div className="text-center py-10">
