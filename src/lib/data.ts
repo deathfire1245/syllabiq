@@ -262,15 +262,8 @@ export const getSubjectById = (id: string) => subjects.find(s => s.id === id);
 export const getTopicsBySubjectId = (subjectId: string, dbTopics: Topic[]) => dbTopics.filter(t => t.subjectId === subjectId);
 
 export const getTopicImage = (topic: Topic) => {
-    const arithmeticProgressionImage = PlaceHolderImages.find(p => p.id === 'arithmetic-progressions-topic');
-    if (topic.name === 'Arithmetic Progressions (AP) & Geometric Progressions (GP)' && arithmeticProgressionImage) {
-        return { src: arithmeticProgressionImage.imageUrl, hint: arithmeticProgressionImage.imageHint };
-    }
-    // Ensure coverImage exists and has a src property
-    if (topic.coverImage && topic.coverImage.src) {
-        return topic.coverImage;
-    }
-    // Fallback if coverImage is missing
-    const fallbackImage = PlaceHolderImages.find(p => p.id === 'math-cover') || { imageUrl: 'https://picsum.photos/seed/placeholder/600/400', imageHint: 'placeholder' };
-    return { src: fallbackImage.imageUrl, hint: fallbackImage.imageHint };
+    return { 
+      src: "https://images.unsplash.com/photo-1632207190829-a97e41017175?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxNXx8bWF0aHN8ZW58MHx8fHwxNzY5MjcwNzg0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      hint: "maths abstract"
+    };
 }

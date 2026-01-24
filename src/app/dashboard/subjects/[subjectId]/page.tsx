@@ -145,8 +145,6 @@ export default function SubjectDetailsPage() {
     const finalKeyPoints = keyPoints.map(p => p.trim()).filter(p => p);
     const finalQuestions = questions.filter(q => q.question.trim() && q.answer.trim());
     
-    const randomImage = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
-    
     const payload: any = {
       name: newTopic.title,
       chapter: newTopic.chapter,
@@ -154,8 +152,8 @@ export default function SubjectDetailsPage() {
       subjectId: subjectId,
       createdBy: user.uid,
       coverImage: { 
-        src: randomImage.imageUrl,
-        hint: randomImage.imageHint
+        src: "https://images.unsplash.com/photo-1632207190829-a97e41017175?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxNXx8bWF0aHN8ZW58MHx8fHwxNzY5MjcwNzg0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+        hint: "maths abstract"
       },
       keyPoints: finalKeyPoints,
       questions: finalQuestions,
