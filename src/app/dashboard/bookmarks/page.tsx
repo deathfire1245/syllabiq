@@ -2,11 +2,10 @@
 "use client";
 
 import * as React from "react";
-import { getSubjects, getTopicById, getTopicImage } from "@/lib/data";
+import { getSubjects, getTopicById } from "@/lib/data";
 import { useBookmarks } from "@/contexts/BookmarkContext";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import Image from "next/image";
 import { BookmarkX, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -73,66 +72,49 @@ export default function BookmarksPage() {
           {topics.map((topic, index) => {
             if (!topic) return null;
             const subject = subjects.find(s => s.id === topic.subjectId);
-            const topicImage = getTopicImage(topic);
             return (
               <ScrollReveal
                 key={topic.id}
                 delay={index * 0.1}
               >
                 <Card
-                  className="group relative overflow-hidden transform transition-all duration-300 hover:shadow-lg h-full"
+                  className="group relative transform transition-all duration-300 hover:shadow-lg h-full hover:-translate-y-1"
                 >
-                  <Link href={`/dashboard/subjects/${subject?.id}/${topic.id}`}>
-                    <Image
-                      src={topicImage.src}
-                      alt={topic.name}
-                      width={600}
-                      height={400}
-                      className="object-cover w-full h-40 transition-transform duration-300 group-hover:scale-110"
-                      data-ai-hint={topicImage.hint}
-                    />
+                  <Link href={`/dashboard/subjects/${subject?.id}/${topic.id}`} className="block h-full p-6">
+                      <Badge variant="outline" className="mb-2">{subject?.name}</Badge>
+                      <CardTitle className="text-lg font-bold line-clamp-2 group-hover:text-primary transition-colors">
+                          {topic.name}
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground line-clamp-3 mt-2">
+                        {topic.summary}
+                      </p>
                   </Link>
-                  <CardHeader>
-                      <div className="flex justify-between items-start">
-                          <div>
-                              <Badge variant="outline" className="mb-1">{topic.chapter}</Badge>
-                              <CardTitle className="text-lg font-bold line-clamp-1 group-hover:text-primary transition-colors">
-                                  <Link href={`/dashboard/subjects/${subject?.id}/${topic.id}`}>
-                                      {topic.name}
-                                  </Link>
-                              </CardTitle>
-                          </div>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                               <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive opacity-50 group-hover:opacity-100 transition-opacity">
-                                  <Trash2 className="w-5 h-5" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently remove the bookmark for &quot;{topic.name}&quot;.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleRemoveBookmark(topic.id, topic.name)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Remove
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                      </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {topic.summary}
-                    </p>
-                  </CardContent>
+                  <div className="absolute top-3 right-3">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                           <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive opacity-50 group-hover:opacity-100 transition-opacity">
+                              <Trash2 className="w-5 h-5" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently remove the bookmark for &quot;{topic.name}&quot;.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleRemoveBookmark(topic.id, topic.name)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Remove
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                  </div>
                 </Card>
               </ScrollReveal>
             );
@@ -141,3 +123,5 @@ export default function BookmarksPage() {
     </div>
   );
 }
+
+    

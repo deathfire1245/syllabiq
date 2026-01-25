@@ -2,9 +2,8 @@
 "use client";
 
 import * as React from "react";
-import { getSubjectById, getTopicImage } from "@/lib/data";
+import { getSubjectById } from "@/lib/data";
 import { useParams, notFound, useRouter } from "next/navigation";
-import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -375,40 +374,37 @@ export default function SubjectDetailsPage() {
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {topics && topics.map((topic, index) => {
-          const topicImage = getTopicImage(topic);
           return (
             <ScrollReveal key={topic.id} delay={index * 0.1}>
               <div onClick={() => handleViewTopic(topic)} className="cursor-pointer h-full">
                 <Card
-                  className="group relative overflow-hidden transform transition-all duration-300 hover:shadow-xl h-full"
+                  className="group h-full flex flex-col justify-between transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
                 >
-                  <Image
-                    src={topicImage.src}
-                    alt={topic.name}
-                    width={600}
-                    height={400}
-                    className="object-cover w-full h-40 transition-transform duration-300 group-hover:scale-110"
-                    data-ai-hint={topicImage.hint}
-                  />
-                  <Button 
-                      variant="outline" 
-                      size="icon" 
-                      className="absolute top-3 right-3 z-10 bg-card/80 backdrop-blur-sm rounded-full h-9 w-9 text-muted-foreground hover:text-primary transition-all group-hover:opacity-100 opacity-80"
-                      onClick={(e) => handleBookmarkToggle(e, topic)}
-                  >
-                      <Bookmark className={cn("h-5 w-5", isBookmarked(topic.id) ? "fill-primary text-primary" : "")} />
-                  </Button>
-                  <CardHeader>
-                    <Badge variant="outline" className="mb-1 w-fit">{topic.chapter}</Badge>
-                    <CardTitle className="text-lg font-bold line-clamp-1 group-hover:text-primary transition-colors">
-                      {topic.name}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {topic.summary}
-                    </p>
-                  </CardContent>
+                  <div>
+                    <CardHeader>
+                      <div className="flex justify-between items-start gap-4">
+                          <div>
+                            <Badge variant="outline" className="mb-1 w-fit">{topic.chapter}</Badge>
+                            <CardTitle className="text-lg font-bold line-clamp-2 group-hover:text-primary transition-colors">
+                              {topic.name}
+                            </CardTitle>
+                          </div>
+                          <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-full flex-shrink-0 text-muted-foreground hover:text-primary transition-colors mt-1 -mr-2"
+                              onClick={(e) => handleBookmarkToggle(e, topic)}
+                          >
+                              <Bookmark className={cn("h-5 w-5", isBookmarked(topic.id) ? "fill-primary text-primary" : "")} />
+                          </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground line-clamp-3">
+                        {topic.summary}
+                      </p>
+                    </CardContent>
+                  </div>
                 </Card>
               </div>
             </ScrollReveal>
