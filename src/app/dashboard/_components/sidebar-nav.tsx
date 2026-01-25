@@ -16,6 +16,7 @@ import { Logo } from "@/components/Logo";
 const studentNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/subjects", icon: Compass, label: "All Subjects" },
+  { href: "/dashboard/courses", icon: GraduationCap, label: "Courses" },
   { href: "/dashboard/library", icon: BookOpen, label: "My Library" },
   { href: "/dashboard/tutors", icon: Briefcase, label: "Find a Tutor" },
   { href: "/dashboard/bookings", icon: Video, label: "My Bookings" },
