@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -12,6 +11,7 @@ import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
 import { collection } from "firebase/firestore";
 import type { Topic } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSearch } from "@/contexts/SearchContext";
 
 const iconMap: { [key: string]: React.ElementType } = {
   Calculator,
@@ -41,8 +41,9 @@ const iconMap: { [key: string]: React.ElementType } = {
 };
 
 export default function SubjectsPage() {
-  const subjects = getSubjects();
+  const allSubjects = getSubjects();
   const { firestore } = useFirebase();
+  const { searchTerm } = useSearch();
 
   const topicsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -61,6 +62,13 @@ export default function SubjectsPage() {
     }, {} as { [key: string]: number });
   }, [allTopics]);
 
+  const subjects = React.useMemo(() => {
+    if (!searchTerm) return allSubjects;
+    return allSubjects.filter(subject => 
+      subject.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [allSubjects, searchTerm]);
+
   return (
     <div className="space-y-8">
       <ScrollReveal>
@@ -68,12 +76,12 @@ export default function SubjectsPage() {
       </ScrollReveal>
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {isLoading ? (
-          [...Array(subjects.length)].map((_, index) => (
+          [...Array(allSubjects.length)].map((_, index) => (
             <ScrollReveal key={index} delay={index * 0.05}>
-                <Skeleton className="h-[232px] w-full" />
+                <Skeleton className="h-[152px] w-full" />
             </ScrollReveal>
           ))
-        ) : (
+        ) : subjects.length > 0 ? (
             subjects.map((subject, index) => {
                 const Icon = iconMap[subject.icon] || BookOpen;
                 const count = topicCounts[subject.id] || 0;
@@ -110,6 +118,11 @@ export default function SubjectsPage() {
                     </ScrollReveal>
                 );
             })
+        ) : (
+           <div className="col-span-full text-center py-12">
+              <h3 className="text-lg font-medium">No Subjects Found</h3>
+              <p className="text-muted-foreground">Try adjusting your search term.</p>
+           </div>
         )}
       </div>
     </div>
