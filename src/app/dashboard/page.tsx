@@ -14,9 +14,8 @@ import {
   Calendar,
   IndianRupee,
 } from "lucide-react";
-import { getSubjects, getStaticTopics, getTopicImage } from "@/lib/data";
+import { getSubjects, getStaticTopics } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import Image from "next/image";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollReveal } from "@/components/ScrollReveal";
@@ -379,16 +378,15 @@ const StudentDashboard = ({ userRole }: { userRole: string }) => {
                         ) : recentTopics.length > 0 ? (
                             <div className="grid md:grid-cols-3 gap-4">
                                 {recentTopics.map(topic => {
-                                    const topicImage = getTopicImage(topic);
                                     return (
                                      <div key={topic.id} className="block group cursor-pointer" onClick={() => handleViewTopic(topic)}>
-                                        <Card className="overflow-hidden h-full transition-shadow hover:shadow-lg">
-                                            <div className="relative h-24 w-full">
-                                                <Image src={topicImage.src} alt={topic.name} fill className="object-cover" data-ai-hint={topicImage.hint} />
-                                            </div>
-                                            <CardContent className="p-4">
+                                        <Card className="h-full transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                                            <CardHeader>
                                                 <Badge variant="outline" className="mb-1">{topic.chapter}</Badge>
-                                                <h3 className="font-semibold line-clamp-1 group-hover:text-primary">{topic.name}</h3>
+                                                <CardTitle className="text-base font-semibold line-clamp-2 group-hover:text-primary">{topic.name}</CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <p className="text-sm text-muted-foreground line-clamp-2">{topic.summary}</p>
                                             </CardContent>
                                         </Card>
                                     </div>
@@ -443,3 +441,5 @@ export default function DashboardPage() {
     </>
   )
 }
+
+    
