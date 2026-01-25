@@ -4,6 +4,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { SidebarNav } from "./_components/sidebar-nav";
 import { Header } from "./_components/header";
 import { BottomNav } from "./_components/bottom-nav";
+import { SearchProvider } from "@/contexts/SearchContext";
 
 export default function DashboardLayout({
   children,
@@ -13,19 +14,21 @@ export default function DashboardLayout({
   const isMobile = useIsMobile();
 
   return (
-    <div className="min-h-screen bg-secondary/30 text-foreground">
-      {!isMobile && <SidebarNav />}
+    <SearchProvider>
+      <div className="min-h-screen bg-secondary/30 text-foreground">
+        {!isMobile && <SidebarNav />}
 
-      <main
-        className={`transition-all duration-300 ease-in-out ${
-          isMobile ? "pl-0 pb-16" : "pl-64"
-        }`}
-      >
-        <Header />
-        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
-      </main>
-      
-      {isMobile && <BottomNav />}
-    </div>
+        <main
+          className={`transition-all duration-300 ease-in-out ${
+            isMobile ? "pl-0 pb-16" : "pl-64"
+          }`}
+        >
+          <Header />
+          <div className="p-4 sm:p-6 lg:p-8">{children}</div>
+        </main>
+        
+        {isMobile && <BottomNav />}
+      </div>
+    </SearchProvider>
   );
 }

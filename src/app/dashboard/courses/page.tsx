@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useCollection, useFirebase, useMemoFirebase, useUser, useDoc } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSearch } from "@/contexts/SearchContext";
 
 interface Course {
   id: string;
@@ -26,6 +27,7 @@ interface Course {
 export default function CoursesPage() {
   const { firestore } = useFirebase();
   const { user } = useUser();
+  const { searchTerm } = useSearch();
 
   const coursesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -41,6 +43,19 @@ export default function CoursesPage() {
 
   const { data: userProfile } = useDoc(userDocRef);
   const enrolledCourses = userProfile?.studentProfile?.enrolledCourses || [];
+
+  const filteredCourses = React.useMemo(() => {
+    if (!courses) return [];
+    if (!searchTerm) return courses;
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return courses.filter(course =>
+      course.title.toLowerCase().includes(lowercasedTerm) ||
+      course.description.toLowerCase().includes(lowercasedTerm) ||
+      course.author.toLowerCase().includes(lowercasedTerm) ||
+      course.category.toLowerCase().includes(lowercasedTerm)
+    );
+  }, [courses, searchTerm]);
+
 
   if (isLoading) {
     return (
@@ -67,9 +82,9 @@ export default function CoursesPage() {
         </p>
       </ScrollReveal>
       
-      {courses && courses.length > 0 ? (
+      {filteredCourses && filteredCourses.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {courses.map((course, index) => {
+            {filteredCourses.map((course, index) => {
               const isEnrolled = enrolledCourses.includes(course.id);
               return (
               <ScrollReveal key={course.id} delay={index * 0.1}>
@@ -109,8 +124,8 @@ export default function CoursesPage() {
           </div>
       ) : (
         <ScrollReveal className="text-center py-16">
-            <h2 className="text-2xl font-bold">No Courses Available Yet</h2>
-            <p className="text-muted-foreground mt-2">Check back soon to see courses from our expert teachers!</p>
+            <h2 className="text-2xl font-bold">{searchTerm ? 'No Courses Found' : 'No Courses Available Yet'}</h2>
+            <p className="text-muted-foreground mt-2">{searchTerm ? 'Try adjusting your search term.' : 'Check back soon to see courses from our expert teachers!'}</p>
         </ScrollReveal>
       )}
     </div>
