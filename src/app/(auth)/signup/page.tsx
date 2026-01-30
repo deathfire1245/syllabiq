@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -14,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebase } from "@/firebase";
 import { createUserWithEmailAndPassword, User } from "firebase/auth";
-import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, getDoc, collection, query, where, getDocs, limit, addDoc } from "firebase/firestore";
 import { getFirebaseErrorMessage } from "@/lib/firebase-errors";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ const signupSchema = z.object({
   terms: z.literal(true, {
     errorMap: () => ({ message: "You must accept the terms and policies." }),
   }),
+  referralCode: z.string().optional(),
 });
 
 export default function SignupPage() {
@@ -44,10 +46,11 @@ export default function SignupPage() {
       email: "",
       password: "",
       terms: false,
+      referralCode: "",
     },
   });
 
-  const handleNewUser = async (user: User, role: string, name: string) => {
+  const handleNewUser = async (user: User, role: string, name: string, referralCode?: string) => {
     if (!firestore) throw new Error("Firestore not available");
     
     const userDocRef = doc(firestore, "users", user.uid);
@@ -66,8 +69,7 @@ export default function SignupPage() {
       return;
     }
 
-    // New user, create their profile document
-    await setDoc(userDocRef, {
+    const newUserPayload: any = {
       uid: user.uid,
       name: name,
       email: user.email,
@@ -75,7 +77,47 @@ export default function SignupPage() {
       createdAt: serverTimestamp(),
       lastLogin: serverTimestamp(),
       isActive: true,
-    });
+      referralCode: user.uid.substring(0, 8).toUpperCase(), // Generate a unique referral code
+      referralsMade: 0,
+    };
+    
+    // Handle referral logic
+    if (referralCode) {
+        const q = query(collection(firestore, "users"), where("referralCode", "==", referralCode.toUpperCase()), limit(1));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+            const referrerDoc = querySnapshot.docs[0];
+            const referrerId = referrerDoc.id;
+
+            if (referrerId !== user.uid) {
+                newUserPayload.referredBy = referrerId;
+                newUserPayload.signupDiscount = 10; // e.g., 10% discount
+
+                // Create a record in the referrals collection
+                await addDoc(collection(firestore, "referrals"), {
+                    referrerId: referrerId,
+                    referredId: user.uid,
+                    createdAt: serverTimestamp(),
+                });
+                
+                toast({
+                  title: "Referral Applied!",
+                  description: "A signup discount has been added to your account.",
+                });
+            }
+        } else {
+             toast({
+                variant: "destructive",
+                title: "Invalid Referral Code",
+                description: "The referral code you entered was not found.",
+            });
+        }
+    }
+
+
+    // New user, create their profile document
+    await setDoc(userDocRef, newUserPayload);
 
     localStorage.setItem("userRole", role);
     // Direct user to onboarding to collect role-specific profile info
@@ -98,7 +140,7 @@ export default function SignupPage() {
     try {
       if (!auth) throw new Error("Auth service not available");
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      await handleNewUser(userCredential.user, selectedRole, values.name);
+      await handleNewUser(userCredential.user, selectedRole, values.name, values.referralCode);
     } catch (error: any) {
        toast({
         variant: "destructive",
@@ -178,6 +220,19 @@ export default function SignupPage() {
                       <FormLabel className="text-white">Password</FormLabel>
                       <FormControl>
                         <Input type="password" placeholder="••••••••" {...field} className="bg-white/10 text-white placeholder:text-gray-400 border-white/20 focus:ring-primary/50" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="referralCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-white">Referral Code (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter referral code" {...field} className="bg-white/10 text-white placeholder:text-gray-400 border-white/20 focus:ring-primary/50" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
