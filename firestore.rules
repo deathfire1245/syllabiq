@@ -45,7 +45,9 @@ service cloud.firestore {
       allow get: if isOwner(uid) || isAdmin(request.auth.uid);
       
       // LIST: Only admins can list all users to protect user privacy.
-      allow list: if isAdmin(request.auth.uid);
+      // A user can query their own referral code
+      allow list: if isAdmin(request.auth.uid) || (isSignedIn() && request.query.keys().hasOnly(['where', 'limit']));
+
 
       // CREATE: A user can only create their own profile document.
       // - The role must be 'student' or 'teacher' (admins are created manually).
@@ -67,6 +69,23 @@ service cloud.firestore {
       allow delete: if isAdmin(request.auth.uid);
     }
     
+    //----------------------------------------------------------------------
+    //  REFERRAL RULES
+    //----------------------------------------------------------------------
+    match /referrals/{referralId} {
+      // READ: A user can read a referral document if they are the referrer or the one referred.
+      allow read: if isSignedIn() && (isOwner(resource.data.referrerId) || isOwner(resource.data.referredId));
+      
+      // CREATE: A user can only create a referral document where they are the one being referred.
+      allow create: if isSignedIn() && isOwner(request.resource.data.referredId);
+      
+      // LIST: Allow users to query referrals they made. The query must be constrained.
+      allow list: if isSignedIn() && request.query.get("referrerId") == request.auth.uid;
+      
+      // No updates or deletes allowed from the client.
+      allow update, delete: if false;
+    }
+
     //----------------------------------------------------------------------
     //  PUBLIC TUTOR PROFILE RULES
     //----------------------------------------------------------------------

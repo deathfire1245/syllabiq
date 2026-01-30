@@ -14,6 +14,10 @@
         "lastLogin": { "type": "string", "format": "date-time", "description": "User's last login." },
         "isActive": { "type": "boolean", "description": "Indicates if the user account is active." },
         "profilePicture": { "type": "string", "format": "uri", "description": "URL of the user's profile picture." },
+        "referralCode": { "type": "string", "description": "Unique code for referring other users." },
+        "referralsMade": { "type": "number", "description": "Count of successful referrals made." },
+        "referredBy": { "type": "string", "description": "UID of the user who referred this user." },
+        "signupDiscount": { "type": "number", "description": "Discount applied at signup from a referral."},
         "studentProfile": {
           "type": "object",
           "properties": {
@@ -64,7 +68,18 @@
           }
         }
       },
-      "required": ["uid", "email", "role", "name", "createdAt", "isActive"]
+      "required": ["uid", "email", "role", "name", "createdAt", "isActive", "referralCode"]
+    },
+     "Referral": {
+      "title": "Referral",
+      "description": "Represents a successful referral link between two users.",
+      "type": "object",
+      "properties": {
+        "referrerId": { "type": "string", "description": "The UID of the user who made the referral." },
+        "referredId": { "type": "string", "description": "The UID of the new user who was referred." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of when the referral was made." }
+      },
+      "required": ["referrerId", "referredId", "createdAt"]
     },
     "PublicTutorProfile": {
       "title": "Public Tutor Profile",
@@ -199,6 +214,10 @@
       {
         "path": "/users/{uid}",
         "definition": { "entityName": "User", "schema": { "$ref": "#/backend/entities/User" }, "description": "Stores user profile information, including their role.", "params": [{ "name": "uid", "description": "The unique identifier of the user." }] }
+      },
+      {
+        "path": "/referrals/{referralId}",
+        "definition": { "entityName": "Referral", "schema": { "$ref": "#/backend/entities/Referral" }, "description": "Stores a record of a successful referral between two users.", "params": [{ "name": "referralId", "description": "The unique identifier of the referral document." }] }
       },
        {
         "path": "/tutors/{tutorId}",

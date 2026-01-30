@@ -59,7 +59,7 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
     const { firestore } = useFirebase();
 
     const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
-    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+    const { data: userProfile, isLoading: isProfileLoading, mutate } = useDoc(userDocRef);
     
     // ------------------ FIXED: Ticket queries ------------------
     const waitingTicketsQuery = useMemoFirebase(() => {
@@ -92,6 +92,22 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
         );
     }, [user, firestore, userRole]);
     const { data: upcomingSessions, isLoading: areUpcomingSessionsLoading } = useCollection(upcomingSessionsQuery);
+
+    const referralsMadeQuery = useMemoFirebase(() => {
+      if (!user || !firestore) return null;
+      return query(collection(firestore, "referrals"), where("referrerId", "==", user.uid));
+    }, [user, firestore]);
+    const { data: referralsMade } = useCollection(referralsMadeQuery);
+
+    React.useEffect(() => {
+      if (referralsMade && userProfile) {
+        const actualReferralCount = referralsMade.length;
+        const storedReferralCount = userProfile.referralsMade || 0;
+        if (actualReferralCount !== storedReferralCount) {
+          mutate({ referralsMade: actualReferralCount });
+        }
+      }
+    }, [referralsMade, userProfile, mutate]);
 
     const totalEarnings = React.useMemo(() => {
         if (!completedSessions) return 0;
@@ -247,10 +263,26 @@ const StudentDashboard = ({ userRole }: { userRole: string }) => {
     const { toast } = useToast();
     
     const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
-    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+    const { data: userProfile, isLoading: isProfileLoading, mutate } = useDoc(userDocRef);
 
     const topicsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'topics') : null, [firestore]);
     const { data: allTopics, isLoading: areTopicsLoading } = useCollection<Topic>(topicsQuery);
+    
+    const referralsMadeQuery = useMemoFirebase(() => {
+      if (!user || !firestore) return null;
+      return query(collection(firestore, "referrals"), where("referrerId", "==", user.uid));
+    }, [user, firestore]);
+    const { data: referralsMade } = useCollection(referralsMadeQuery);
+
+     React.useEffect(() => {
+      if (referralsMade && userProfile) {
+        const actualReferralCount = referralsMade.length;
+        const storedReferralCount = userProfile.referralsMade || 0;
+        if (actualReferralCount !== storedReferralCount) {
+          mutate({ referralsMade: actualReferralCount });
+        }
+      }
+    }, [referralsMade, userProfile, mutate]);
 
     const completedTopicsCount = userProfile?.studentProfile?.completedTopics?.length || 0;
     const totalTopicsCount = allTopics?.length || 0;
@@ -441,5 +473,3 @@ export default function DashboardPage() {
     </>
   )
 }
-
-    
