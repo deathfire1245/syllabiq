@@ -57,6 +57,7 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
     const router = useRouter();
     const { user, isUserLoading } = useUser();
     const { firestore } = useFirebase();
+    const { toast } = useToast();
 
     const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
     const { data: userProfile, isLoading: isProfileLoading, mutate } = useDoc(userDocRef);
@@ -212,33 +213,58 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
-            <ScrollReveal className="md:col-span-2" delay={0.3}>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Recent Content</CardTitle>
-                        <CardDescription>Your most recently created topics.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {isRecentContentLoading ? <Skeleton className="h-32 w-full" /> : 
-                        recentContent && recentContent.length > 0 ? (
-                            <div className="space-y-4">
-                                {recentContent.map(topic => (
-                                    <div key={topic.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                                        <div>
-                                            <p className="font-semibold">{topic.name}</p>
-                                            <p className="text-sm text-muted-foreground">{topic.chapter}</p>
+            <div className="md:col-span-2 space-y-8">
+                <ScrollReveal delay={0.3}>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Recent Content</CardTitle>
+                            <CardDescription>Your most recently created topics.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {isRecentContentLoading ? <Skeleton className="h-32 w-full" /> : 
+                            recentContent && recentContent.length > 0 ? (
+                                <div className="space-y-4">
+                                    {recentContent.map(topic => (
+                                        <div key={topic.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                                            <div>
+                                                <p className="font-semibold">{topic.name}</p>
+                                                <p className="text-sm text-muted-foreground">{topic.chapter}</p>
+                                            </div>
+                                            <Badge variant="outline">{topic.subjectId.split('-')[0]}</Badge>
                                         </div>
-                                        <Badge variant="outline">{topic.subjectId.split('-')[0]}</Badge>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-center text-muted-foreground py-8">You haven't created any content yet.</p>
-                        )}
-                    </CardContent>
-                </Card>
-            </ScrollReveal>
-            <ScrollReveal delay={0.4}>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-center text-muted-foreground py-8">You haven't created any content yet.</p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </ScrollReveal>
+                 <ScrollReveal delay={0.35}>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Your Referral Code</CardTitle>
+                            <CardDescription>Share your code with other teachers and students to earn rewards.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {userProfile?.referralCode ? (
+                                <div className="flex items-center justify-between p-4 bg-secondary rounded-lg">
+                                    <span className="text-2xl font-mono font-bold text-primary tracking-widest">{userProfile.referralCode}</span>
+                                    <Button variant="ghost" size="icon" onClick={() => {
+                                        navigator.clipboard.writeText(userProfile.referralCode);
+                                        toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
+                                    }}>
+                                        <Copy className="w-5 h-5" />
+                                    </Button>
+                                </div>
+                            ) : (
+                                <p className="text-muted-foreground text-center">Referral code not available.</p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </ScrollReveal>
+            </div>
+            <ScrollReveal className="md:col-span-1" delay={0.4}>
                 <Card className="bg-gradient-to-br from-primary/80 to-primary text-primary-foreground h-full flex flex-col justify-center text-center">
                     <CardHeader>
                         <CardTitle className="text-2xl">Create Something New</CardTitle>
@@ -397,6 +423,30 @@ const StudentDashboard = ({ userRole }: { userRole: string }) => {
             <ScrollReveal delay={0.3}>
                 <Card>
                     <CardHeader>
+                        <CardTitle>Your Referral Code</CardTitle>
+                        <CardDescription>Share your code with friends to earn rewards.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {userProfile?.referralCode ? (
+                            <div className="flex items-center justify-between p-4 bg-secondary rounded-lg">
+                                <span className="text-2xl font-mono font-bold text-primary tracking-widest">{userProfile.referralCode}</span>
+                                <Button variant="ghost" size="icon" onClick={() => {
+                                    navigator.clipboard.writeText(userProfile.referralCode);
+                                    toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
+                                }}>
+                                    <Copy className="w-5 h-5" />
+                                </Button>
+                            </div>
+                        ) : (
+                            <p className="text-muted-foreground text-center">Referral code not available.</p>
+                        )}
+                    </CardContent>
+                </Card>
+            </ScrollReveal>
+
+            <ScrollReveal delay={0.4}>
+                <Card>
+                    <CardHeader>
                         <CardTitle>Continue Learning</CardTitle>
                         <CardDescription>Pick up where you left off.</CardDescription>
                     </CardHeader>
@@ -473,3 +523,5 @@ export default function DashboardPage() {
     </>
   )
 }
+
+    
