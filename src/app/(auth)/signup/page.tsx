@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -15,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebase } from "@/firebase";
 import { createUserWithEmailAndPassword, User } from "firebase/auth";
-import { doc, setDoc, serverTimestamp, getDoc, collection, query, where, getDocs, limit, addDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, getDoc, collection, query, where, getDocs, limit, addDoc, updateDoc } from "firebase/firestore";
 import { getFirebaseErrorMessage } from "@/lib/firebase-errors";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -54,21 +53,8 @@ export default function SignupPage() {
     if (!firestore) throw new Error("Firestore not available");
     
     const userDocRef = doc(firestore, "users", user.uid);
-    const userDoc = await getDoc(userDocRef);
 
-    if (userDoc.exists()) {
-      // This case should ideally not happen in a normal signup flow,
-      // but as a safeguard, we treat it as a login.
-      const userData = userDoc.data();
-      localStorage.setItem("userRole", userData.role);
-      toast({
-        title: "Welcome Back!",
-        description: `Signed in as ${userData.name || user.email}.`,
-      });
-      router.push(userData.role === 'admin' ? '/locked' : '/dashboard');
-      return;
-    }
-
+    // 1. Create the user document first to ensure the user can log in.
     const newUserPayload: any = {
       uid: user.uid,
       name: name,
@@ -77,12 +63,16 @@ export default function SignupPage() {
       createdAt: serverTimestamp(),
       lastLogin: serverTimestamp(),
       isActive: true,
-      referralCode: user.uid.substring(0, 8).toUpperCase(), // Generate a unique referral code
+      referralCode: user.uid.substring(0, 8).toUpperCase(),
       referralsMade: 0,
     };
     
-    // Handle referral logic
+    // This is the critical step. Create the user document immediately.
+    await setDoc(userDocRef, newUserPayload);
+
+    // 2. Handle the referral logic separately and silently fail if it doesn't work.
     if (referralCode) {
+      try {
         const q = query(collection(firestore, "users"), where("referralCode", "==", referralCode.toUpperCase()), limit(1));
         const querySnapshot = await getDocs(q);
 
@@ -91,8 +81,11 @@ export default function SignupPage() {
             const referrerId = referrerDoc.id;
 
             if (referrerId !== user.uid) {
-                newUserPayload.referredBy = referrerId;
-                newUserPayload.signupDiscount = 10; // e.g., 10% discount
+                // Update new user with referral info
+                await updateDoc(userDocRef, {
+                  referredBy: referrerId,
+                  signupDiscount: 10,
+                });
 
                 // Create a record in the referrals collection
                 await addDoc(collection(firestore, "referrals"), {
@@ -113,11 +106,12 @@ export default function SignupPage() {
                 description: "The referral code you entered was not found.",
             });
         }
+      } catch (error) {
+        // Silently fail on referral logic error. Log it for debugging.
+        console.error("Referral processing failed, but user was created:", error);
+        // Do not re-throw, so the rest of the signup flow continues.
+      }
     }
-
-
-    // New user, create their profile document
-    await setDoc(userDocRef, newUserPayload);
 
     localStorage.setItem("userRole", role);
     // Direct user to onboarding to collect role-specific profile info

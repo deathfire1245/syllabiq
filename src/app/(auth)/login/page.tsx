@@ -49,8 +49,12 @@ export default function LoginPage() {
     
     const userData = userDoc.data();
     
-    // Update last login time
-    await updateDoc(userDocRef, { lastLogin: serverTimestamp() });
+    // Update last login time, but don't let it fail the whole login process
+    try {
+        await updateDoc(userDocRef, { lastLogin: serverTimestamp() });
+    } catch(error) {
+        console.warn("Could not update last login time.", error);
+    }
 
     localStorage.setItem('userRole', userData.role);
 
