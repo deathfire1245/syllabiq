@@ -79,12 +79,68 @@ service cloud.firestore {
       // CREATE: A user can only create a referral document where they are the one being referred.
       allow create: if isSignedIn() && isOwner(request.resource.data.referredId);
       
-      // LIST: Allow users to query referrals they made. The query must be constrained.
-      allow list: if isSignedIn() && request.query.get("referrerId") == request.auth.uid;
+      // LIST: Allow users to query referrals they made or received.
+      allow list: if isSignedIn();
+
+      // UPDATE: Referrer can update the doc to claim their discount, one-way change only.
+      allow update: if isOwner(resource.data.referrerId) &&
+                     request.resource.data.referrerDiscountClaimed == true &&
+                     resource.data.referrerDiscountClaimed != true &&
+                     request.resource.data.referrerId == resource.data.referrerId &&
+                     request.resource.data.referredId == resource.data.referredId;
       
-      // No updates or deletes allowed from the client.
-      allow update, delete: if false;
+      // DELETE: No deletes allowed from the client.
+      allow delete: if false;
     }
+    
+    //----------------------------------------------------------------------
+    //  DISCOUNT RULES
+    //----------------------------------------------------------------------
+    match /discounts/{discountId} {
+        function getReferral(refId) {
+            return get(/databases/$(database)/documents/referrals/$(refId));
+        }
+        function referralExists(refId) {
+            return exists(/databases/$(database)/documents/referrals/$(refId));
+        }
+
+        // READ: Users can only read their own discounts.
+        allow read: if isOwner(resource.data.userId);
+        allow list: if isSignedIn() && request.query.where[0][0] == 'userId' && request.query.where[0][2] == request.auth.uid;
+
+        // CREATE: Discount creation is heavily restricted.
+        allow create: if isOwner(request.resource.data.userId) &&
+                        request.resource.data.used == false &&
+                        referralExists(request.resource.data.createdFromReferralId) &&
+                        (
+                          // Case 1: New user creating their 10% discount during signup.
+                          (
+                            request.resource.data.type == 'REFERRAL_NEW_USER' &&
+                            request.resource.data.percentage == 10 &&
+                            getReferral(request.resource.data.createdFromReferralId).data.referredId == request.auth.uid
+                          ) ||
+                          // Case 2: Referrer claiming their 30% discount from the dashboard.
+                          (
+                            request.resource.data.type == 'REFERRAL_OWNER' &&
+                            request.resource.data.percentage == 30 &&
+                            getReferral(request.resource.data.createdFromReferralId).data.referrerId == request.auth.uid &&
+                            getReferral(request.resource.data.createdFromReferralId).data.referrerDiscountClaimed != true
+                          )
+                        );
+        
+        // UPDATE: Only to mark a discount as used during a purchase. One-way change.
+        allow update: if isOwner(resource.data.userId) &&
+                         resource.data.used == false && // Can only be used once
+                         request.resource.data.used == true &&
+                         request.resource.data.keys().hasAll(['used', 'orderId']) && // Must include orderId to link to purchase
+                         // Verify that a corresponding ticket exists and uses this discount ID
+                         get(/databases/$(database)/documents/tickets/$(request.resource.data.orderId)).data.studentId == request.auth.uid &&
+                         get(/databases/$(database)/documents/tickets/$(request.resource.data.orderId)).data.appliedDiscountId == discountId;
+
+        // DELETE: Not allowed from client.
+        allow delete: if false;
+    }
+
 
     //----------------------------------------------------------------------
     //  PUBLIC TUTOR PROFILE RULES

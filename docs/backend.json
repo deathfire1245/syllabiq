@@ -17,7 +17,6 @@
         "referralCode": { "type": "string", "description": "Unique code for referring other users." },
         "referralsMade": { "type": "number", "description": "Count of successful referrals made." },
         "referredBy": { "type": "string", "description": "UID of the user who referred this user." },
-        "signupDiscount": { "type": "number", "description": "Discount applied at signup from a referral."},
         "studentProfile": {
           "type": "object",
           "properties": {
@@ -77,9 +76,25 @@
       "properties": {
         "referrerId": { "type": "string", "description": "The UID of the user who made the referral." },
         "referredId": { "type": "string", "description": "The UID of the new user who was referred." },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of when the referral was made." }
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of when the referral was made." },
+        "referrerDiscountClaimed": { "type": "boolean", "description": "True if the referrer has claimed their discount for this referral." }
       },
       "required": ["referrerId", "referredId", "createdAt"]
+    },
+    "Discount": {
+      "title": "Discount",
+      "description": "Represents a one-time use discount for a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the user this discount belongs to." },
+        "type": { "type": "string", "enum": ["REFERRAL_NEW_USER", "REFERRAL_OWNER"] },
+        "percentage": { "type": "number", "enum": [10, 30] },
+        "used": { "type": "boolean" },
+        "createdFromReferralId": { "type": "string", "description": "The ID of the referral document that generated this discount." },
+        "orderId": { "type": "string", "description": "The ID of the ticket/order that consumed this discount." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "percentage", "used", "createdFromReferralId", "createdAt"]
     },
     "PublicTutorProfile": {
       "title": "Public Tutor Profile",
@@ -169,7 +184,9 @@
         "studentId": { "type": "string", "description": "UID of the student who bought the ticket." },
         "teacherId": { "type": "string", "description": "UID of the teacher for whom the ticket is valid." },
         "status": { "type": "string", "enum": ["PAID", "WAITING_FOR_TEACHER", "ACTIVE", "COMPLETED", "CANCELLED", "REFUND_PROCESSED"], "description": "The current state of the ticket lifecycle." },
-        "price": { "type": "number", "description": "The cost of the ticket." },
+        "price": { "type": "number", "description": "The original cost of the item." },
+        "finalPrice": { "type": "number", "description": "The final price paid after discounts." },
+        "appliedDiscountId": { "type": "string", "description": "ID of the discount document used." },
         "duration": { "type": "number", "description": "Session duration in minutes." },
         "commissionPercent": { "type": "number", "description": "Platform commission percentage." },
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of ticket creation." },
@@ -218,6 +235,10 @@
       {
         "path": "/referrals/{referralId}",
         "definition": { "entityName": "Referral", "schema": { "$ref": "#/backend/entities/Referral" }, "description": "Stores a record of a successful referral between two users.", "params": [{ "name": "referralId", "description": "The unique identifier of the referral document." }] }
+      },
+      {
+        "path": "/discounts/{discountId}",
+        "definition": { "entityName": "Discount", "schema": { "$ref": "#/backend/entities/Discount" }, "description": "Stores one-time use discounts for users.", "params": [{ "name": "discountId", "description": "The unique identifier for the discount document." }] }
       },
        {
         "path": "/tutors/{tutorId}",

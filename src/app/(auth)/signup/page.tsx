@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -67,10 +68,9 @@ export default function SignupPage() {
       referralsMade: 0,
     };
     
-    // This is the critical step. Create the user document immediately.
     await setDoc(userDocRef, newUserPayload);
 
-    // 2. Handle the referral logic separately and silently fail if it doesn't work.
+    // 2. Handle the referral logic separately.
     if (referralCode) {
       try {
         const q = query(collection(firestore, "users"), where("referralCode", "==", referralCode.toUpperCase()), limit(1));
@@ -81,22 +81,33 @@ export default function SignupPage() {
             const referrerId = referrerDoc.id;
 
             if (referrerId !== user.uid) {
-                // Update new user with referral info
+                // Update new user with referrer info
                 await updateDoc(userDocRef, {
                   referredBy: referrerId,
-                  signupDiscount: 10,
                 });
 
                 // Create a record in the referrals collection
-                await addDoc(collection(firestore, "referrals"), {
+                const referralRef = await addDoc(collection(firestore, "referrals"), {
                     referrerId: referrerId,
                     referredId: user.uid,
                     createdAt: serverTimestamp(),
+                    referrerDiscountClaimed: false
                 });
+                
+                // Create the 10% discount for the new user
+                const newUserDiscountPayload = {
+                    userId: user.uid,
+                    type: "REFERRAL_NEW_USER",
+                    percentage: 10,
+                    used: false,
+                    createdFromReferralId: referralRef.id,
+                    createdAt: serverTimestamp(),
+                };
+                await addDoc(collection(firestore, "discounts"), newUserDiscountPayload);
                 
                 toast({
                   title: "Referral Applied!",
-                  description: "A signup discount has been added to your account.",
+                  description: "A 10% discount has been added to your account for your first purchase.",
                 });
             }
         } else {
@@ -107,14 +118,11 @@ export default function SignupPage() {
             });
         }
       } catch (error) {
-        // Silently fail on referral logic error. Log it for debugging.
         console.error("Referral processing failed, but user was created:", error);
-        // Do not re-throw, so the rest of the signup flow continues.
       }
     }
 
     localStorage.setItem("userRole", role);
-    // Direct user to onboarding to collect role-specific profile info
     localStorage.setItem("onboardingStatus", "pending");
 
     toast({
