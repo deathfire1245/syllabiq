@@ -94,11 +94,25 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
     }, [user, firestore, userRole]);
     const { data: upcomingSessions, isLoading: areUpcomingSessionsLoading } = useCollection(upcomingSessionsQuery);
 
-    const referralsMadeQuery = useMemoFirebase(() => {
+    const referredByMeQuery = useMemoFirebase(() => {
       if (!user || !firestore) return null;
       return query(collection(firestore, "referrals"), where("referrerId", "==", user.uid));
     }, [user, firestore]);
-    const { data: referralsMade } = useCollection(referralsMadeQuery);
+    const { data: referredByMe } = useCollection(referredByMeQuery);
+
+    const referredMeQuery = useMemoFirebase(() => {
+      if (!user || !firestore) return null;
+      return query(collection(firestore, "referrals"), where("referredId", "==", user.uid));
+    }, [user, firestore]);
+    const { data: referredMe } = useCollection(referredMeQuery);
+
+    const referralsMade = React.useMemo(() => {
+        if (referredByMe === null || referredMe === null) return null;
+        const allReferrals = new Map();
+        (referredByMe || []).forEach(r => allReferrals.set(r.id, r));
+        (referredMe || []).forEach(r => allReferrals.set(r.id, r));
+        return Array.from(allReferrals.values());
+    }, [referredByMe, referredMe]);
 
     React.useEffect(() => {
       if (referralsMade && userProfile) {
@@ -294,11 +308,25 @@ const StudentDashboard = ({ userRole }: { userRole: string }) => {
     const topicsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'topics') : null, [firestore]);
     const { data: allTopics, isLoading: areTopicsLoading } = useCollection<Topic>(topicsQuery);
     
-    const referralsMadeQuery = useMemoFirebase(() => {
+    const referredByMeQuery = useMemoFirebase(() => {
       if (!user || !firestore) return null;
       return query(collection(firestore, "referrals"), where("referrerId", "==", user.uid));
     }, [user, firestore]);
-    const { data: referralsMade } = useCollection(referralsMadeQuery);
+    const { data: referredByMe } = useCollection(referredByMeQuery);
+
+    const referredMeQuery = useMemoFirebase(() => {
+      if (!user || !firestore) return null;
+      return query(collection(firestore, "referrals"), where("referredId", "==", user.uid));
+    }, [user, firestore]);
+    const { data: referredMe } = useCollection(referredMeQuery);
+
+    const referralsMade = React.useMemo(() => {
+        if (referredByMe === null || referredMe === null) return null;
+        const allReferrals = new Map();
+        (referredByMe || []).forEach(r => allReferrals.set(r.id, r));
+        (referredMe || []).forEach(r => allReferrals.set(r.id, r));
+        return Array.from(allReferrals.values());
+    }, [referredByMe, referredMe]);
 
      React.useEffect(() => {
       if (referralsMade && userProfile) {
@@ -523,5 +551,3 @@ export default function DashboardPage() {
     </>
   )
 }
-
-    
