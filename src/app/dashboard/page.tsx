@@ -26,7 +26,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from "@/firebase";
-import { doc, updateDoc, collection, query, where, addDoc, getDocs, orderBy, limit, getDoc, arrayUnion } from "firebase/firestore";
+import { doc, updateDoc, collection, query, where, addDoc, getDocs, orderBy, limit, getDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import type { Topic } from "@/lib/types";
 
 
@@ -123,6 +123,50 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
         }
       }
     }, [referralsMade, userProfile, mutate]);
+
+    // ---- Start: Referral Discount Claim Logic ----
+    const unclaimedReferralsQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return query(
+            collection(firestore, "referrals"),
+            where("referrerId", "==", user.uid),
+            where("referrerDiscountClaimed", "!=", true)
+        );
+    }, [user, firestore]);
+    const { data: unclaimedReferrals } = useCollection(unclaimedReferralsQuery);
+
+    React.useEffect(() => {
+        if (unclaimedReferrals && unclaimedReferrals.length > 0 && firestore && user) {
+            unclaimedReferrals.forEach(async (referral) => {
+                try {
+                    // Create a new 30% discount for the referrer
+                    const discountPayload = {
+                        userId: user.uid,
+                        type: "REFERRAL_OWNER",
+                        percentage: 30,
+                        used: false,
+                        createdFromReferralId: referral.id,
+                        createdAt: serverTimestamp(),
+                    };
+                    await addDoc(collection(firestore, "discounts"), discountPayload);
+
+                    // Mark the referral discount as claimed
+                    const referralRef = doc(firestore, 'referrals', referral.id);
+                    await updateDoc(referralRef, { referrerDiscountClaimed: true });
+                    
+                    toast({
+                        title: "You've earned a discount!",
+                        description: `A 30% discount for your referral has been added.`,
+                    });
+
+                } catch (error) {
+                     console.error("Error claiming referral discount:", error);
+                }
+            });
+        }
+    }, [unclaimedReferrals, firestore, user, toast]);
+    // ---- End: Referral Discount Claim Logic ----
+
 
     const totalEarnings = React.useMemo(() => {
         if (!completedSessions) return 0;
@@ -337,6 +381,49 @@ const StudentDashboard = ({ userRole }: { userRole: string }) => {
         }
       }
     }, [referralsMade, userProfile, mutate]);
+
+    // ---- Start: Referral Discount Claim Logic ----
+    const unclaimedReferralsQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return query(
+            collection(firestore, "referrals"),
+            where("referrerId", "==", user.uid),
+            where("referrerDiscountClaimed", "!=", true)
+        );
+    }, [user, firestore]);
+    const { data: unclaimedReferrals } = useCollection(unclaimedReferralsQuery);
+
+    React.useEffect(() => {
+        if (unclaimedReferrals && unclaimedReferrals.length > 0 && firestore && user) {
+            unclaimedReferrals.forEach(async (referral) => {
+                try {
+                    // Create a new 30% discount for the referrer
+                    const discountPayload = {
+                        userId: user.uid,
+                        type: "REFERRAL_OWNER",
+                        percentage: 30,
+                        used: false,
+                        createdFromReferralId: referral.id,
+                        createdAt: serverTimestamp(),
+                    };
+                    await addDoc(collection(firestore, "discounts"), discountPayload);
+
+                    // Mark the referral discount as claimed
+                    const referralRef = doc(firestore, 'referrals', referral.id);
+                    await updateDoc(referralRef, { referrerDiscountClaimed: true });
+                    
+                    toast({
+                        title: "You've earned a discount!",
+                        description: `A 30% discount for your referral has been added.`,
+                    });
+
+                } catch (error) {
+                     console.error("Error claiming referral discount:", error);
+                }
+            });
+        }
+    }, [unclaimedReferrals, firestore, user, toast]);
+    // ---- End: Referral Discount Claim Logic ----
 
     const completedTopicsCount = userProfile?.studentProfile?.completedTopics?.length || 0;
     const totalTopicsCount = allTopics?.length || 0;
