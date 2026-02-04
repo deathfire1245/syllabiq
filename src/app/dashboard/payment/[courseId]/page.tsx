@@ -45,18 +45,27 @@ export default function MockPaymentPage() {
     const { data: discounts, isLoading: areDiscountsLoading } = useCollection(discountsQuery);
 
     React.useEffect(() => {
-        if (!areDiscountsLoading && course) {
-            if (discounts && discounts.length > 0) {
-                // Find best discount (highest percentage), for now just take the first one
-                const bestDiscount = discounts.sort((a, b) => b.percentage - a.percentage)[0];
-                setAvailableDiscount(bestDiscount);
-                const discountedPrice = Number(course.price) * (1 - bestDiscount.percentage / 100);
-                setFinalPrice(Number(discountedPrice.toFixed(2)));
-            } else {
-                setFinalPrice(Number(course.price));
-            }
+        if (isCourseLoading || areDiscountsLoading || !course) {
+            return;
         }
-    }, [discounts, areDiscountsLoading, course]);
+
+        if (discounts && discounts.length > 0) {
+            const bestDiscount = discounts.reduce((prev, current) => 
+                (prev.percentage > current.percentage) ? prev : current
+            );
+            
+            setAvailableDiscount(bestDiscount);
+
+            const originalPrice = Number(course.price);
+            const discountValue = originalPrice * (bestDiscount.percentage / 100);
+            const final = originalPrice - discountValue;
+            setFinalPrice(Number(final.toFixed(2)));
+
+        } else {
+            setAvailableDiscount(null);
+            setFinalPrice(Number(course.price));
+        }
+    }, [discounts, areDiscountsLoading, course, isCourseLoading]);
     // --- End Discount Logic ---
 
     const handlePurchase = async () => {
@@ -167,22 +176,22 @@ export default function MockPaymentPage() {
                          <div className="border-t border-b py-4 space-y-2">
                              <div className="flex justify-between items-center text-md text-muted-foreground">
                                 <span>Original Price</span>
-                                <span>₹{course.price}</span>
+                                <span>₹{Number(course.price).toFixed(2)}</span>
                              </div>
                               {availableDiscount && (
                                 <div className="flex justify-between items-center text-md text-green-600">
                                     <span>Discount ({availableDiscount.percentage}%)</span>
-                                    <span>- ₹{(Number(course.price) - finalPrice!).toFixed(2)}</span>
+                                    <span>- ₹{(Number(course.price) * (availableDiscount.percentage / 100)).toFixed(2)}</span>
                                 </div>
                             )}
                             <div className="flex justify-between items-center text-lg font-bold border-t pt-2 mt-2">
-                                <span className="text-foreground">Total</span>
+                                <span className="text-foreground">Total to Pay</span>
                                 <span className="text-2xl">₹{finalPrice?.toFixed(2)}</span>
                             </div>
                         </div>
                          {availableDiscount && (
-                            <div className="!mt-2">
-                                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                            <div className="!mt-4">
+                                <Badge variant="secondary" className="bg-green-100 text-green-800 border border-green-200">
                                     <BadgePercent className="mr-1.5 h-4 w-4" />
                                     {availableDiscount.percentage}% referral discount applied!
                                 </Badge>
@@ -220,3 +229,4 @@ export default function MockPaymentPage() {
         </div>
     );
 }
+
