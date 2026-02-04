@@ -130,7 +130,7 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
         return query(
             collection(firestore, "referrals"),
             where("referrerId", "==", user.uid),
-            where("referrerDiscountClaimed", "!=", true)
+            where("referrerDiscountClaimed", "==", false)
         );
     }, [user, firestore]);
     const { data: unclaimedReferrals } = useCollection(unclaimedReferralsQuery);
@@ -388,7 +388,7 @@ const StudentDashboard = ({ userRole }: { userRole: string }) => {
         return query(
             collection(firestore, "referrals"),
             where("referrerId", "==", user.uid),
-            where("referrerDiscountClaimed", "!=", true)
+            where("referrerDiscountClaimed", "==", false)
         );
     }, [user, firestore]);
     const { data: unclaimedReferrals } = useCollection(unclaimedReferralsQuery);
