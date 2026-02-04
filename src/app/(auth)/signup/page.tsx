@@ -69,16 +69,26 @@ export default function SignupPage() {
     };
     
     await setDoc(userDocRef, newUserPayload);
+    
+    // 2. Create the public lookup document for the new user's referral code.
+    try {
+        await setDoc(doc(firestore, "referralCodes", newUserPayload.referralCode), {
+            userId: user.uid
+        });
+    } catch (error) {
+        // This is not critical for the user, but should be logged for debugging.
+        console.error("Could not create public referral code lookup:", error);
+    }
 
-    // 2. Handle the referral logic separately.
+
+    // 3. Handle the incoming referral logic separately.
     if (referralCode) {
       try {
-        const q = query(collection(firestore, "users"), where("referralCode", "==", referralCode.toUpperCase()), limit(1));
-        const querySnapshot = await getDocs(q);
+        const codeRef = doc(firestore, "referralCodes", referralCode.toUpperCase());
+        const codeDoc = await getDoc(codeRef);
 
-        if (!querySnapshot.empty) {
-            const referrerDoc = querySnapshot.docs[0];
-            const referrerId = referrerDoc.id;
+        if (codeDoc.exists()) {
+            const referrerId = codeDoc.data().userId;
 
             if (referrerId !== user.uid) {
                 // Update new user with referrer info

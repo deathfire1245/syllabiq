@@ -81,6 +81,18 @@
       },
       "required": ["referrerId", "referredId", "createdAt"]
     },
+    "ReferralCode": {
+      "title": "Referral Code",
+      "description": "A mapping from a unique referral code to the user who owns it.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who owns this referral code."
+        }
+      },
+      "required": ["userId"]
+    },
     "Discount": {
       "title": "Discount",
       "description": "Represents a one-time use discount for a user.",
@@ -235,6 +247,10 @@
       {
         "path": "/referrals/{referralId}",
         "definition": { "entityName": "Referral", "schema": { "$ref": "#/backend/entities/Referral" }, "description": "Stores a record of a successful referral between two users.", "params": [{ "name": "referralId", "description": "The unique identifier of the referral document." }] }
+      },
+      {
+        "path": "/referralCodes/{code}",
+        "definition": { "entityName": "ReferralCode", "schema": { "$ref": "#/backend/entities/ReferralCode" }, "description": "Stores a mapping of public referral codes to user IDs for quick lookups.", "params": [{ "name": "code", "description": "The unique referral code." }] }
       },
       {
         "path": "/discounts/{discountId}",

@@ -45,8 +45,7 @@ service cloud.firestore {
       allow get: if isOwner(uid) || isAdmin(request.auth.uid);
       
       // LIST: Only admins can list all users to protect user privacy.
-      // A user can query their own referral code
-      allow list: if isAdmin(request.auth.uid) || (isSignedIn() && request.query.keys().hasOnly(['where', 'limit']));
+      allow list: if isAdmin(request.auth.uid);
 
 
       // CREATE: A user can only create their own profile document.
@@ -139,6 +138,22 @@ service cloud.firestore {
 
         // DELETE: Not allowed from client.
         allow delete: if false;
+    }
+
+    //----------------------------------------------------------------------
+    //  PUBLIC REFERRAL CODE LOOKUP
+    //----------------------------------------------------------------------
+    match /referralCodes/{code} {
+      // Allow any signed-in user to check if a code exists. This is a public lookup.
+      allow get: if isSignedIn();
+      
+      // A user can only create a document here if the document ID (the code)
+      // matches the referralCode stored in their own user profile. This prevents impersonation.
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid &&
+                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.referralCode == code;
+
+      // No client-side updates or deletes are allowed.
+      allow update, delete: if false;
     }
 
 
