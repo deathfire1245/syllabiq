@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Check, IndianRupee, Banknote } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, IndianRupee } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase } from "@/firebase";
 import { doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
@@ -16,8 +17,7 @@ import { doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
 const steps = [
   { id: 1, title: "Your Expertise" },
   { id: 2, title: "Bio & Availability" },
-  { id: 3, title: "Payout Information" },
-  { id: 4, title: "All Set!" },
+  { id: 3, title: "All Set!" },
 ];
 
 const subjects = ["Mathematics", "Science", "History", "Literature", "Computer Science", "Physics", "Chemistry", "Biology"];
@@ -36,18 +36,11 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
       days: [] as string[],
       timeSlots: [] as string[], // Placeholder for now
     },
-    bankDetails: {
-        accountHolderName: "",
-        accountNumber: "",
-        ifscCode: "",
-        bankName: ""
-    }
   });
   const { toast } = useToast();
   const { user } = useUser();
   const { firestore } = useFirebase();
   const [isSaving, setIsSaving] = React.useState(false);
-  const [bankErrors, setBankErrors] = React.useState({ accountNumber: "", ifscCode: "" });
 
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, steps.length));
@@ -104,7 +97,6 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
             hourlyRate: Number(formData.hourlyRate),
             bio: formData.bio,
             availability: formData.availability,
-            bankDetails: formData.bankDetails,
             isVerified: false,
             totalSessions: 0,
             rating: 0,
@@ -138,7 +130,7 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
   };
 
   const isStepValid = (checkAll = false) => {
-    const stepsToValidate = checkAll ? [1, 2, 3] : [currentStep];
+    const stepsToValidate = checkAll ? [1, 2] : [currentStep];
     
     for (const step of stepsToValidate) {
         switch (step) {
@@ -148,46 +140,12 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
             case 2:
                 if (formData.bio.trim() === '' || formData.hourlyRate.trim() === '' || formData.availability.days.length === 0) return false;
                 break;
-            case 3:
-                 const { accountHolderName, bankName, accountNumber, ifscCode } = formData.bankDetails;
-                if (
-                    accountHolderName.trim() === '' ||
-                    bankName.trim() === '' ||
-                    !/^\d{9,18}$/.test(accountNumber) ||
-                    !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)
-                ) {
-                    return false;
-                }
-                break;
             default:
                 break;
         }
     }
     return true;
   };
-  
-  const handleAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-    if (value.length > 18) return; // Max length
-    setFormData({ ...formData, bankDetails: { ...formData.bankDetails, accountNumber: value } });
-    if (value.length > 0 && (value.length < 9 || value.length > 18)) {
-        setBankErrors(prev => ({ ...prev, accountNumber: "Account number must be 9-18 digits." }));
-    } else {
-        setBankErrors(prev => ({ ...prev, accountNumber: "" }));
-    }
-  };
-
-  const handleIfscChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-      if (value.length > 11) return; // Max length
-      setFormData({ ...formData, bankDetails: { ...formData.bankDetails, ifscCode: value } });
-      if (value.length > 0 && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(value)) {
-          setBankErrors(prev => ({ ...prev, ifscCode: "Must be a valid 11-character IFSC code."}));
-      } else {
-          setBankErrors(prev => ({ ...prev, ifscCode: "" }));
-      }
-  };
-
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -263,52 +221,6 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
         );
     case 3:
         return (
-             <div className="space-y-6">
-                <div className="text-center mb-4">
-                    <Banknote className="mx-auto h-12 w-12 text-primary" />
-                    <h3 className="text-2xl font-bold mt-2">Bank Account Details</h3>
-                    <p className="text-muted-foreground">This information is required for processing payouts. It is kept secure and private.</p>
-                </div>
-                <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="accountHolderName">Account Holder Name <span className="text-destructive">*</span></Label>
-                        <Input id="accountHolderName" placeholder="e.g., Jane Doe" value={formData.bankDetails.accountHolderName} onChange={(e) => setFormData({...formData, bankDetails: {...formData.bankDetails, accountHolderName: e.target.value}})} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="bankName">Bank Name <span className="text-destructive">*</span></Label>
-                        <Input id="bankName" placeholder="e.g., HDFC Bank" value={formData.bankDetails.bankName} onChange={(e) => setFormData({...formData, bankDetails: {...formData.bankDetails, bankName: e.target.value}})} />
-                    </div>
-                </div>
-                 <div className="grid sm:grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                        <Label htmlFor="accountNumber">Account Number <span className="text-destructive">*</span></Label>
-                        <Input 
-                          id="accountNumber" 
-                          placeholder="9 to 18 digits" 
-                          value={formData.bankDetails.accountNumber} 
-                          onChange={handleAccountNumberChange}
-                          className={bankErrors.accountNumber ? "border-destructive focus-visible:ring-destructive" : ""}
-                          maxLength={18}
-                        />
-                         {bankErrors.accountNumber && <p className="text-sm text-destructive">{bankErrors.accountNumber}</p>}
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="ifscCode">IFSC Code <span className="text-destructive">*</span></Label>
-                        <Input 
-                          id="ifscCode" 
-                          placeholder="e.g., HDFC0001234" 
-                          value={formData.bankDetails.ifscCode}
-                          onChange={handleIfscChange}
-                          className={bankErrors.ifscCode ? "border-destructive focus-visible:ring-destructive" : ""}
-                          maxLength={11}
-                        />
-                         {bankErrors.ifscCode && <p className="text-sm text-destructive">{bankErrors.ifscCode}</p>}
-                    </div>
-                </div>
-            </div>
-        );
-    case 4:
-        return (
            <div className="text-center">
              <Check className="mx-auto h-16 w-16 text-green-500 bg-green-100 rounded-full p-3 mb-6" />
             <h2 className="text-3xl font-bold mb-2">You're all set!</h2>
@@ -337,7 +249,6 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
           </div>
           <CardTitle className="text-2xl">{steps[currentStep - 1].title}</CardTitle>
           {currentStep === 2 && <CardDescription>This information will be displayed on your public profile.</CardDescription>}
-           {currentStep === 3 && <CardDescription>This information is kept strictly confidential and is only used for payment processing.</CardDescription>}
         </CardHeader>
         <CardContent className="min-h-[350px] flex flex-col justify-center">
           <AnimatePresence mode="wait">
