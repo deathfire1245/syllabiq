@@ -7,6 +7,7 @@ export type Topic = {
   summary: string;
   content?: string; // Markdown text for written content
   pdfUrl?: string; // URL for linked PDF/Doc
+  contentType?: 'text' | 'pdf' | 'video' | 'link';
   coverImage: {
     src: string;
     hint: string;
@@ -50,3 +51,5 @@ export type Ticket = {
   price: number;
   createdAt: any;
 }
+
+    

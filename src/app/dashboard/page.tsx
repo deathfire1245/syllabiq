@@ -115,14 +115,14 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
     }, [referredByMe, referredMe]);
 
     React.useEffect(() => {
-      if (referralsMade && userProfile) {
-        const actualReferralCount = referralsMade.length;
-        const storedReferralCount = userProfile.referralsMade || 0;
+      if (referralsMade && userProfile && userProfile.referralsMade !== undefined) {
+        const actualReferralCount = referredByMe?.length || 0;
+        const storedReferralCount = userProfile.referralsMade;
         if (actualReferralCount !== storedReferralCount) {
           mutate({ referralsMade: actualReferralCount });
         }
       }
-    }, [referralsMade, userProfile, mutate]);
+    }, [referredByMe, userProfile, mutate]);
 
     // ---- Start: Referral Discount Claim Logic ----
     const unclaimedReferralsQuery = useMemoFirebase(() => {
@@ -373,14 +373,14 @@ const StudentDashboard = ({ userRole }: { userRole: string }) => {
     }, [referredByMe, referredMe]);
 
      React.useEffect(() => {
-      if (referralsMade && userProfile) {
-        const actualReferralCount = referralsMade.length;
-        const storedReferralCount = userProfile.referralsMade || 0;
+      if (referralsMade && userProfile && userProfile.referralsMade !== undefined) {
+        const actualReferralCount = referredByMe?.length || 0;
+        const storedReferralCount = userProfile.referralsMade;
         if (actualReferralCount !== storedReferralCount) {
           mutate({ referralsMade: actualReferralCount });
         }
       }
-    }, [referralsMade, userProfile, mutate]);
+    }, [referredByMe, userProfile, mutate]);
 
     // ---- Start: Referral Discount Claim Logic ----
     const unclaimedReferralsQuery = useMemoFirebase(() => {
@@ -638,3 +638,5 @@ export default function DashboardPage() {
     </>
   )
 }
+
+    
