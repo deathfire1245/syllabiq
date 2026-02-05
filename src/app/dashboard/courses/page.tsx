@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -109,7 +110,10 @@ export default function CoursesPage() {
                     </p>
                   </CardContent>
                   <CardFooter className="flex justify-between items-center bg-secondary/50 p-4">
-                     <p className="text-2xl font-bold text-primary">₹{course.price}</p>
+                     <div className="flex flex-col">
+                        <p className="text-2xl font-bold text-primary">₹{course.price}</p>
+                        <Badge variant="destructive" className="w-fit mt-1 text-xs">30% OFF with promo</Badge>
+                     </div>
                      <Button asChild>
                         {isEnrolled ? (
                             <Link href={`/dashboard/courses/${course.id}`}>View Course</Link>

@@ -26,7 +26,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from "@/firebase";
-import { doc, updateDoc, collection, query, where, addDoc, getDocs, orderBy, limit, getDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
+import { doc, collection, query, where, orderBy, limit } from "firebase/firestore";
 import type { Topic } from "@/lib/types";
 
 
@@ -57,12 +57,10 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
     const router = useRouter();
     const { user, isUserLoading } = useUser();
     const { firestore } = useFirebase();
-    const { toast } = useToast();
-
-    const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
-    const { data: userProfile, isLoading: isProfileLoading, mutate } = useDoc(userDocRef);
     
-    // ------------------ FIXED: Ticket queries ------------------
+    const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+    
     const waitingTicketsQuery = useMemoFirebase(() => {
         if (!user || !firestore || userRole !== "teacher") return null;
         return query(
@@ -93,80 +91,6 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
         );
     }, [user, firestore, userRole]);
     const { data: upcomingSessions, isLoading: areUpcomingSessionsLoading } = useCollection(upcomingSessionsQuery);
-
-    const referredByMeQuery = useMemoFirebase(() => {
-      if (!user || !firestore) return null;
-      return query(collection(firestore, "referrals"), where("referrerId", "==", user.uid));
-    }, [user, firestore]);
-    const { data: referredByMe } = useCollection(referredByMeQuery);
-
-    const referredMeQuery = useMemoFirebase(() => {
-      if (!user || !firestore) return null;
-      return query(collection(firestore, "referrals"), where("referredId", "==", user.uid));
-    }, [user, firestore]);
-    const { data: referredMe } = useCollection(referredMeQuery);
-
-    const referralsMade = React.useMemo(() => {
-        if (referredByMe === null || referredMe === null) return null;
-        const allReferrals = new Map();
-        (referredByMe || []).forEach(r => allReferrals.set(r.id, r));
-        (referredMe || []).forEach(r => allReferrals.set(r.id, r));
-        return Array.from(allReferrals.values());
-    }, [referredByMe, referredMe]);
-
-    React.useEffect(() => {
-      if (referralsMade && userProfile && userProfile.referralsMade !== undefined) {
-        const actualReferralCount = referredByMe?.length || 0;
-        const storedReferralCount = userProfile.referralsMade;
-        if (actualReferralCount !== storedReferralCount) {
-          mutate({ referralsMade: actualReferralCount });
-        }
-      }
-    }, [referredByMe, userProfile, mutate]);
-
-    // ---- Start: Referral Discount Claim Logic ----
-    const unclaimedReferralsQuery = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
-        return query(
-            collection(firestore, "referrals"),
-            where("referrerId", "==", user.uid),
-            where("referrerDiscountClaimed", "==", false)
-        );
-    }, [user, firestore]);
-    const { data: unclaimedReferrals } = useCollection(unclaimedReferralsQuery);
-
-    React.useEffect(() => {
-        if (unclaimedReferrals && unclaimedReferrals.length > 0 && firestore && user) {
-            unclaimedReferrals.forEach(async (referral) => {
-                try {
-                    // Create a new 30% discount for the referrer
-                    const discountPayload = {
-                        userId: user.uid,
-                        type: "REFERRAL_OWNER",
-                        percentage: 30,
-                        used: false,
-                        createdFromReferralId: referral.id,
-                        createdAt: serverTimestamp(),
-                    };
-                    await addDoc(collection(firestore, "discounts"), discountPayload);
-
-                    // Mark the referral discount as claimed
-                    const referralRef = doc(firestore, 'referrals', referral.id);
-                    await updateDoc(referralRef, { referrerDiscountClaimed: true });
-                    
-                    toast({
-                        title: "You've earned a discount!",
-                        description: `A 30% discount for your referral has been added.`,
-                    });
-
-                } catch (error) {
-                     console.error("Error claiming referral discount:", error);
-                }
-            });
-        }
-    }, [unclaimedReferrals, firestore, user, toast]);
-    // ---- End: Referral Discount Claim Logic ----
-
 
     const totalEarnings = React.useMemo(() => {
         if (!completedSessions) return 0;
@@ -298,29 +222,6 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
                         </CardContent>
                     </Card>
                 </ScrollReveal>
-                 <ScrollReveal delay={0.35}>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Your Referral Code</CardTitle>
-                            <CardDescription>Share your code with other teachers and students to earn rewards.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {userProfile?.referralCode ? (
-                                <div className="flex items-center justify-between p-4 bg-secondary rounded-lg">
-                                    <span className="text-2xl font-mono font-bold text-primary tracking-widest">{userProfile.referralCode}</span>
-                                    <Button variant="ghost" size="icon" onClick={() => {
-                                        navigator.clipboard.writeText(userProfile.referralCode);
-                                        toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
-                                    }}>
-                                        <Copy className="w-5 h-5" />
-                                    </Button>
-                                </div>
-                            ) : (
-                                <p className="text-muted-foreground text-center">Referral code not available.</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </ScrollReveal>
             </div>
             <ScrollReveal className="md:col-span-1" delay={0.4}>
                 <Card className="bg-gradient-to-br from-primary/80 to-primary text-primary-foreground h-full flex flex-col justify-center text-center">
@@ -347,84 +248,11 @@ const StudentDashboard = ({ userRole }: { userRole: string }) => {
     const { toast } = useToast();
     
     const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
-    const { data: userProfile, isLoading: isProfileLoading, mutate } = useDoc(userDocRef);
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
 
     const topicsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'topics') : null, [firestore]);
     const { data: allTopics, isLoading: areTopicsLoading } = useCollection<Topic>(topicsQuery);
     
-    const referredByMeQuery = useMemoFirebase(() => {
-      if (!user || !firestore) return null;
-      return query(collection(firestore, "referrals"), where("referrerId", "==", user.uid));
-    }, [user, firestore]);
-    const { data: referredByMe } = useCollection(referredByMeQuery);
-
-    const referredMeQuery = useMemoFirebase(() => {
-      if (!user || !firestore) return null;
-      return query(collection(firestore, "referrals"), where("referredId", "==", user.uid));
-    }, [user, firestore]);
-    const { data: referredMe } = useCollection(referredMeQuery);
-
-    const referralsMade = React.useMemo(() => {
-        if (referredByMe === null || referredMe === null) return null;
-        const allReferrals = new Map();
-        (referredByMe || []).forEach(r => allReferrals.set(r.id, r));
-        (referredMe || []).forEach(r => allReferrals.set(r.id, r));
-        return Array.from(allReferrals.values());
-    }, [referredByMe, referredMe]);
-
-     React.useEffect(() => {
-      if (referralsMade && userProfile && userProfile.referralsMade !== undefined) {
-        const actualReferralCount = referredByMe?.length || 0;
-        const storedReferralCount = userProfile.referralsMade;
-        if (actualReferralCount !== storedReferralCount) {
-          mutate({ referralsMade: actualReferralCount });
-        }
-      }
-    }, [referredByMe, userProfile, mutate]);
-
-    // ---- Start: Referral Discount Claim Logic ----
-    const unclaimedReferralsQuery = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
-        return query(
-            collection(firestore, "referrals"),
-            where("referrerId", "==", user.uid),
-            where("referrerDiscountClaimed", "==", false)
-        );
-    }, [user, firestore]);
-    const { data: unclaimedReferrals } = useCollection(unclaimedReferralsQuery);
-
-    React.useEffect(() => {
-        if (unclaimedReferrals && unclaimedReferrals.length > 0 && firestore && user) {
-            unclaimedReferrals.forEach(async (referral) => {
-                try {
-                    // Create a new 30% discount for the referrer
-                    const discountPayload = {
-                        userId: user.uid,
-                        type: "REFERRAL_OWNER",
-                        percentage: 30,
-                        used: false,
-                        createdFromReferralId: referral.id,
-                        createdAt: serverTimestamp(),
-                    };
-                    await addDoc(collection(firestore, "discounts"), discountPayload);
-
-                    // Mark the referral discount as claimed
-                    const referralRef = doc(firestore, 'referrals', referral.id);
-                    await updateDoc(referralRef, { referrerDiscountClaimed: true });
-                    
-                    toast({
-                        title: "You've earned a discount!",
-                        description: `A 30% discount for your referral has been added.`,
-                    });
-
-                } catch (error) {
-                     console.error("Error claiming referral discount:", error);
-                }
-            });
-        }
-    }, [unclaimedReferrals, firestore, user, toast]);
-    // ---- End: Referral Discount Claim Logic ----
-
     const completedTopicsCount = userProfile?.studentProfile?.completedTopics?.length || 0;
     const totalTopicsCount = allTopics?.length || 0;
 
@@ -535,30 +363,6 @@ const StudentDashboard = ({ userRole }: { userRole: string }) => {
                 </ScrollReveal>
             </div>
 
-            <ScrollReveal delay={0.3}>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Your Referral Code</CardTitle>
-                        <CardDescription>Share your code with friends to earn rewards.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {userProfile?.referralCode ? (
-                            <div className="flex items-center justify-between p-4 bg-secondary rounded-lg">
-                                <span className="text-2xl font-mono font-bold text-primary tracking-widest">{userProfile.referralCode}</span>
-                                <Button variant="ghost" size="icon" onClick={() => {
-                                    navigator.clipboard.writeText(userProfile.referralCode);
-                                    toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
-                                }}>
-                                    <Copy className="w-5 h-5" />
-                                </Button>
-                            </div>
-                        ) : (
-                            <p className="text-muted-foreground text-center">Referral code not available.</p>
-                        )}
-                    </CardContent>
-                </Card>
-            </ScrollReveal>
-
             <ScrollReveal delay={0.4}>
                 <Card>
                     <CardHeader>
@@ -638,5 +442,3 @@ export default function DashboardPage() {
     </>
   )
 }
-
-    

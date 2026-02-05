@@ -3,15 +3,15 @@
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useDoc, useFirebase, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, updateDoc, arrayUnion, addDoc, collection, serverTimestamp, getDoc, setDoc, query, where } from 'firebase/firestore';
+import { useDoc, useFirebase, useUser, useMemoFirebase } from '@/firebase';
+import { doc, runTransaction, arrayUnion, collection, serverTimestamp, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, CreditCard, CheckCircle, BadgePercent } from 'lucide-react';
+import { ArrowLeft, CreditCard, CheckCircle, BadgePercent, Ticket, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollReveal } from '@/components/ScrollReveal';
-import { Badge } from '@/components/ui/badge';
 
 export default function MockPaymentPage() {
     const params = useParams();
@@ -29,99 +29,124 @@ export default function MockPaymentPage() {
     const { data: course, isLoading: isCourseLoading } = useDoc(courseDocRef);
 
     const [isProcessing, setIsProcessing] = React.useState(false);
-
-    // --- Discount Logic ---
-    const [availableDiscount, setAvailableDiscount] = React.useState<any | null>(null);
+    const [promoCodeInput, setPromoCodeInput] = React.useState("");
+    const [appliedPromo, setAppliedPromo] = React.useState<any | null>(null);
     const [finalPrice, setFinalPrice] = React.useState<number | null>(null);
-    
-    const discountsQuery = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
-        return query(
-            collection(firestore, 'discounts'),
-            where('userId', '==', user.uid),
-            where('used', '==', false)
-        );
-    }, [user, firestore]);
-    const { data: discounts, isLoading: areDiscountsLoading } = useCollection(discountsQuery);
+    const [isApplying, setIsApplying] = React.useState(false);
 
     React.useEffect(() => {
-        if (isCourseLoading || areDiscountsLoading || !course) {
-            return;
-        }
-
-        if (discounts && discounts.length > 0) {
-            const bestDiscount = discounts.reduce((prev, current) => 
-                (prev.percentage > current.percentage) ? prev : current
-            );
-            
-            setAvailableDiscount(bestDiscount);
-
-            const originalPrice = Number(course.price);
-            const discountValue = originalPrice * (bestDiscount.percentage / 100);
-            const final = originalPrice - discountValue;
-            setFinalPrice(Number(final.toFixed(2)));
-
-        } else {
-            setAvailableDiscount(null);
+        if (course && !appliedPromo) {
             setFinalPrice(Number(course.price));
         }
-    }, [discounts, areDiscountsLoading, course, isCourseLoading]);
-    // --- End Discount Logic ---
+    }, [course, appliedPromo]);
+
+    const handleApplyPromo = async () => {
+        if (!promoCodeInput.trim()) {
+            toast({ variant: 'destructive', title: 'Invalid Code', description: 'Please enter a promo code.' });
+            return;
+        }
+        if (!firestore || !user) return;
+
+        setIsApplying(true);
+        const code = promoCodeInput.trim().toUpperCase();
+        const promoDocRef = doc(firestore, 'promoCodes', code);
+
+        try {
+            const promoDoc = await runTransaction(firestore, async (transaction) => {
+                const sfDoc = await transaction.get(promoDocRef);
+                if (!sfDoc.exists() || !sfDoc.data().isActive) {
+                    throw new Error("Promo code not found or is inactive.");
+                }
+                const promoData = sfDoc.data();
+                if (promoData.usedBy?.includes(user.uid)) {
+                    throw new Error("You have already used this promo code.");
+                }
+                return promoData;
+            });
+            
+            const originalPrice = Number(course.price);
+            const discountValue = originalPrice * (promoDoc.percentage / 100);
+            const final = originalPrice - discountValue;
+
+            setFinalPrice(Number(final.toFixed(2)));
+            setAppliedPromo({ ...promoDoc, id: code });
+            toast({ title: 'Success!', description: `${promoDoc.percentage}% discount applied.` });
+
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Promo Code Error', description: error.message });
+            setAppliedPromo(null);
+            setFinalPrice(Number(course.price));
+        } finally {
+            setIsApplying(false);
+        }
+    };
+
+    const handleRemovePromo = () => {
+        setAppliedPromo(null);
+        setPromoCodeInput("");
+        setFinalPrice(Number(course.price));
+        toast({ title: 'Promo code removed.' });
+    };
 
     const handlePurchase = async () => {
         if (!user || !firestore || !courseId || !course || finalPrice === null) {
-            toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to make a purchase.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not process purchase.' });
             return;
         }
 
         setIsProcessing(true);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
+        
         try {
-            const userDoc = await getDoc(doc(firestore, 'users', user.uid));
-            const studentName = userDoc.exists() ? userDoc.data().name : 'Unknown Student';
-            
-            const newTicketRef = doc(collection(firestore, 'tickets'));
+            await runTransaction(firestore, async (transaction) => {
+                const userDoc = await transaction.get(doc(firestore, 'users', user.uid));
+                const studentName = userDoc.exists() ? userDoc.data().name : 'Unknown Student';
+                
+                // If a promo code is applied, validate it again within the transaction
+                if (appliedPromo) {
+                    const promoDocRef = doc(firestore, 'promoCodes', appliedPromo.id);
+                    const promoDoc = await transaction.get(promoDocRef);
+                    if (!promoDoc.exists() || !promoDoc.data().isActive || promoDoc.data().usedBy?.includes(user.uid)) {
+                        throw new Error("This promo code is no longer valid.");
+                    }
+                    // Mark promo as used
+                    transaction.update(promoDocRef, { usedBy: arrayUnion(user.uid) });
+                }
 
-            const ticketPayload = {
-                id: newTicketRef.id,
-                ticketCode: `CS-${Date.now().toString().slice(-6)}`,
-                orderId: `ord_${courseId.slice(0, 5)}_${user.uid.slice(0, 5)}`,
-                studentId: user.uid,
-                studentName: studentName,
-                teacherId: course.authorId,
-                teacherName: course.author,
-                status: 'COMPLETED',
-                price: Number(course.price),
-                finalPrice: finalPrice,
-                appliedDiscountId: availableDiscount ? availableDiscount.id : null,
-                duration: 0,
-                commissionPercent: 10,
-                createdAt: serverTimestamp(),
-                validFrom: serverTimestamp(),
-                validTill: serverTimestamp(),
-                used: true,
-                saleType: 'COURSE',
-                courseId: courseId,
-                courseTitle: course.title,
-                refundable: false,
-                cancelReason: null,
-                endedBy: 'SYSTEM'
-            };
-            await setDoc(newTicketRef, ticketPayload);
-            
-            if (availableDiscount) {
-                const discountRef = doc(firestore, 'discounts', availableDiscount.id);
-                await updateDoc(discountRef, {
+                // Create the ticket
+                const newTicketRef = doc(collection(firestore, 'tickets'));
+                const ticketPayload = {
+                    id: newTicketRef.id,
+                    ticketCode: `CS-${Date.now().toString().slice(-6)}`,
+                    orderId: `ord_${courseId.slice(0, 5)}_${user.uid.slice(0, 5)}`,
+                    studentId: user.uid,
+                    studentName: studentName,
+                    teacherId: course.authorId,
+                    teacherName: course.author,
+                    status: 'COMPLETED',
+                    price: Number(course.price),
+                    finalPrice: finalPrice,
+                    appliedPromoCode: appliedPromo ? appliedPromo.id : null,
+                    duration: 0,
+                    commissionPercent: 10,
+                    createdAt: serverTimestamp(),
+                    validFrom: serverTimestamp(),
+                    validTill: serverTimestamp(),
                     used: true,
-                    orderId: newTicketRef.id
-                });
-            }
+                    saleType: 'COURSE',
+                    courseId: courseId,
+                    courseTitle: course.title,
+                    refundable: false,
+                };
+                transaction.set(newTicketRef, ticketPayload);
 
-            const userDocRef = doc(firestore, 'users', user.uid);
-            await updateDoc(userDocRef, {
-                'studentProfile.enrolledCourses': arrayUnion(courseId),
+                // Enroll user in the course
+                const userDocRef = doc(firestore, 'users', user.uid);
+                transaction.update(userDocRef, {
+                    'studentProfile.enrolledCourses': arrayUnion(courseId),
+                });
             });
+
+            await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate payment processing
 
             toast({
                 title: 'Purchase Successful!',
@@ -130,14 +155,15 @@ export default function MockPaymentPage() {
             
             router.push('/dashboard/courses');
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to enroll in course:', error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not enroll you in the course. Please try again.' });
+            toast({ variant: 'destructive', title: 'Purchase Failed', description: error.message || 'Could not complete the purchase.' });
             setIsProcessing(false);
         }
     };
 
-    if (isUserLoading || isCourseLoading || areDiscountsLoading) {
+
+    if (isUserLoading || isCourseLoading) {
         return (
             <div className="max-w-2xl mx-auto py-12 px-4">
                 <Skeleton className="h-12 w-1/4 mb-8" />
@@ -173,15 +199,36 @@ export default function MockPaymentPage() {
                         <CardDescription>by {course.author}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                         <div className="space-y-2">
+                             <label htmlFor="promo-code" className="font-medium">Promo Code</label>
+                             <div className="flex gap-2">
+                                 <Input 
+                                    id="promo-code" 
+                                    placeholder="Enter code" 
+                                    value={promoCodeInput}
+                                    onChange={(e) => setPromoCodeInput(e.target.value)}
+                                    disabled={!!appliedPromo}
+                                />
+                                {appliedPromo ? (
+                                    <Button variant="destructive" onClick={handleRemovePromo}>
+                                        <X className="mr-2 h-4 w-4" /> Remove
+                                    </Button>
+                                ) : (
+                                    <Button onClick={handleApplyPromo} disabled={isApplying}>
+                                        {isApplying ? 'Applying...' : 'Apply'}
+                                    </Button>
+                                )}
+                             </div>
+                         </div>
                          <div className="border-t border-b py-4 space-y-2">
                              <div className="flex justify-between items-center text-md text-muted-foreground">
                                 <span>Original Price</span>
                                 <span>₹{Number(course.price).toFixed(2)}</span>
                              </div>
-                              {availableDiscount && (
+                              {appliedPromo && (
                                 <div className="flex justify-between items-center text-md text-green-600">
-                                    <span>Discount ({availableDiscount.percentage}%)</span>
-                                    <span>- ₹{(Number(course.price) * (availableDiscount.percentage / 100)).toFixed(2)}</span>
+                                    <span>Discount ({appliedPromo.percentage}%)</span>
+                                    <span>- ₹{(Number(course.price) * (appliedPromo.percentage / 100)).toFixed(2)}</span>
                                 </div>
                             )}
                             <div className="flex justify-between items-center text-lg font-bold border-t pt-2 mt-2">
@@ -189,12 +236,12 @@ export default function MockPaymentPage() {
                                 <span className="text-2xl">₹{finalPrice?.toFixed(2)}</span>
                             </div>
                         </div>
-                         {availableDiscount && (
+                         {appliedPromo && (
                             <div className="!mt-4">
-                                <Badge variant="secondary" className="bg-green-100 text-green-800 border border-green-200">
-                                    <BadgePercent className="mr-1.5 h-4 w-4" />
-                                    {availableDiscount.percentage}% referral discount applied!
-                                </Badge>
+                                <div className="bg-green-100 text-green-800 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+                                    <BadgePercent className="h-5 w-5" />
+                                    <p className="font-semibold">{appliedPromo.id} applied! You're saving {appliedPromo.percentage}%.</p>
+                                </div>
                             </div>
                         )}
                         <div>
@@ -216,8 +263,8 @@ export default function MockPaymentPage() {
                         >
                             {isProcessing ? (
                                 <>
-                                    <CheckCircle className="mr-2 h-5 w-5 animate-pulse" />
-                                    Processing...
+                                    <Ticket className="mr-2 h-5 w-5 animate-pulse" />
+                                    Processing Purchase...
                                 </>
                             ) : (
                                 `Confirm Purchase for ₹${finalPrice?.toFixed(2)}`
@@ -229,4 +276,3 @@ export default function MockPaymentPage() {
         </div>
     );
 }
-

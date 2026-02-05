@@ -69,93 +69,31 @@ service cloud.firestore {
     }
     
     //----------------------------------------------------------------------
-    //  REFERRAL RULES
+    //  PROMO CODE RULES
     //----------------------------------------------------------------------
-    match /referrals/{referralId} {
-      // READ: A user can read a referral document if they are the referrer or the one referred.
-      allow read: if isSignedIn() && (isOwner(resource.data.referrerId) || isOwner(resource.data.referredId));
-      
-      // CREATE: A user can only create a referral document where they are the one being referred.
-      allow create: if isSignedIn() && isOwner(request.resource.data.referredId);
-      
-      // LIST: Allow users to query referrals they made or received.
-      allow list: if isSignedIn();
-
-      // UPDATE: Referrer can update the doc to claim their discount, one-way change only.
-      allow update: if isOwner(resource.data.referrerId) &&
-                     request.resource.data.referrerDiscountClaimed == true &&
-                     resource.data.referrerDiscountClaimed != true &&
-                     request.resource.data.referrerId == resource.data.referrerId &&
-                     request.resource.data.referredId == resource.data.referredId;
-      
-      // DELETE: No deletes allowed from the client.
-      allow delete: if false;
-    }
-    
-    //----------------------------------------------------------------------
-    //  DISCOUNT RULES
-    //----------------------------------------------------------------------
-    match /discounts/{discountId} {
-        function getReferral(refId) {
-            return get(/databases/$(database)/documents/referrals/$(refId));
-        }
-        function referralExists(refId) {
-            return exists(/databases/$(database)/documents/referrals/$(refId));
-        }
-
-        // READ: Users can only read their own discounts.
-        allow read: if isOwner(resource.data.userId);
-        allow list: if isSignedIn() && request.query.where[0][0] == 'userId' && request.query.where[0][2] == request.auth.uid;
-
-        // CREATE: Discount creation is heavily restricted.
-        allow create: if isOwner(request.resource.data.userId) &&
-                        request.resource.data.used == false &&
-                        referralExists(request.resource.data.createdFromReferralId) &&
-                        (
-                          // Case 1: New user creating their 10% discount during signup.
-                          (
-                            request.resource.data.type == 'REFERRAL_NEW_USER' &&
-                            request.resource.data.percentage == 10 &&
-                            getReferral(request.resource.data.createdFromReferralId).data.referredId == request.auth.uid
-                          ) ||
-                          // Case 2: Referrer claiming their 30% discount from the dashboard.
-                          (
-                            request.resource.data.type == 'REFERRAL_OWNER' &&
-                            request.resource.data.percentage == 30 &&
-                            getReferral(request.resource.data.createdFromReferralId).data.referrerId == request.auth.uid &&
-                            getReferral(request.resource.data.createdFromReferralId).data.referrerDiscountClaimed != true
-                          )
-                        );
-        
-        // UPDATE: Only to mark a discount as used during a purchase. One-way change.
-        allow update: if isOwner(resource.data.userId) &&
-                         resource.data.used == false && // Can only be used once
-                         request.resource.data.used == true &&
-                         request.resource.data.keys().hasAll(['used', 'orderId']) && // Must include orderId to link to purchase
-                         // Verify that a corresponding ticket exists and uses this discount ID
-                         get(/databases/$(database)/documents/tickets/$(request.resource.data.orderId)).data.studentId == request.auth.uid &&
-                         get(/databases/$(database)/documents/tickets/$(request.resource.data.orderId)).data.appliedDiscountId == discountId;
-
-        // DELETE: Not allowed from client.
-        allow delete: if false;
-    }
-
-    //----------------------------------------------------------------------
-    //  PUBLIC REFERRAL CODE LOOKUP
-    //----------------------------------------------------------------------
-    match /referralCodes/{code} {
-      // Allow any signed-in user to check if a code exists. This is a public lookup.
+    match /promoCodes/{code} {
+      // READ: Any signed-in user can check if a code exists.
       allow get: if isSignedIn();
       
-      // A user can only create a document here if the document ID (the code)
-      // matches the referralCode stored in their own user profile. This prevents impersonation.
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid &&
-                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.referralCode == code;
+      // LIST: Do not allow listing all codes.
+      allow list: if false;
 
-      // No client-side updates or deletes are allowed.
-      allow update, delete: if false;
+      // CREATE: Only admins can create new promo codes.
+      allow create: if isAdmin(request.auth.uid);
+
+      // UPDATE: A user can only update a promo code to add THEMSELVES to the `usedBy` array.
+      // This is a one-way operation; they cannot remove themselves or others.
+      allow update: if isSignedIn() &&
+                     // The user's UID must be in the new `usedBy` list.
+                     request.auth.uid in request.resource.data.usedBy &&
+                     // The user's UID must NOT have been in the old `usedBy` list (prevents reuse).
+                     !(request.auth.uid in resource.data.usedBy) &&
+                     // Only the `usedBy` field can be changed by the user.
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedBy']);
+
+      // DELETE: Only admins can delete promo codes.
+      allow delete: if isAdmin(request.auth.uid);
     }
-
 
     //----------------------------------------------------------------------
     //  PUBLIC TUTOR PROFILE RULES
