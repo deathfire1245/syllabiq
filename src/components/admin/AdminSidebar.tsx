@@ -3,7 +3,7 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Shield, Ticket, CreditCard, Video, LogOut, BookCopy } from "lucide-react";
+import { Shield, Ticket, CreditCard, Video, LogOut, BookCopy, BadgePercent } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,7 @@ const navItems = [
   { href: "/admin/payments", icon: CreditCard, label: "Payments" },
   { href: "/admin/sessions", icon: Video, label: "Sessions" },
   { href: "/admin/courses", icon: BookCopy, label: "Courses" },
+  { href: "/admin/promocodes", icon: BadgePercent, label: "Promo Codes" },
 ];
 
 export function AdminSidebar({ isMobile = false }: { isMobile?: boolean }) {

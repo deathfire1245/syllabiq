@@ -1,0 +1,211 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // HELPER FUNCTIONS
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function getUserData(uid) {
+      // Use exists() to safely check for document existence
+      return exists(/databases/$(database)/documents/users/$(uid))
+        ? get(/databases/$(database)/documents/users/$(uid)).data
+        : null;
+    }
+
+    function isRole(uid, role) {
+      let userData = getUserData(uid);
+      return isSignedIn() && userData != null && userData.role == role;
+    }
+
+    function isAdmin(uid) {
+      return isRole(uid, 'admin');
+    }
+
+    function isTeacher(uid) {
+      return isRole(uid, 'teacher');
+    }
+
+    function isStudent(uid) {
+      return isRole(uid, 'student');
+    }
+    
+    //----------------------------------------------------------------------
+    //  USER PROFILE RULES
+    //----------------------------------------------------------------------
+    match /users/{uid} {
+      // READ: Users can read their own profile. Admins can read any profile.
+      // Teachers CANNOT read student profiles to protect private data like bank details.
+      allow get: if isOwner(uid) || isAdmin(request.auth.uid);
+      
+      // LIST: Only admins can list all users to protect user privacy.
+      allow list: if isAdmin(request.auth.uid);
+
+
+      // CREATE: A user can only create their own profile document.
+      // - The role must be 'student' or 'teacher' (admins are created manually).
+      allow create: if isOwner(uid) 
+                    && request.resource.data.uid == request.auth.uid
+                    && (request.resource.data.role == 'student' || request.resource.data.role == 'teacher');
+                    
+      // UPDATE:
+      // - Users can update their own profile, but cannot change their role, uid, email, or createdAt.
+      // - Admins can update any field on any user profile.
+      allow update: if (isOwner(uid) 
+                      && request.resource.data.role == resource.data.role
+                      && request.resource.data.uid == resource.data.uid
+                      && request.resource.data.email == resource.data.email
+                      && request.resource.data.createdAt == resource.data.createdAt
+                    ) || isAdmin(request.auth.uid);
+
+      // DELETE: Only admins can delete user profiles.
+      allow delete: if isAdmin(request.auth.uid);
+    }
+    
+    //----------------------------------------------------------------------
+    //  PROMO CODE RULES
+    //----------------------------------------------------------------------
+    match /promoCodes/{code} {
+      // READ: Any signed-in user can check if a code exists. Admins can read any.
+      allow get: if isSignedIn();
+      
+      // LIST: Only admins can list all codes.
+      allow list: if isAdmin(request.auth.uid);
+
+      // CREATE: Only admins can create new promo codes.
+      allow create: if isAdmin(request.auth.uid);
+
+      // UPDATE: 
+      // - Admins can update any field (e.g., to deactivate a code).
+      // - A regular user can ONLY update a promo code to add THEMSELVES to the `usedBy` array.
+      allow update: if isAdmin(request.auth.uid) || 
+                    (isSignedIn() &&
+                     // The user's UID must be in the new `usedBy` list.
+                     request.auth.uid in request.resource.data.usedBy &&
+                     // The user's UID must NOT have been in the old `usedBy` list (prevents reuse).
+                     !(request.auth.uid in resource.data.usedBy) &&
+                     // Only the `usedBy` field can be changed by the user.
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedBy']));
+
+      // DELETE: Only admins can delete promo codes.
+      allow delete: if isAdmin(request.auth.uid);
+    }
+
+    //----------------------------------------------------------------------
+    //  PUBLIC TUTOR PROFILE RULES
+    //----------------------------------------------------------------------
+    match /tutors/{tutorId} {
+      // READ: Any authenticated user can view public tutor profiles.
+      allow read: if isSignedIn();
+      // WRITE: Only the owner of the profile can create or update it.
+      allow write: if isOwner(tutorId);
+    }
+
+    //----------------------------------------------------------------------
+    //  MEETING RULES
+    //----------------------------------------------------------------------
+    match /meetings/{meetingId} {
+      // Teachers/Admins can create/update meetings. Signed-in users can read.
+      allow read: if isSignedIn();
+      allow write: if isTeacher(request.auth.uid) || isAdmin(request.auth.uid);
+    }
+    
+    //----------------------------------------------------------------------
+    //  TICKET RULES
+    //----------------------------------------------------------------------
+    match /tickets/{ticketId} {
+        // READ (get): 
+        // - Admins can read any ticket.
+        // - A user (student or teacher) can read a ticket if their UID is on it.
+        allow get: if isAdmin(request.auth.uid) || 
+                    (isSignedIn() && (isOwner(resource.data.studentId) || isOwner(resource.data.teacherId)));
+
+        // LIST: 
+        // - Admins can list all tickets.
+        // - Students can list tickets where their studentId matches.
+        // - Teachers can list tickets where their teacherId matches.
+        allow list: if isAdmin(request.auth.uid) ||
+                     (isStudent(request.auth.uid) && request.query.get("studentId") == request.auth.uid) ||
+                     (isTeacher(request.auth.uid) && request.query.get("teacherId") == request.auth.uid);
+
+        // CREATE: Only students can create tickets for themselves.
+        allow create: if isStudent(request.auth.uid) && request.resource.data.studentId == request.auth.uid;
+
+        // UPDATE:
+        // - Student can update status to 'WAITING_FOR_TEACHER' and perform the one-time 'check-in'.
+        // - Teacher can update status to 'ACTIVE', 'COMPLETED', or 'CANCELLED'.
+        // - Admins can update anything.
+        // - Core fields are immutable.
+        allow update: if 
+          // Student actions
+          (
+            isStudent(request.auth.uid) && isOwner(resource.data.studentId) &&
+            (
+              // Allow entering waiting room
+              (request.resource.data.status == 'WAITING_FOR_TEACHER' && resource.data.status == 'PAID') ||
+              // Allow the one-time check-in
+              (request.resource.data.used == true && resource.data.used == false && request.resource.data.checkInTime != null)
+            ) &&
+            // Immutable fields
+            request.resource.data.studentId == resource.data.studentId &&
+            request.resource.data.teacherId == resource.data.teacherId &&
+            request.resource.data.createdAt == resource.data.createdAt &&
+            request.resource.data.orderId == resource.data.orderId
+          )
+        || 
+          // Teacher actions
+          (
+            isTeacher(request.auth.uid) && isOwner(resource.data.teacherId) && 
+            (
+              request.resource.data.status == 'ACTIVE' || 
+              request.resource.data.status == 'COMPLETED' || 
+              request.resource.data.status == 'CANCELLED' ||
+              request.resource.data.status == 'REFUND_PROCESSED'
+            ) &&
+            // Immutable fields
+            request.resource.data.studentId == resource.data.studentId &&
+            request.resource.data.teacherId == resource.data.teacherId &&
+            request.resource.data.createdAt == resource.data.createdAt &&
+            request.resource.data.orderId == resource.data.orderId &&
+            request.resource.data.used == resource.data.used
+          ) 
+        || 
+          // Admin can do anything
+          isAdmin(request.auth.uid);
+
+        // DELETE: No one can delete tickets, for auditing.
+        allow delete: if false;
+    }
+
+    match /participants/{meetingRoomId}/{presence=**} {
+      allow read, write: if isSignedIn();
+    }
+    
+    //----------------------------------------------------------------------
+    //  WHITEBOARD RULES
+    //----------------------------------------------------------------------
+    match /whiteboards/{meetingId}/strokes/{strokeId} {
+      allow read, write: if isSignedIn(); 
+    }
+
+    //----------------------------------------------------------------------
+    //  COURSES & TOPICS RULES
+    //----------------------------------------------------------------------
+    match /courses/{courseId} {
+      allow read: if isSignedIn();
+      allow write: if isTeacher(request.auth.uid);
+    }
+
+    match /topics/{topicId} {
+      allow read: if isSignedIn();
+      allow create: if isTeacher(request.auth.uid) && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isTeacher(request.auth.uid) && resource.data.createdBy == request.auth.uid;
+    }
+  }
+}
