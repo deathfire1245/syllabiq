@@ -7,8 +7,8 @@ const generateUpiLinks = () => {
     const links: { [key: string]: { base: string; discounted: string } } = {};
     upiPriceTiers.forEach(price => {
         const baseAmount = price.toFixed(2);
-        // Applying a fixed 30% discount for the discounted link placeholder
-        const discountedAmount = (price * 0.7).toFixed(2);
+        // Applying a fixed 20% discount for the discounted link placeholder
+        const discountedAmount = (price * 0.8).toFixed(2);
 
         links[String(price)] = {
             base: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=${baseAmount}&cu=INR&tn=CoursePurchase`,
