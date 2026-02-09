@@ -14,6 +14,7 @@ import { ScrollReveal } from "@/components/ScrollReveal";
 import { useFirebase, useUser } from "@/firebase";
 import { addDoc, collection, serverTimestamp, getDoc, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { getSubjects } from "@/lib/data";
 
 const steps = [
   { id: 1, name: "Basic Info", icon: Book },
@@ -36,6 +37,7 @@ export default function CreateCoursePage() {
   const { toast } = useToast();
   const router = useRouter();
   const { firestore, user } = useFirebase();
+  const allSubjects = getSubjects();
 
   const [currentStep, setCurrentStep] = React.useState(1);
   
@@ -166,11 +168,9 @@ export default function CreateCoursePage() {
                         <Select value={courseData.category} onValueChange={(value) => setCourseData({...courseData, category: value})}>
                             <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="math">Mathematics</SelectItem>
-                                <SelectItem value="science">Science</SelectItem>
-                                <SelectItem value="history">History</SelectItem>
-                                <SelectItem value="cs">Computer Science</SelectItem>
-                                <SelectItem value="english">English</SelectItem>
+                               {allSubjects.map(subject => (
+                                    <SelectItem key={subject.id} value={subject.name}>{subject.name}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>
@@ -179,9 +179,9 @@ export default function CreateCoursePage() {
                          <Select value={courseData.difficulty} onValueChange={(value) => setCourseData({...courseData, difficulty: value})}>
                             <SelectTrigger><SelectValue placeholder="Select a level" /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="beginner">Beginner</SelectItem>
-                                <SelectItem value="intermediate">Intermediate</SelectItem>
-                                <SelectItem value="advanced">Advanced</SelectItem>
+                                <SelectItem value="Beginner">Beginner</SelectItem>
+                                <SelectItem value="Intermediate">Intermediate</SelectItem>
+                                <SelectItem value="Advanced">Advanced</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

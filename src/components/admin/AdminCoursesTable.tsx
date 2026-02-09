@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
 import { collection } from "firebase/firestore";
 import { Skeleton } from "../ui/skeleton";
+import { getSubjects } from "@/lib/data";
 
 interface Course {
     id: string;
@@ -24,6 +25,7 @@ export function AdminCoursesTable() {
   const [categoryFilter, setCategoryFilter] = React.useState('all');
   const [difficultyFilter, setDifficultyFilter] = React.useState('all');
   const [searchTerm, setSearchTerm] = React.useState('');
+  const allSubjects = getSubjects();
 
   const coursesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
   const { data: courses, isLoading } = useCollection<Course>(coursesQuery);
@@ -67,11 +69,9 @@ export function AdminCoursesTable() {
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="math">Mathematics</SelectItem>
-                <SelectItem value="science">Science</SelectItem>
-                <SelectItem value="history">History</SelectItem>
-                <SelectItem value="cs">Computer Science</SelectItem>
-                <SelectItem value="english">English</SelectItem>
+                {allSubjects.map(subject => (
+                  <SelectItem key={subject.id} value={subject.name}>{subject.name}</SelectItem>
+                ))}
             </SelectContent>
         </Select>
         <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
@@ -80,9 +80,9 @@ export function AdminCoursesTable() {
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value="all">All Difficulties</SelectItem>
-                <SelectItem value="beginner">Beginner</SelectItem>
-                <SelectItem value="intermediate">Intermediate</SelectItem>
-                <SelectItem value="advanced">Advanced</SelectItem>
+                <SelectItem value="Beginner">Beginner</SelectItem>
+                <SelectItem value="Intermediate">Intermediate</SelectItem>
+                <SelectItem value="Advanced">Advanced</SelectItem>
             </SelectContent>
         </Select>
       </div>
