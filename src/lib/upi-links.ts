@@ -19,5 +19,3 @@ const generateUpiLinks = () => {
 };
 
 export const upiLinks = generateUpiLinks();
-
-export const allowedPromoCodes = ['LAUNCH-2026', 'SAVE-20', 'BUY-NOW', 'COURSE-4U'];
