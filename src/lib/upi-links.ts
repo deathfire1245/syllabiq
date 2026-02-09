@@ -1,21 +1,49 @@
-const upiPriceTiers = [300, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 5000];
 
-// Placeholder VPA (Virtual Payment Address)
-const VPA = "syllabiq@placeholder.upi";
+export const validPromoCodes = ['LAUNCH-2026', 'SAVE-20', 'BUY-NOW', 'COURSE-4U'];
 
-const generateUpiLinks = () => {
-    const links: { [key: string]: { base: string; discounted: string } } = {};
-    upiPriceTiers.forEach(price => {
-        const baseAmount = price.toFixed(2);
-        // Applying a fixed 20% discount for the discounted link placeholder
-        const discountedAmount = (price * 0.8).toFixed(2);
+const VPA = "9347229296@ibl";
 
-        links[String(price)] = {
-            base: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=${baseAmount}&cu=INR&tn=CoursePurchase`,
-            discounted: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=${discountedAmount}&cu=INR&tn=CoursePurchasePromo`
-        };
-    });
-    return links;
+const upiLinks: { [key: string]: { base: string; discounted: string } } = {
+    "300": {
+        base: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=300.00&cu=INR&tn=CoursePurchase`,
+        discounted: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=240.00&cu=INR&tn=CoursePurchasePromo`
+    },
+    "500": {
+        base: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=500.00&cu=INR&tn=CoursePurchase`,
+        discounted: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=400.00&cu=INR&tn=CoursePurchasePromo`
+    },
+    "750": {
+        base: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=750.00&cu=INR&tn=CoursePurchase`,
+        discounted: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=600.00&cu=INR&tn=CoursePurchasePromo`
+    },
+    "1000": {
+        base: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=1000.00&cu=INR&tn=CoursePurchase`,
+        discounted: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=800.00&cu=INR&tn=CoursePurchasePromo`
+    },
+    "1250": {
+        base: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=1250.00&cu=INR&tn=CoursePurchase`,
+        discounted: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=1000.00&cu=INR&tn=CoursePurchasePromo`
+    },
+    "1500": {
+        base: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=1500.00&cu=INR&tn=CoursePurchase`,
+        discounted: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=1200.00&cu=INR&tn=CoursePurchasePromo`
+    },
+    "2000": {
+        base: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=2000.00&cu=INR&tn=CoursePurchase`,
+        discounted: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=1600.00&cu=INR&tn=CoursePurchasePromo`
+    },
+    "2500": {
+        base: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=2500.00&cu=INR&tn=CoursePurchase`,
+        discounted: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=2000.00&cu=INR&tn=CoursePurchasePromo`
+    },
+    "3000": {
+        base: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=3000.00&cu=INR&tn=CoursePurchase`,
+        discounted: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=2400.00&cu=INR&tn=CoursePurchasePromo`
+    },
+    "5000": {
+        base: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=5000.00&cu=INR&tn=CoursePurchase`,
+        discounted: `upi://pay?pa=${VPA}&pn=SyllabiQ&am=4000.00&cu=INR&tn=CoursePurchasePromo`
+    },
 };
 
-export const upiLinks = generateUpiLinks();
+export { upiLinks };
