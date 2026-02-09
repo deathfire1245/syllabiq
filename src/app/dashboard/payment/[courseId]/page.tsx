@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useFirebase, useUser, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, getDoc, runTransaction, collection, addDoc, arrayUnion, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -12,8 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, BadgePercent, X, IndianRupee } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollReveal } from '@/components/ScrollReveal';
-import Link from 'next/link';
-import { upiLinks, allowedPromoCodes } from '@/lib/upi-links';
+import { upiLinks } from '@/lib/upi-links';
 
 export default function MockPaymentPage() {
     const params = useParams();
@@ -22,7 +21,7 @@ export default function MockPaymentPage() {
     const courseId = params.courseId as string;
 
     const { firestore } = useFirebase();
-    const { isUserLoading } = useUser();
+    const { user, isUserLoading } = useUser();
 
     const courseDocRef = useMemoFirebase(() => {
         if (!firestore || !courseId) return null;
@@ -30,9 +29,17 @@ export default function MockPaymentPage() {
     }, [firestore, courseId]);
     const { data: course, isLoading: isCourseLoading } = useDoc(courseDocRef);
 
+    const userDocRef = useMemoFirebase(() => {
+        if (!firestore || !user) return null;
+        return doc(firestore, 'users', user.uid);
+    }, [firestore, user]);
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+
+
     const [promoCodeInput, setPromoCodeInput] = React.useState("");
-    const [appliedPromo, setAppliedPromo] = React.useState<string | null>(null);
+    const [appliedPromo, setAppliedPromo] = React.useState<{code: string; percentage: number} | null>(null);
     const [isApplying, setIsApplying] = React.useState(false);
+    const [isPurchasing, setIsPurchasing] = React.useState(false);
 
     const [displayPrices, setDisplayPrices] = React.useState<{ base: number; final: number; } | null>(null);
     const [upiLink, setUpiLink] = React.useState<string>('#');
@@ -55,35 +62,45 @@ export default function MockPaymentPage() {
         }
     }, [course, toast]);
 
-    const handleApplyPromo = () => {
+    const handleApplyPromo = async () => {
         if (!promoCodeInput.trim()) {
             toast({ variant: 'destructive', title: 'Invalid Code', description: 'Please enter a promo code.' });
             return;
         }
-        if (!course) return;
+        if (!course || !firestore || !user) return;
 
         setIsApplying(true);
         const code = promoCodeInput.trim().toUpperCase();
         
-        const isValid = allowedPromoCodes.map(c => c.toUpperCase()).includes(code);
+        const promoDocRef = doc(firestore, "promoCodes", code);
+        try {
+            const promoDoc = await getDoc(promoDocRef);
+            if (promoDoc.exists() && promoDoc.data().isActive) {
+                const usedBy = promoDoc.data().usedBy || [];
+                if (usedBy.includes(user.uid)) {
+                    toast({ variant: 'destructive', title: 'Already Used', description: 'You have already used this promo code.' });
+                } else {
+                    const discountPercentage = promoDoc.data().percentage || 20; // Default to 20 if not set
+                    
+                    const links = upiLinks[String(course.price)];
+                    if (links) {
+                       setUpiLink(links.discounted);
+                       const finalAmountFromLink = new URLSearchParams(new URL(links.discounted.replace('upi://', 'http://')).search).get('am');
+                       setDisplayPrices(prev => prev ? { ...prev, final: Number(finalAmountFromLink) } : null);
+                    }
 
-        setTimeout(() => {
-            if (isValid) {
-                const coursePrice = String(course.price);
-                const links = upiLinks[coursePrice];
-                if (links) {
-                    setUpiLink(links.discounted);
-                    const discountedAmount = new URLSearchParams(new URL(links.discounted.replace('upi://', 'http://')).search).get('am');
-                    setDisplayPrices(prev => prev ? { ...prev, final: Number(discountedAmount) } : null);
-                    setAppliedPromo(code);
+                    setAppliedPromo({ code, percentage: discountPercentage });
                     toast({ title: 'Success!', description: `Promo code "${code}" applied.` });
                 }
             } else {
-                toast({ variant: 'destructive', title: 'Promo Code Error', description: "This promo code is not valid." });
-                handleRemovePromo();
+                toast({ variant: 'destructive', title: 'Invalid Code', description: "The promo code is not valid or has expired." });
             }
+        } catch (error) {
+             toast({ variant: 'destructive', title: 'Error', description: "Could not validate the promo code." });
+             console.error("Promo validation error:", error);
+        } finally {
             setIsApplying(false);
-        }, 500);
+        }
     };
 
     const handleRemovePromo = () => {
@@ -101,7 +118,77 @@ export default function MockPaymentPage() {
         toast({ title: 'Promo code removed.' });
     };
 
-    if (isUserLoading || isCourseLoading) {
+    const handleConfirmPurchase = async () => {
+        if (!firestore || !user || !course || !userProfile || !displayPrices) return;
+        setIsPurchasing(true);
+
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                const ticketsCollectionRef = collection(firestore, 'tickets');
+                const newTicketRef = doc(ticketsCollectionRef); // Create a new doc reference with an auto-generated ID
+
+                // 1. If promo is applied, validate and update it
+                if (appliedPromo) {
+                    const promoDocRef = doc(firestore, 'promoCodes', appliedPromo.code);
+                    const promoDoc = await transaction.get(promoDocRef);
+                    if (!promoDoc.exists() || !promoDoc.data().isActive || (promoDoc.data().usedBy || []).includes(user.uid)) {
+                        throw new Error("Promo code is no longer valid.");
+                    }
+                    transaction.update(promoDocRef, {
+                        usedBy: arrayUnion(user.uid)
+                    });
+                }
+                
+                // 2. Add course to user's enrolled list
+                 const userDocRef = doc(firestore, 'users', user.uid);
+                 transaction.update(userDocRef, {
+                    'studentProfile.enrolledCourses': arrayUnion(course.id)
+                });
+
+
+                // 3. Create the ticket document
+                const newTicketPayload = {
+                    orderId: newTicketRef.id,
+                    ticketCode: `TKT-${newTicketRef.id.substring(0, 8).toUpperCase()}`,
+                    studentId: user.uid,
+                    studentName: userProfile.name,
+                    teacherId: course.authorId, // Assuming course has authorId
+                    teacherName: course.author,
+                    saleType: 'COURSE',
+                    courseId: course.id,
+                    courseTitle: course.title,
+                    status: 'PAID',
+                    price: displayPrices.base,
+                    finalPrice: displayPrices.final,
+                    appliedPromoCode: appliedPromo?.code || null,
+                    commissionPercent: 10, // Example commission
+                    duration: 0, // Not a session
+                    createdAt: serverTimestamp(),
+                    validFrom: serverTimestamp(), // Or relevant course start date
+                    validTill: serverTimestamp(), // Or relevant course end date
+                    used: true, // Course access is immediate
+                    refundable: false, // Course purchases generally not refundable
+                };
+
+                transaction.set(newTicketRef, newTicketPayload);
+            });
+
+            toast({ title: "Purchase Successful!", description: `You can now access "${course.title}".`});
+            
+            // Redirect to UPI link after successful transaction
+            router.push(upiLink);
+            
+        } catch (error: any) {
+            console.error("Purchase transaction failed:", error);
+            toast({ variant: 'destructive', title: 'Purchase Failed', description: error.message || "Could not complete the purchase. Please try again." });
+        } finally {
+            setIsPurchasing(false);
+        }
+    };
+    
+    const isLoading = isUserLoading || isCourseLoading || isProfileLoading;
+
+    if (isLoading) {
         return (
             <div className="max-w-2xl mx-auto py-12 px-4">
                 <Skeleton className="h-12 w-1/4 mb-8" />
@@ -145,7 +232,7 @@ export default function MockPaymentPage() {
                                     placeholder="Enter code" 
                                     value={promoCodeInput}
                                     onChange={(e) => setPromoCodeInput(e.target.value)}
-                                    disabled={!!appliedPromo}
+                                    disabled={!!appliedPromo || isApplying}
                                 />
                                 {appliedPromo ? (
                                     <Button variant="destructive" onClick={handleRemovePromo}>
@@ -165,7 +252,7 @@ export default function MockPaymentPage() {
                              </div>
                               {appliedPromo && displayPrices && (displayPrices.final < displayPrices.base) && (
                                 <div className="flex justify-between items-center text-md text-green-600">
-                                    <span>Discount</span>
+                                    <span>Discount ({appliedPromo.percentage}%)</span>
                                     <span>- ₹{(displayPrices.base - displayPrices.final).toFixed(2)}</span>
                                 </div>
                             )}
@@ -178,7 +265,7 @@ export default function MockPaymentPage() {
                             <div className="!mt-4">
                                 <div className="bg-green-100 text-green-800 border border-green-200 rounded-lg p-3 flex items-center gap-2">
                                     <BadgePercent className="h-5 w-5" />
-                                    <p className="font-semibold">Promo code "{appliedPromo}" applied!</p>
+                                    <p className="font-semibold">Promo code "{appliedPromo.code}" applied!</p>
                                 </div>
                             </div>
                         )}
@@ -195,13 +282,11 @@ export default function MockPaymentPage() {
                     </CardContent>
                     <CardFooter>
                         <Button 
-                            asChild
+                            onClick={handleConfirmPurchase}
                             className="w-full h-12 text-lg" 
-                            disabled={upiLink === '#'}
+                            disabled={isPurchasing || upiLink === '#'}
                         >
-                            <Link href={upiLink}>
-                                Pay with UPI for ₹{displayPrices?.final.toFixed(2)}
-                            </Link>
+                            {isPurchasing ? 'Processing...' : `Pay with UPI for ₹${displayPrices?.final.toFixed(2)}`}
                         </Button>
                     </CardFooter>
                 </Card>
