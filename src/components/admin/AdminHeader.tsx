@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 import { AdminSidebar } from "./AdminSidebar";
@@ -35,6 +35,9 @@ export function AdminHeader() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Admin Menu</SheetTitle>
+            </SheetHeader>
             <div className="flex h-full max-h-screen flex-col">
               <div className="flex h-16 items-center border-b px-6">
                 <Logo />

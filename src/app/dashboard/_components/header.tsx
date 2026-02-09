@@ -1,6 +1,6 @@
 "use client";
 
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,9 @@ export function Header() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Navigation Menu</SheetTitle>
+            </SheetHeader>
             <div className="flex h-full max-h-screen flex-col">
               <div className="flex h-16 items-center border-b px-6">
                 <Logo />
