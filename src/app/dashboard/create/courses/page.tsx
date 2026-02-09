@@ -29,6 +29,9 @@ interface CourseContent {
   url: string;
 }
 
+const priceTiers = [300, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 5000];
+
+
 export default function CreateCoursePage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -248,14 +251,23 @@ export default function CreateCoursePage() {
             <Card>
               <CardHeader>
                 <CardTitle>Set Your Price</CardTitle>
-                <CardDescription>Choose a one-time price for your course.</CardDescription>
+                <CardDescription>Choose a price tier for your course.</CardDescription>
               </CardHeader>
               <CardContent className="max-w-xs mx-auto">
-                <div className="relative">
-                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input type="number" placeholder="0.00" className="pl-10 text-xl h-12" value={courseData.price} onChange={(e) => setCourseData({...courseData, price: e.target.value})} />
-                </div>
-                 <p className="text-center text-sm text-muted-foreground mt-2">Currency is in INR. Enter 0 for a free course.</p>
+                <Select value={courseData.price} onValueChange={(value) => setCourseData({...courseData, price: value})}>
+                  <SelectTrigger className="text-xl h-12">
+                    <div className="flex items-center">
+                      <IndianRupee className="mr-2 h-5 w-5 text-muted-foreground" />
+                      <SelectValue placeholder="Select a price" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {priceTiers.map(tier => (
+                      <SelectItem key={tier} value={String(tier)}>{`₹ ${tier}`}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                 <p className="text-center text-sm text-muted-foreground mt-2">This is the base price for your course.</p>
               </CardContent>
             </Card>
           </ScrollReveal>
