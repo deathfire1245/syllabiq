@@ -102,7 +102,7 @@ export default function MockPaymentPage() {
 
         try {
             const promoDoc = await getDoc(doc(firestore, "promoCodes", code));
-            if (promoDoc.exists() && promoDoc.data().isActive) {
+            if (promoDoc.exists() && promoDoc.data().isActive && !promoDoc.data().usedBy?.includes(user?.uid)) {
                  const coursePrice = String(course.price);
                  const linksForTier = upiLinks[coursePrice as keyof typeof upiLinks];
 
@@ -121,7 +121,7 @@ export default function MockPaymentPage() {
                     toast({ title: 'Success!', description: `Promo code "${code}" applied.` });
                 }
             } else {
-                 toast({ variant: 'destructive', title: 'Invalid Code', description: "The promo code is not found or inactive." });
+                 toast({ variant: 'destructive', title: 'Invalid Code', description: "The promo code is not found, inactive, or already used." });
             }
         } catch (error) {
              toast({ variant: 'destructive', title: 'Error', description: "Could not validate the promo code." });
@@ -154,12 +154,12 @@ export default function MockPaymentPage() {
         if (!firestore || !user || !course || !userProfile || paymentDetails.upiLink === '#') return;
         
         setIsPurchasing(true);
-
-        const ticketsCollectionRef = collection(firestore, 'tickets');
-        const userDocRef = doc(firestore, 'users', user.uid);
-        const promoDocRef = appliedPromo ? doc(firestore, 'promoCodes', appliedPromo) : null;
         
         try {
+            const ticketsCollectionRef = collection(firestore, 'tickets');
+            const userDocRef = doc(firestore, 'users', user.uid);
+            const promoDocRef = appliedPromo ? doc(firestore, 'promoCodes', appliedPromo) : null;
+            
             await runTransaction(firestore, async (transaction) => {
                 if (promoDocRef) {
                     const promoSnap = await transaction.get(promoDocRef);
@@ -203,18 +203,31 @@ export default function MockPaymentPage() {
                 });
             });
 
-            toast({ title: "Purchase Initiated!", description: `Redirecting to UPI payment for "${course.title}".`});
+            toast({ title: "Purchase Initiated!", description: `Preparing payment for "${course.title}".`});
             
-            // This is the final action. Do not update state after this, as it will
-            // cancel the browser's navigation attempt.
-            window.location.href = paymentDetails.upiLink;
+            const isMobile = /Mobi/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+                // On mobile, fire the redirect. The component will unmount, so no need to reset state.
+                window.location.href = paymentDetails.upiLink;
+            } else {
+                // On desktop, show a message and reset the button.
+                toast({
+                    variant: 'destructive',
+                    title: "Payment Method Unavailable",
+                    description: "UPI payment is not available on this device. Please use a mobile phone with a UPI app installed.",
+                    duration: 8000,
+                });
+                setIsPurchasing(false);
+            }
 
         } catch (error: any) {
             console.error("Purchase transaction failed:", error);
+            setIsPurchasing(false); // Reset on any failure
             
             if (error.code === 'permission-denied') {
                  const permissionError = new FirestorePermissionError({
-                    path: 'tickets', // Simplified path for the error message
+                    path: 'tickets',
                     operation: 'create',
                     requestResourceData: { studentId: user.uid, courseId: course.id },
                 });
@@ -222,8 +235,6 @@ export default function MockPaymentPage() {
             } else {
                 toast({ variant: 'destructive', title: 'Purchase Failed', description: error.message || "Could not complete the purchase. Please try again." });
             }
-             // Only set loading to false if the transaction fails.
-            setIsPurchasing(false);
         }
     };
     
@@ -335,3 +346,4 @@ export default function MockPaymentPage() {
         </div>
     );
 }
+
