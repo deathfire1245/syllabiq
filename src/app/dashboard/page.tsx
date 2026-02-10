@@ -122,26 +122,29 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
             collection(firestore, "tickets"),
             where("teacherId", "==", user.uid),
             where("saleType", "==", "COURSE"),
-            where("status", "==", "PAID")
+            where("status", "in", ["PAID", "REFUND_PROCESSED"])
         );
     }, [user, firestore, userRole]);
     const { data: courseSales, isLoading: areCourseSalesLoading } = useCollection(courseSalesQuery);
 
-    const { pendingCourseEarnings, paidCourseEarnings, recentSales } = React.useMemo(() => {
-        if (!courseSales) return { pendingCourseEarnings: 0, paidCourseEarnings: 0, recentSales: [] };
+    const { pendingCourseEarnings, paidCourseEarnings, allSales } = React.useMemo(() => {
+        if (!courseSales) return { pendingCourseEarnings: 0, paidCourseEarnings: 0, allSales: [] };
         
         let pending = 0;
-        // Since we cannot determine which are paid out, for now we assume all are pending.
-        // And paid is 0, as there is no 'PAID_OUT' status on the ticket itself.
+        
+        // Calculate pending earnings only from 'PAID' tickets
         courseSales.forEach(ticket => {
-            const saleAmount = ticket.finalPrice || 0;
-            const commission = saleAmount * (ticket.commissionPercent || 10) / 100;
-            pending += saleAmount - commission;
+            if (ticket.status === 'PAID') {
+                const saleAmount = ticket.finalPrice || 0;
+                const commission = saleAmount * (ticket.commissionPercent || 10) / 100;
+                pending += saleAmount - commission;
+            }
         });
     
-        const sortedSales = [...courseSales].sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
+        const sortedSales = [...courseSales].sort((a, b) => (b.createdAt?.toDate() || 0) - (a.createdAt?.toDate() || 0));
     
-        return { pendingCourseEarnings: pending, paidCourseEarnings: 0, recentSales: sortedSales.slice(0, 5) };
+        // paidCourseEarnings is still 0 as we can't determine what's paid out from the ticket status alone
+        return { pendingCourseEarnings: pending, paidCourseEarnings: 0, allSales: sortedSales };
     }, [courseSales]);
 
     const teacherStats = [
@@ -260,28 +263,37 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
                  <ScrollReveal delay={0.4}>
                     <Card>
                         <CardHeader>
-                            <CardTitle>Recent Course Sales</CardTitle>
-                            <CardDescription>A list of your 5 most recent course sales.</CardDescription>
+                            <CardTitle>Course Sales &amp; Payouts</CardTitle>
+                            <CardDescription>A real-time list of all your course sales and their payout status.</CardDescription>
                         </CardHeader>
                         <CardContent>
                         {areCourseSalesLoading ? <Skeleton className="h-40 w-full" /> : 
-                            recentSales && recentSales.length > 0 ? (
+                            allSales && allSales.length > 0 ? (
                                 <div className="space-y-4">
-                                    {recentSales.map(sale => {
+                                    {allSales.map(sale => {
                                         const saleAmount = sale.finalPrice || 0;
                                         const commission = saleAmount * (sale.commissionPercent || 10) / 100;
                                         const earning = saleAmount - commission;
+                                        const isRefunded = sale.status === 'REFUND_PROCESSED';
+                                        
                                         return (
                                             <div key={sale.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                                                <div>
+                                                <div className="flex-1">
                                                     <p className="font-semibold">{sale.courseTitle}</p>
                                                     <p className="text-sm text-muted-foreground">
-                                                        {format(sale.createdAt.toDate(), "PPP")} - Sold to {sale.studentName}
+                                                        {sale.createdAt ? format(sale.createdAt.toDate(), "PPP") : 'N/A'} - Sold to {sale.studentName}
                                                     </p>
                                                 </div>
-                                                <div className="text-right">
-                                                <p className="font-semibold font-mono text-green-600">+ ₹{earning.toFixed(2)}</p>
-                                                <p className="text-xs text-muted-foreground">Sale: ₹{saleAmount.toFixed(2)}</p>
+                                                <div className="w-1/4 text-right">
+                                                    <p className={`font-semibold font-mono ${isRefunded ? 'text-destructive' : 'text-green-600'}`}>
+                                                        {isRefunded ? `- ₹${saleAmount.toFixed(2)}` : `+ ₹${earning.toFixed(2)}`}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">Sale: ₹{saleAmount.toFixed(2)}</p>
+                                                </div>
+                                                <div className="w-32 text-center ml-4">
+                                                     <Badge variant={isRefunded ? 'destructive' : 'outline'}>
+                                                        {isRefunded ? 'Refunded' : 'Pending Payout'}
+                                                    </Badge>
                                                 </div>
                                             </div>
                                         )
