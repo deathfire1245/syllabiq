@@ -40,7 +40,16 @@
                 "timeSlots": { "type": "array", "items": { "type": "string" } }
               }
             },
-            "isVerified": { "type": "boolean" }
+            "isVerified": { "type": "boolean" },
+            "bankDetails": {
+              "type": "object",
+              "description": "Bank account details for payouts.",
+              "properties": {
+                "accountHolderName": { "type": "string" },
+                "accountNumber": { "type": "string" },
+                "ifscCode": { "type": "string" }
+              }
+            }
           }
         }
       },

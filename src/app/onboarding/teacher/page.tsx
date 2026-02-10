@@ -9,14 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Check, IndianRupee } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, IndianRupee, Banknote } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase } from "@/firebase";
 import { doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
 
 const steps = [
   { id: 1, title: "Your Expertise" },
-  { id: 2, title: "Bio & Availability" },
+  { id: 2, title: "Bio & Payouts" },
   { id: 3, title: "All Set!" },
 ];
 
@@ -35,6 +35,11 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
     availability: {
       days: [] as string[],
       timeSlots: [] as string[], // Placeholder for now
+    },
+    bankDetails: {
+      accountHolderName: "",
+      accountNumber: "",
+      ifscCode: "",
     },
   });
   const { toast } = useToast();
@@ -97,6 +102,7 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
             hourlyRate: Number(formData.hourlyRate),
             bio: formData.bio,
             availability: formData.availability,
+            bankDetails: formData.bankDetails,
             isVerified: false,
             totalSessions: 0,
             rating: 0,
@@ -138,7 +144,7 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
                 if (formData.subjects.length === 0 || formData.qualifications.length === 0 || formData.experienceYears.trim() === '') return false;
                 break;
             case 2:
-                if (formData.bio.trim() === '' || formData.hourlyRate.trim() === '' || formData.availability.days.length === 0) return false;
+                if (formData.bio.trim() === '' || formData.hourlyRate.trim() === '' || formData.availability.days.length === 0 || formData.bankDetails.accountHolderName.trim() === '' || formData.bankDetails.accountNumber.trim() === '' || formData.bankDetails.ifscCode.trim() === '') return false;
                 break;
             default:
                 break;
@@ -216,6 +222,27 @@ export default function TeacherOnboarding({ onComplete }: { onComplete: () => vo
                   </Badge>
                 ))}
               </div>
+            </div>
+
+             <div className="space-y-6 pt-6 border-t">
+                <div className="space-y-1">
+                    <h4 className="font-semibold text-foreground flex items-center gap-2"><Banknote className="w-5 h-5 text-primary"/> Payout Information</h4>
+                    <p className="text-sm text-muted-foreground">This is kept private and used only to pay you for your course sales.</p>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="accountHolderName">Account Holder Name <span className="text-destructive">*</span></Label>
+                        <Input id="accountHolderName" placeholder="Name as per bank records" value={formData.bankDetails.accountHolderName} onChange={(e) => setFormData({...formData, bankDetails: {...formData.bankDetails, accountHolderName: e.target.value}})} />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="accountNumber">Bank Account Number <span className="text-destructive">*</span></Label>
+                        <Input id="accountNumber" placeholder="Enter your account number" value={formData.bankDetails.accountNumber} onChange={(e) => setFormData({...formData, bankDetails: {...formData.bankDetails, accountNumber: e.target.value}})} />
+                    </div>
+                </div>
+                <div className="space-y-2 max-w-sm">
+                    <Label htmlFor="ifscCode">IFSC Code <span className="text-destructive">*</span></Label>
+                    <Input id="ifscCode" placeholder="Enter your bank's IFSC code" value={formData.bankDetails.ifscCode} onChange={(e) => setFormData({...formData, bankDetails: {...formData.bankDetails, ifscCode: e.target.value}})} />
+                </div>
             </div>
           </div>
         );
