@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -10,6 +11,15 @@ import { IndianRupee } from "lucide-react";
 import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
 import { collection, query } from "firebase/firestore";
 import { Skeleton } from "../ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
 
 const statusStyles: { [key: string]: string } = {
   READY_FOR_PAYOUT: "bg-green-100 text-green-800 border-green-200",
@@ -17,29 +27,37 @@ const statusStyles: { [key: string]: string } = {
   REFUNDED: "bg-red-100 text-red-800 border-red-200",
 };
 
+interface BankDetails {
+    accountHolderName: string;
+    accountNumber: string;
+    ifscCode: string;
+}
+
 export function PaymentsTable() {
     const { firestore } = useFirebase();
     const [filter, setFilter] = React.useState('all');
     const [searchTerm, setSearchTerm] = React.useState('');
 
-    const ticketsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return query(collection(firestore, "tickets"));
-    }, [firestore]);
-
-    const { data: tickets, isLoading } = useCollection(ticketsQuery);
+    const ticketsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "tickets")) : null, [firestore]);
+    const { data: tickets, isLoading: areTicketsLoading } = useCollection(ticketsQuery);
+    
+    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, "users") : null, [firestore]);
+    const { data: users, isLoading: areUsersLoading } = useCollection(usersQuery);
 
     const paymentsData = React.useMemo(() => {
-        if (!tickets) return [];
+        if (!tickets || !users) return [];
         
+        const usersMap = new Map(users.map(u => [u.id, u]));
         const courseSaleTickets = tickets.filter(ticket => ticket.saleType === 'COURSE');
 
         let derivedPayments = courseSaleTickets.map(ticket => {
-            const amount = ticket.price || 0;
+            const amount = ticket.finalPrice || 0;
             const commission = amount * (ticket.commissionPercent || 10) / 100;
             const netAmount = amount - commission;
             let status = "READY_FOR_PAYOUT";
             if (ticket.status === 'REFUND_PROCESSED') status = 'REFUNDED';
+            
+            const teacher = usersMap.get(ticket.teacherId);
             
             return {
                 paymentId: `PAY-${ticket.orderId?.slice(-6) || ticket.id.slice(-6)}`,
@@ -51,6 +69,7 @@ export function PaymentsTable() {
                 commission,
                 netAmount,
                 status,
+                bankDetails: teacher?.teacherProfile?.bankDetails,
             };
         });
 
@@ -68,7 +87,9 @@ export function PaymentsTable() {
         }
 
         return derivedPayments;
-    }, [tickets, filter, searchTerm]);
+    }, [tickets, users, filter, searchTerm]);
+    
+    const isLoading = areTicketsLoading || areUsersLoading;
 
   return (
     <div className="space-y-4">
@@ -100,16 +121,17 @@ export function PaymentsTable() {
               <TableHead>Course Title</TableHead>
               <TableHead>Student</TableHead>
               <TableHead>Author</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="text-right">Sale Amount</TableHead>
               <TableHead className="text-right">Commission</TableHead>
               <TableHead className="text-right">Net Payout</TableHead>
               <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-center">Bank Details</TableHead>
               <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow><TableCell colSpan={9} className="text-center"><Skeleton className="h-24 w-full" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center"><Skeleton className="h-24 w-full" /></TableCell></TableRow>
             ) : paymentsData && paymentsData.length > 0 ? (
                  paymentsData.map((payment) => (
                     <TableRow key={payment.paymentId} className="hover:bg-accent transition-colors">
@@ -123,9 +145,42 @@ export function PaymentsTable() {
                         <TableCell className="text-center">
                         <Badge variant="outline" className={statusStyles[payment.status]}>{payment.status.replace(/_/g, ' ')}</Badge>
                         </TableCell>
+                        <TableCell className="text-center">
+                            {payment.bankDetails ? (
+                               <Dialog>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" size="sm">View</Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[425px]">
+                                        <DialogHeader>
+                                        <DialogTitle>Bank Details for {payment.teacherName}</DialogTitle>
+                                        <DialogDescription>
+                                            Use these details to process the payout.
+                                        </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="grid gap-4 py-4 text-left">
+                                            <div className="grid grid-cols-4 items-center gap-4">
+                                                <Label className="text-right col-span-1">Holder Name</Label>
+                                                <span className="col-span-3 font-semibold">{payment.bankDetails.accountHolderName}</span>
+                                            </div>
+                                             <div className="grid grid-cols-4 items-center gap-4">
+                                                <Label className="text-right col-span-1">Account No.</Label>
+                                                <span className="col-span-3 font-semibold font-mono">{payment.bankDetails.accountNumber}</span>
+                                            </div>
+                                             <div className="grid grid-cols-4 items-center gap-4">
+                                                <Label className="text-right col-span-1">IFSC Code</Label>
+                                                <span className="col-span-3 font-semibold font-mono">{payment.bankDetails.ifscCode}</span>
+                                            </div>
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
+                            ) : (
+                                <span className="text-xs text-muted-foreground">Not Provided</span>
+                            )}
+                        </TableCell>
                         <TableCell className="text-center space-x-2">
                             {payment.status === 'READY_FOR_PAYOUT' && (
-                                <Button variant="outline" size="sm" className="h-8">
+                                <Button variant="outline" size="sm" className="h-8" disabled={!payment.bankDetails}>
                                     <IndianRupee className="w-4 h-4 mr-1" /> Mark as Paid
                                 </Button>
                             )}
@@ -133,7 +188,7 @@ export function PaymentsTable() {
                     </TableRow>
                 ))
             ) : (
-                <TableRow><TableCell colSpan={9} className="text-center">No course payment data available.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center">No course payment data available.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
