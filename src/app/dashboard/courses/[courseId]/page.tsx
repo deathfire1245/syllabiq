@@ -2,14 +2,15 @@
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useDoc, useFirebase, useUser, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useDoc, useFirebase, useUser, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, collection, query, where, limit, runTransaction, arrayUnion } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Lock, FileText, Video, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, Lock, FileText, Video, Link as LinkIcon, RefreshCw, AlertTriangle } from 'lucide-react';
 import { ScrollReveal } from '@/components/ScrollReveal';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 interface CourseContentItem {
   title: string;
@@ -21,9 +22,12 @@ export default function CourseContentPage() {
     const params = useParams();
     const router = useRouter();
     const courseId = params.courseId as string;
+    const { toast } = useToast();
 
     const { firestore } = useFirebase();
     const { user, isUserLoading } = useUser();
+
+    const [isConfirming, setIsConfirming] = React.useState(false);
 
     const courseDocRef = useMemoFirebase(() => {
         if (!firestore || !courseId) return null;
@@ -35,14 +39,68 @@ export default function CourseContentPage() {
         return doc(firestore, 'users', user.uid);
     }, [firestore, user]);
 
+    // Check for an initiated ticket for this course
+    const ticketQuery = useMemoFirebase(() => {
+        if (!firestore || !user || !courseId) return null;
+        return query(
+            collection(firestore, 'tickets'),
+            where('studentId', '==', user.uid),
+            where('courseId', '==', courseId),
+            limit(1)
+        );
+    }, [firestore, user, courseId]);
+
     const { data: course, isLoading: isCourseLoading } = useDoc(courseDocRef);
-    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+    const { data: userProfile, isLoading: isProfileLoading, mutate } = useDoc(userDocRef);
+    const { data: tickets, isLoading: isTicketLoading } = useCollection(ticketQuery);
 
     const isEnrolled = React.useMemo(() => {
         return userProfile?.studentProfile?.enrolledCourses?.includes(courseId) || false;
     }, [userProfile, courseId]);
 
-    if (isUserLoading || isCourseLoading || isProfileLoading) {
+    const pendingTicket = React.useMemo(() => {
+        if (!tickets || tickets.length === 0) return null;
+        const ticket = tickets[0];
+        return ticket.status === 'INITIATED' ? ticket : null;
+    }, [tickets]);
+    
+    const handleConfirmPayment = async () => {
+        if (!firestore || !user || !pendingTicket) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not find a pending payment to confirm.'});
+            return;
+        }
+        setIsConfirming(true);
+        const ticketRef = doc(firestore, 'tickets', pendingTicket.id);
+        const userRef = doc(firestore, 'users', user.uid);
+
+        try {
+            await runTransaction(firestore, async (transaction) => {
+                const ticketDoc = await transaction.get(ticketRef);
+                if (!ticketDoc.exists() || ticketDoc.data().status !== 'INITIATED') {
+                    throw new Error('Ticket is not in a valid state to be confirmed.');
+                }
+
+                // 1. Update the ticket status to PAID
+                transaction.update(ticketRef, { status: 'PAID', used: true, refundable: false });
+
+                // 2. Grant course access to the user
+                transaction.update(userRef, {
+                    'studentProfile.enrolledCourses': arrayUnion(courseId)
+                });
+            });
+
+            toast({ title: 'Payment Confirmed!', description: 'You now have access to the course.'});
+            // Optimistically update the UI without a full reload
+            await mutate();
+
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Confirmation Failed', description: error.message || 'Could not confirm your payment. Please try again.' });
+        } finally {
+            setIsConfirming(false);
+        }
+    }
+
+    if (isUserLoading || isCourseLoading || isProfileLoading || isTicketLoading) {
         return (
             <div className="max-w-4xl mx-auto py-12 px-4 space-y-8">
                 <Skeleton className="h-10 w-1/4" />
@@ -68,18 +126,33 @@ export default function CourseContentPage() {
         return (
             <div className="max-w-4xl mx-auto py-12 px-4 text-center">
                  <ScrollReveal>
-                    <Card className="max-w-md mx-auto">
-                        <CardHeader>
-                            <Lock className="w-12 h-12 mx-auto text-destructive mb-4"/>
-                            <CardTitle className="text-2xl">Access Denied</CardTitle>
-                            <CardDescription>You are not enrolled in this course.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                             <Button onClick={() => router.push(`/dashboard/payment/${courseId}`)}>
-                                Buy Course for ₹{course.price}
-                             </Button>
-                        </CardContent>
-                    </Card>
+                    {pendingTicket ? (
+                        <Card className="max-w-md mx-auto border-yellow-400 bg-yellow-50">
+                            <CardHeader>
+                                <AlertTriangle className="w-12 h-12 mx-auto text-yellow-500 mb-4"/>
+                                <CardTitle className="text-2xl">Payment Pending</CardTitle>
+                                <CardDescription>Your purchase has been initiated. If you have completed the payment, please confirm below.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                 <Button onClick={handleConfirmPayment} disabled={isConfirming}>
+                                    {isConfirming ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin"/>Confirming...</> : 'I have paid, Confirm Purchase'}
+                                 </Button>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <Card className="max-w-md mx-auto">
+                            <CardHeader>
+                                <Lock className="w-12 h-12 mx-auto text-destructive mb-4"/>
+                                <CardTitle className="text-2xl">Access Denied</CardTitle>
+                                <CardDescription>You are not enrolled in this course.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                 <Button onClick={() => router.push(`/dashboard/payment/${courseId}`)}>
+                                    Buy Course for ₹{course.price}
+                                 </Button>
+                            </CardContent>
+                        </Card>
+                    )}
                  </ScrollReveal>
             </div>
         )
