@@ -3,8 +3,8 @@
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useDoc, useFirebase, useUser, useMemoFirebase } from '@/firebase';
-import { doc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useDoc, useFirebase, useUser, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { doc, collection, addDoc, serverTimestamp, runTransaction, arrayUnion } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -12,7 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, BadgePercent, X, IndianRupee } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollReveal } from '@/components/ScrollReveal';
-import { upiLinks, validPromoCodes } from '@/lib/upi-links';
+import { upiLinks } from '@/lib/upi-links';
+import { getDoc } from 'firebase/firestore';
 
 // Helper function to extract amount from UPI string
 const getAmountFromUpiString = (upiString: string | undefined): number => {
@@ -93,34 +94,39 @@ export default function MockPaymentPage() {
             toast({ variant: 'destructive', title: 'Invalid Code', description: 'Please enter a promo code.' });
             return;
         }
-        if (!course) return;
+        if (!course || !firestore) return;
         
         setIsApplying(true);
         const code = promoCodeInput.trim().toUpperCase();
 
-        if (validPromoCodes.includes(code)) {
-            const coursePrice = String(course.price);
-            const linksForTier = upiLinks[coursePrice as keyof typeof upiLinks];
+        try {
+            const promoDoc = await getDoc(doc(firestore, "promoCodes", code));
+            if (promoDoc.exists() && promoDoc.data().isActive) {
+                 const coursePrice = String(course.price);
+                 const linksForTier = upiLinks[coursePrice as keyof typeof upiLinks];
 
-            if (linksForTier) {
-                const baseAmount = getAmountFromUpiString(linksForTier.base);
-                const discountedAmount = getAmountFromUpiString(linksForTier.discounted);
+                 if (linksForTier) {
+                    const baseAmount = getAmountFromUpiString(linksForTier.base);
+                    const discountedAmount = getAmountFromUpiString(linksForTier.discounted);
 
-                setPaymentDetails({
-                    baseAmount,
-                    finalAmount: discountedAmount,
-                    upiLink: linksForTier.discounted,
-                    discountApplied: true,
-                    discountValue: baseAmount - discountedAmount,
-                });
-                setAppliedPromo(code);
-                toast({ title: 'Success!', description: `Promo code "${code}" applied.` });
+                    setPaymentDetails({
+                        baseAmount,
+                        finalAmount: discountedAmount,
+                        upiLink: linksForTier.discounted,
+                        discountApplied: true,
+                        discountValue: baseAmount - discountedAmount,
+                    });
+                    setAppliedPromo(code);
+                    toast({ title: 'Success!', description: `Promo code "${code}" applied.` });
+                }
+            } else {
+                 toast({ variant: 'destructive', title: 'Invalid Code', description: "The promo code is not found or inactive." });
             }
-        } else {
-            toast({ variant: 'destructive', title: 'Invalid Code', description: "The promo code is not valid." });
+        } catch (error) {
+             toast({ variant: 'destructive', title: 'Error', description: "Could not validate the promo code." });
+        } finally {
+            setIsApplying(false);
         }
-        
-        setIsApplying(false);
     };
 
     const handleRemovePromo = () => {
@@ -145,45 +151,80 @@ export default function MockPaymentPage() {
 
     const handleConfirmPurchase = async () => {
         if (!firestore || !user || !course || !userProfile || paymentDetails.upiLink === '#') return;
+        
         setIsPurchasing(true);
 
+        const ticketsCollectionRef = collection(firestore, 'tickets');
+        const userDocRef = doc(firestore, 'users', user.uid);
+        const promoDocRef = appliedPromo ? doc(firestore, 'promoCodes', appliedPromo) : null;
+        
         try {
-            const ticketsCollectionRef = collection(firestore, 'tickets');
-            
-            // Create the ticket document for logging
-            const newTicketPayload = {
-                orderId: `mock_${Date.now()}`,
-                ticketCode: `TKT-${Date.now().toString().slice(-8)}`,
-                studentId: user.uid,
-                studentName: userProfile.name,
-                teacherId: course.authorId,
-                teacherName: course.author,
-                saleType: 'COURSE',
-                courseId: course.id,
-                courseTitle: course.title,
-                status: 'PAID', // Assume payment is successful for this mock flow
-                price: paymentDetails.baseAmount,
-                finalPrice: paymentDetails.finalAmount,
-                appliedPromoCode: appliedPromo,
-                commissionPercent: 10, // Example commission
-                duration: 0,
-                createdAt: serverTimestamp(),
-                validFrom: serverTimestamp(),
-                validTill: serverTimestamp(),
-                used: true,
-                refundable: false,
-            };
+            await runTransaction(firestore, async (transaction) => {
+                let promoValid = false;
+                if (promoDocRef) {
+                    const promoSnap = await transaction.get(promoDocRef);
+                    if (promoSnap.exists() && promoSnap.data().isActive && !promoSnap.data().usedBy?.includes(user.uid)) {
+                        promoValid = true;
+                    } else {
+                        throw new Error("Promo code is invalid or has already been used.");
+                    }
+                }
 
-            await addDoc(ticketsCollectionRef, newTicketPayload);
-            
+                // Create the ticket document
+                const newTicketPayload = {
+                    orderId: `mock_${Date.now()}`,
+                    ticketCode: `TKT-${Date.now().toString().slice(-8)}`,
+                    studentId: user.uid,
+                    studentName: userProfile.name || "",
+                    teacherId: course.authorId,
+                    teacherName: course.author,
+                    saleType: 'COURSE',
+                    courseId: course.id,
+                    courseTitle: course.title,
+                    status: 'PAID',
+                    price: paymentDetails.baseAmount,
+                    finalPrice: paymentDetails.finalAmount,
+                    appliedPromoCode: appliedPromo,
+                    commissionPercent: 10,
+                    duration: 0,
+                    createdAt: serverTimestamp(),
+                    validFrom: serverTimestamp(),
+                    validTill: serverTimestamp(),
+                    used: true, // For courses, this is set to true immediately
+                    refundable: false,
+                };
+                
+                transaction.set(doc(ticketsCollectionRef), newTicketPayload);
+                
+                // Add course to user's enrolled list
+                transaction.update(userDocRef, {
+                    'studentProfile.enrolledCourses': arrayUnion(course.id)
+                });
+
+                // Mark promo as used for this user
+                if (promoDocRef && promoValid) {
+                    transaction.update(promoDocRef, {
+                        usedBy: arrayUnion(user.uid)
+                    });
+                }
+            });
+
             toast({ title: "Purchase Initiated!", description: `Redirecting to UPI payment for "${course.title}".`});
-            
-            // Redirect to UPI link
             router.push(paymentDetails.upiLink);
-            
         } catch (error: any) {
-            console.error("Purchase logging failed:", error);
-            toast({ variant: 'destructive', title: 'Purchase Failed', description: "Could not log the purchase. Please try again." });
+            console.error("Purchase transaction failed:", error);
+            
+            // Create a contextual error for permission issues
+            if (error.code === 'permission-denied') {
+                 const permissionError = new FirestorePermissionError({
+                    path: 'tickets', // Simplified path for the error message
+                    operation: 'create',
+                    requestResourceData: { studentId: user.uid, courseId: course.id },
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            } else {
+                toast({ variant: 'destructive', title: 'Purchase Failed', description: error.message || "Could not complete the purchase. Please try again." });
+            }
         } finally {
             setIsPurchasing(false);
         }
