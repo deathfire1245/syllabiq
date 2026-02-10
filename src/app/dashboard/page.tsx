@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { doc, collection, query, where, orderBy, limit } from "firebase/firestore";
 import type { Topic } from "@/lib/types";
+import { format } from "date-fns";
 
 
 const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?: string, suffix?: string }) => {
@@ -115,8 +116,36 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
     }, [user, firestore]);
     const { data: recentContent, isLoading: isRecentContentLoading } = useCollection<Topic>(recentContentQuery);
     
+    const courseSalesQuery = useMemoFirebase(() => {
+        if (!user || !firestore || userRole !== "teacher") return null;
+        return query(
+            collection(firestore, "tickets"),
+            where("teacherId", "==", user.uid),
+            where("saleType", "==", "COURSE"),
+            where("status", "==", "PAID")
+        );
+    }, [user, firestore, userRole]);
+    const { data: courseSales, isLoading: areCourseSalesLoading } = useCollection(courseSalesQuery);
+
+    const { pendingCourseEarnings, paidCourseEarnings, recentSales } = React.useMemo(() => {
+        if (!courseSales) return { pendingCourseEarnings: 0, paidCourseEarnings: 0, recentSales: [] };
+        
+        let pending = 0;
+        // Since we cannot determine which are paid out, for now we assume all are pending.
+        // And paid is 0, as there is no 'PAID_OUT' status on the ticket itself.
+        courseSales.forEach(ticket => {
+            const saleAmount = ticket.finalPrice || 0;
+            const commission = saleAmount * (ticket.commissionPercent || 10) / 100;
+            pending += saleAmount - commission;
+        });
+    
+        const sortedSales = [...courseSales].sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
+    
+        return { pendingCourseEarnings: pending, paidCourseEarnings: 0, recentSales: sortedSales.slice(0, 5) };
+    }, [courseSales]);
+
     const teacherStats = [
-        { title: "Total Earnings", value: totalEarnings, icon: IndianRupee, footer: "From completed sessions", isLoading: areSessionsLoading, prefix: "₹" },
+        { title: "Total Session Earnings", value: totalEarnings, icon: IndianRupee, footer: "From completed sessions", isLoading: areSessionsLoading, prefix: "₹" },
         { title: "Hours Taught", value: completedSessions?.length ?? 0, icon: Clock, footer: "Total sessions completed", isLoading: areSessionsLoading },
         { title: "My Students", value: uniqueStudents, icon: Users, footer: "Unique students taught", isLoading: areSessionsLoading },
         { title: "Upcoming Sessions", value: upcomingSessions?.length ?? 0, icon: Calendar, footer: "Check your schedule", isLoading: areUpcomingSessionsLoading },
@@ -194,8 +223,77 @@ const TeacherDashboard = ({ userRole }: { userRole: string }) => {
             )})}
         </div>
 
+        <ScrollReveal delay={0.3}>
+            <h2 className="text-2xl font-bold tracking-tight mt-8 mb-4">Course Earnings</h2>
+            <div className="grid gap-6 sm:grid-cols-2">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium">Pending Payout</CardTitle>
+                        <IndianRupee className="w-4 h-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        {areCourseSalesLoading ? <Skeleton className="h-8 w-1/2" /> : (
+                            <div className="text-2xl font-bold">
+                                <AnimatedCounter to={pendingCourseEarnings} prefix="₹" />
+                            </div>
+                        )}
+                        <p className="text-xs text-muted-foreground">Earnings from course sales awaiting payout.</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium">Total Paid Out</CardTitle>
+                        <IndianRupee className="w-4 h-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">
+                            <AnimatedCounter to={paidCourseEarnings} prefix="₹" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">Total earnings paid out to your account.</p>
+                    </CardContent>
+                </Card>
+            </div>
+        </ScrollReveal>
+        
         <div className="grid md:grid-cols-3 gap-8">
             <div className="md:col-span-2 space-y-8">
+                 <ScrollReveal delay={0.4}>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Recent Course Sales</CardTitle>
+                            <CardDescription>A list of your 5 most recent course sales.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                        {areCourseSalesLoading ? <Skeleton className="h-40 w-full" /> : 
+                            recentSales && recentSales.length > 0 ? (
+                                <div className="space-y-4">
+                                    {recentSales.map(sale => {
+                                        const saleAmount = sale.finalPrice || 0;
+                                        const commission = saleAmount * (sale.commissionPercent || 10) / 100;
+                                        const earning = saleAmount - commission;
+                                        return (
+                                            <div key={sale.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                                                <div>
+                                                    <p className="font-semibold">{sale.courseTitle}</p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {format(sale.createdAt.toDate(), "PPP")} - Sold to {sale.studentName}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                <p className="font-semibold font-mono text-green-600">+ ₹{earning.toFixed(2)}</p>
+                                                <p className="text-xs text-muted-foreground">Sale: ₹{saleAmount.toFixed(2)}</p>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-center text-muted-foreground py-8">You have no course sales yet.</p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </ScrollReveal>
+
                 <ScrollReveal delay={0.3}>
                     <Card>
                         <CardHeader>
