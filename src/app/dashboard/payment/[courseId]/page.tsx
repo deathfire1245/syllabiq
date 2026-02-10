@@ -205,7 +205,8 @@ export default function MockPaymentPage() {
 
             toast({ title: "Purchase Initiated!", description: `Redirecting to UPI payment for "${course.title}".`});
             
-            // Use direct redirect to avoid Next.js router delays
+            // This is the final action. Do not update state after this, as it will
+            // cancel the browser's navigation attempt.
             window.location.href = paymentDetails.upiLink;
 
         } catch (error: any) {
@@ -221,7 +222,7 @@ export default function MockPaymentPage() {
             } else {
                 toast({ variant: 'destructive', title: 'Purchase Failed', description: error.message || "Could not complete the purchase. Please try again." });
             }
-        } finally {
+             // Only set loading to false if the transaction fails.
             setIsPurchasing(false);
         }
     };
