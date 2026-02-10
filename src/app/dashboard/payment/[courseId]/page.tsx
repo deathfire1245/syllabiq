@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import * as React from 'react';
@@ -157,21 +155,22 @@ export default function MockPaymentPage() {
         
         try {
             const ticketsCollectionRef = collection(firestore, 'tickets');
-            const userDocRef = doc(firestore, 'users', user.uid);
             const promoDocRef = appliedPromo ? doc(firestore, 'promoCodes', appliedPromo) : null;
             
+            // This transaction only creates the ticket. It does NOT grant access.
             await runTransaction(firestore, async (transaction) => {
                 if (promoDocRef) {
                     const promoSnap = await transaction.get(promoDocRef);
                     if (!promoSnap.exists() || !promoSnap.data().isActive || promoSnap.data().usedBy?.includes(user.uid)) {
                         throw new Error("Promo code is invalid or has already been used.");
                     }
+                    // We mark the promo code as used here to prevent reuse.
                      transaction.update(promoDocRef, {
                         usedBy: arrayUnion(user.uid)
                     });
                 }
 
-                // Create the ticket document
+                // Create the ticket document with 'INITIATED' status
                 const newTicketPayload = {
                     orderId: `mock_${Date.now()}`,
                     ticketCode: `TKT-${Date.now().toString().slice(-8)}`,
@@ -182,36 +181,28 @@ export default function MockPaymentPage() {
                     saleType: 'COURSE',
                     courseId: course.id,
                     courseTitle: course.title,
-                    status: 'PAID',
+                    status: 'INITIATED', // <-- CRITICAL: Status is INITIATED, not PAID
                     price: paymentDetails.baseAmount,
                     finalPrice: paymentDetails.finalAmount,
                     appliedPromoCode: appliedPromo,
-                    commissionPercent: 10,
+                    commissionPercent: 10, // Assuming a fixed commission
                     duration: 0,
                     createdAt: serverTimestamp(),
-                    validFrom: serverTimestamp(),
-                    validTill: serverTimestamp(),
-                    used: true, // For courses, this is set to true immediately
-                    refundable: false,
+                    validFrom: serverTimestamp(), // Placeholder
+                    validTill: serverTimestamp(), // Placeholder
+                    used: false, // <-- CRITICAL: Not used until payment is confirmed
+                    refundable: true, // Refundable until confirmed
                 };
                 
                 transaction.set(doc(ticketsCollectionRef), newTicketPayload);
-                
-                // Add course to user's enrolled list
-                transaction.update(userDocRef, {
-                    'studentProfile.enrolledCourses': arrayUnion(course.id)
-                });
             });
 
-            toast({ title: "Purchase Initiated!", description: `Preparing payment for "${course.title}".`});
+            toast({ title: "Purchase Initiated!", description: "Redirecting to payment. Please confirm on the course page after paying."});
             
             const isMobile = /Mobi/i.test(navigator.userAgent);
-            
             if (isMobile) {
-                // On mobile, fire the redirect. The component will unmount, so no need to reset state.
                 window.location.href = paymentDetails.upiLink;
             } else {
-                // On desktop, show a message and reset the button.
                 toast({
                     variant: 'destructive',
                     title: "Payment Method Unavailable",
@@ -223,7 +214,7 @@ export default function MockPaymentPage() {
 
         } catch (error: any) {
             console.error("Purchase transaction failed:", error);
-            setIsPurchasing(false); // Reset on any failure
+            setIsPurchasing(false);
             
             if (error.code === 'permission-denied') {
                  const permissionError = new FirestorePermissionError({
@@ -346,4 +337,3 @@ export default function MockPaymentPage() {
         </div>
     );
 }
-
