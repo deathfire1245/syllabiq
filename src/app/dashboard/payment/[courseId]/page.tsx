@@ -1,10 +1,11 @@
 
+
 'use client';
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useFirebase, useUser, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { doc, collection, addDoc, serverTimestamp, runTransaction, arrayUnion } from 'firebase/firestore';
+import { doc, collection, addDoc, serverTimestamp, runTransaction, arrayUnion, getDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -13,7 +14,7 @@ import { ArrowLeft, BadgePercent, X, IndianRupee } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollReveal } from '@/components/ScrollReveal';
 import { upiLinks } from '@/lib/upi-links';
-import { getDoc } from 'firebase/firestore';
+
 
 // Helper function to extract amount from UPI string
 const getAmountFromUpiString = (upiString: string | undefined): number => {
@@ -160,14 +161,14 @@ export default function MockPaymentPage() {
         
         try {
             await runTransaction(firestore, async (transaction) => {
-                let promoValid = false;
                 if (promoDocRef) {
                     const promoSnap = await transaction.get(promoDocRef);
-                    if (promoSnap.exists() && promoSnap.data().isActive && !promoSnap.data().usedBy?.includes(user.uid)) {
-                        promoValid = true;
-                    } else {
+                    if (!promoSnap.exists() || !promoSnap.data().isActive || promoSnap.data().usedBy?.includes(user.uid)) {
                         throw new Error("Promo code is invalid or has already been used.");
                     }
+                     transaction.update(promoDocRef, {
+                        usedBy: arrayUnion(user.uid)
+                    });
                 }
 
                 // Create the ticket document
@@ -200,21 +201,16 @@ export default function MockPaymentPage() {
                 transaction.update(userDocRef, {
                     'studentProfile.enrolledCourses': arrayUnion(course.id)
                 });
-
-                // Mark promo as used for this user
-                if (promoDocRef && promoValid) {
-                    transaction.update(promoDocRef, {
-                        usedBy: arrayUnion(user.uid)
-                    });
-                }
             });
 
             toast({ title: "Purchase Initiated!", description: `Redirecting to UPI payment for "${course.title}".`});
-            router.push(paymentDetails.upiLink);
+            
+            // Use direct redirect to avoid Next.js router delays
+            window.location.href = paymentDetails.upiLink;
+
         } catch (error: any) {
             console.error("Purchase transaction failed:", error);
             
-            // Create a contextual error for permission issues
             if (error.code === 'permission-denied') {
                  const permissionError = new FirestorePermissionError({
                     path: 'tickets', // Simplified path for the error message
