@@ -117,7 +117,7 @@ export default function Home() {
             <ScrollReveal>
               <Badge variant="secondary" className="mb-4 text-sm font-medium py-1 px-3">Your Personal Learning Assistant</Badge>
               <h1 className="font-headline text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-10">
-                <span className="text-primary">SyllabiQ</span> - smart syllabus, notes,& exam prep in one place!
+                <span className="text-primary">SyllabiQ</span>-finish your syllabus 2x faster or track, learn and succeed
               </h1>
             </ScrollReveal>
             <ScrollReveal delay={0.2}>
