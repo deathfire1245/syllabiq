@@ -19,6 +19,7 @@ export default function AdminDashboardPage() {
   const ticketStats = React.useMemo(() => {
       const initialStats = {
           PAID: { count: 0, color: "bg-green-100 text-green-800" },
+          INITIATED: { count: 0, color: "bg-orange-100 text-orange-800"},
           ACTIVE: { count: 0, color: "bg-blue-100 text-blue-800" },
           COMPLETED: { count: 0, color: "bg-gray-100 text-gray-800" },
           CANCELLED: { count: 0, color: "bg-yellow-100 text-yellow-800" },
@@ -35,7 +36,7 @@ export default function AdminDashboardPage() {
       }
       
       return Object.entries(initialStats).map(([status, data]) => ({
-          status: status === 'REFUND_PROCESSED' ? 'REFUNDED' : status,
+          status: status.replace(/_/g, ' '),
           count: data.count,
           color: data.color,
       }));
@@ -48,9 +49,9 @@ export default function AdminDashboardPage() {
           <p className="text-muted-foreground mt-1">Manage and monitor all lecture tickets.</p>
       </ScrollReveal>
       
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         {areTicketsLoading ? (
-          [...Array(5)].map((_, i) => (
+          [...Array(6)].map((_, i) => (
             <Skeleton key={i} className="h-28 w-full" />
           ))
         ) : (
@@ -58,7 +59,7 @@ export default function AdminDashboardPage() {
             <ScrollReveal key={stat.status} delay={index * 0.05}>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{stat.status.replace(/_/g, ' ')}</CardTitle>
+                  <CardTitle className="text-sm font-medium">{stat.status}</CardTitle>
                   <Badge className={stat.color}>{stat.count}</Badge>
                 </CardHeader>
                 <CardContent>

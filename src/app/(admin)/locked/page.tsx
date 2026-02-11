@@ -1,88 +1,85 @@
+
 "use client";
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { KeyRound, ShieldCheck } from "lucide-react";
+import { ShieldCheck, LogIn } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useUser } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const ADMIN_CODE = "we2025";
+import Link from "next/link";
 
 export default function LockedPage() {
-  const [code, setCode] = React.useState("");
   const router = useRouter();
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const [isVerifying, setIsVerifying] = React.useState(false);
 
-  const handleAccess = async () => {
-    if (code !== ADMIN_CODE) {
-      toast({
-        variant: "destructive",
-        title: "Access Denied",
-        description: "The access code is incorrect.",
-      });
-      return;
-    }
+  // Automatically check role when user is loaded
+  React.useEffect(() => {
+    if (isUserLoading) return;
 
-    if (!user) {
-      toast({
-        variant: "destructive",
-        title: "Authentication Required",
-        description: "You must be logged in as an admin to access this portal.",
-      });
-      router.push('/login');
-      return;
-    }
+    const verifyAdmin = async () => {
+      if (!user || !firestore) {
+        // User not logged in, no need to proceed.
+        setIsVerifying(false);
+        return;
+      }
 
-    setIsVerifying(true);
-    try {
-      const userDocRef = doc(firestore, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
+      setIsVerifying(true);
+      try {
+        const userDocRef = doc(firestore, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
 
-      if (userDoc.exists() && userDoc.data().role === 'admin') {
-        sessionStorage.setItem("isAdminAuthenticated", "true");
-        toast({
-          title: "Access Granted",
-          description: "Welcome to the Admin Portal.",
-        });
-        router.push("/admin");
-      } else {
+        if (userDoc.exists() && userDoc.data().role === 'admin') {
+          sessionStorage.setItem("isAdminAuthenticated", "true");
+          toast({
+            title: "Access Granted",
+            description: "Welcome to the Admin Portal.",
+          });
+          router.replace("/admin");
+        } else {
+          // If the user is logged in but not an admin, deny access.
+           toast({
+            variant: "destructive",
+            title: "Authorization Failed",
+            description: "You do not have permission to access the admin portal.",
+          });
+          sessionStorage.removeItem("isAdminAuthenticated");
+        }
+      } catch (error) {
         toast({
           variant: "destructive",
-          title: "Authorization Failed",
-          description: "You do not have permission to access the admin portal.",
+          title: "Error",
+          description: "Could not verify your role. Please try again.",
         });
-        sessionStorage.removeItem("isAdminAuthenticated");
+      } finally {
+        setIsVerifying(false);
       }
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Could not verify your role. Please try again.",
-      });
-    } finally {
-      setIsVerifying(false);
-    }
-  };
+    };
+    
+    verifyAdmin();
 
-  if (isUserLoading) {
+  }, [user, isUserLoading, firestore, router, toast]);
+
+  if (isUserLoading || isVerifying) {
     return (
         <div className="min-h-screen flex items-center justify-center">
-            <Skeleton className="w-full max-w-md h-[400px]" />
+            <Card className="w-full max-w-md h-[300px] flex flex-col items-center justify-center">
+                <ShieldCheck className="w-16 h-16 text-primary animate-pulse mb-4"/>
+                <p className="text-lg font-semibold text-muted-foreground">Verifying administrator access...</p>
+                <Skeleton className="w-3/4 h-4 mt-2" />
+            </Card>
         </div>
     )
   }
-
+  
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-secondary/50 p-4">
       <div className="absolute top-8">
@@ -94,28 +91,14 @@ export default function LockedPage() {
             <ShieldCheck className="w-8 h-8 text-primary" />
           </div>
           <CardTitle className="text-2xl">Admin Portal Access</CardTitle>
-          <CardDescription>Enter the secret code to continue.</CardDescription>
+          <CardDescription>You must be an administrator to access this area. Please log in with an admin account to continue.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={(e) => { e.preventDefault(); handleAccess(); }} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="access-code">Access Code</Label>
-               <div className="relative">
-                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="access-code"
-                  type="password"
-                  placeholder="••••••••"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={isVerifying}>
-              {isVerifying ? 'Verifying...' : 'Unlock Portal'}
+            <Button asChild className="w-full">
+              <Link href="/login">
+                <LogIn className="mr-2 h-4 w-4" /> Go to Login
+              </Link>
             </Button>
-          </form>
         </CardContent>
       </Card>
     </div>
