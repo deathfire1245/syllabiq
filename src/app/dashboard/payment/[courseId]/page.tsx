@@ -3,12 +3,12 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useFirebase, useUser, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { doc, collection, addDoc, serverTimestamp, runTransaction, arrayUnion, getDoc } from 'firebase/firestore';
+import { doc, collection, addDoc, serverTimestamp, runTransaction, arrayUnion, getDoc, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, BadgePercent, X, IndianRupee } from 'lucide-react';
+import { ArrowLeft, BadgePercent, X, IndianRupee, CheckCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollReveal } from '@/components/ScrollReveal';
 import { upiLinks } from '@/lib/upi-links';
@@ -148,79 +148,97 @@ export default function MockPaymentPage() {
         toast({ title: 'Promo code removed.' });
     };
 
-    const handleConfirmPurchase = async () => {
+    const handleInitiatePurchase = async () => {
         if (!firestore || !user || !course || !userProfile || paymentDetails.upiLink === '#') return;
         
         setIsPurchasing(true);
         
+        const newTicketPayload = {
+            orderId: `mock_${Date.now()}`,
+            ticketCode: `TKT-${Date.now().toString().slice(-8)}`,
+            studentId: user.uid,
+            studentName: userProfile.name || "",
+            teacherId: course.authorId,
+            teacherName: course.author,
+            saleType: 'COURSE',
+            courseId: course.id,
+            courseTitle: course.title,
+            status: 'INITIATED',
+            price: paymentDetails.baseAmount,
+            finalPrice: paymentDetails.finalAmount,
+            appliedPromoCode: appliedPromo,
+            commissionPercent: 10,
+            createdAt: serverTimestamp(),
+            validFrom: serverTimestamp(),
+            validTill: serverTimestamp(),
+            used: false,
+            refundable: false,
+        };
+
         try {
             const ticketsCollectionRef = collection(firestore, 'tickets');
-            const promoDocRef = appliedPromo ? doc(firestore, 'promoCodes', appliedPromo) : null;
+            const ticketDocRef = await addDoc(ticketsCollectionRef, newTicketPayload);
             
-            await runTransaction(firestore, async (transaction) => {
-                if (promoDocRef) {
-                    const promoSnap = await transaction.get(promoDocRef);
-                    if (!promoSnap.exists() || !promoSnap.data().isActive || promoSnap.data().usedBy?.includes(user.uid)) {
-                        throw new Error("Promo code is invalid or has already been used.");
-                    }
-                    transaction.update(promoDocRef, {
-                        usedBy: arrayUnion(user.uid)
-                    });
-                }
-                
-                const newTicketPayload = {
-                    orderId: `mock_${Date.now()}`,
-                    ticketCode: `TKT-${Date.now().toString().slice(-8)}`,
-                    studentId: user.uid,
-                    studentName: userProfile.name || "",
-                    teacherId: course.authorId,
-                    teacherName: course.author,
-                    saleType: 'COURSE',
-                    courseId: course.id,
-                    courseTitle: course.title,
-                    status: 'PAID',
-                    price: paymentDetails.baseAmount,
-                    finalPrice: paymentDetails.finalAmount,
-                    appliedPromoCode: appliedPromo,
-                    commissionPercent: 10, // Assuming a fixed commission
-                    duration: 0,
-                    createdAt: serverTimestamp(),
-                    validFrom: serverTimestamp(),
-                    validTill: serverTimestamp(),
-                    used: true,
-                    refundable: false,
-                };
-                
-                transaction.set(doc(ticketsCollectionRef), newTicketPayload);
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+            if (isMobile) {
+                toast({ title: "Purchase Initiated!", description: "Redirecting to payment..." });
+                window.location.href = paymentDetails.upiLink;
+            } else {
+                await updateDoc(ticketDocRef, { status: 'APP_NOT_AVAILABLE' });
+                toast({ 
+                    variant: 'destructive', 
+                    title: 'Payment App Not Found', 
+                    description: 'Please use a mobile device with a UPI app installed to complete the payment.' 
+                });
+                setIsPurchasing(false);
+            }
+
+        } catch (error: any) {
+            console.error("Purchase initiation failed:", error);
+            if (error.code === 'permission-denied') {
+                const permissionError = new FirestorePermissionError({
+                    path: 'tickets',
+                    operation: 'create',
+                    requestResourceData: newTicketPayload,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            } else {
+                 toast({ variant: 'destructive', title: 'Purchase Failed', description: error.message || "Could not initiate the purchase. Please try again." });
+            }
+            setIsPurchasing(false);
+        }
+    };
+    
+    const handleConfirmPurchase = async () => {
+        if (!firestore || !user || !courseId) return;
+
+        // This is a simulation of a secure confirmation from a webhook/backend
+        // In a real app, this would be a Cloud Function call with a payment ID
+        toast({ title: "Simulating Payment Confirmation...", description: "This is a mock confirmation." });
+        
+        try {
+            await runTransaction(firestore, async (transaction) => {
                 const userDocRef = doc(firestore, 'users', user.uid);
+                
+                // You would typically find the correct ticket based on a transaction ID
+                // For this mock, we are just granting access
                 transaction.update(userDocRef, {
                     'studentProfile.enrolledCourses': arrayUnion(courseId)
                 });
             });
 
-            toast({ title: "Purchase Initiated!", description: "Redirecting to payment..." });
-            window.location.href = paymentDetails.upiLink;
-
-        } catch (error: any) {
-            console.error("Purchase transaction failed:", error);
-            
-            if (error.code === 'permission-denied') {
-                 const permissionError = new FirestorePermissionError({
-                    path: 'tickets',
-                    operation: 'create',
-                    requestResourceData: { studentId: user.uid, courseId: course.id },
-                });
-                errorEmitter.emit('permission-error', permissionError);
-            } else {
-                toast({ variant: 'destructive', title: 'Purchase Failed', description: error.message || "Could not complete the purchase. Please try again." });
-            }
-             // Only reset loading state on failure
-            setIsPurchasing(false);
+            toast({ title: "Payment Confirmed!", description: `You now have access to ${course?.title}.`});
+            router.push(`/dashboard/courses/${courseId}`);
+        } catch (error) {
+            console.error("Confirmation failed:", error);
+            toast({ variant: "destructive", title: "Confirmation Failed", description: "Could not grant course access." });
         }
-    };
+    }
     
     const isLoading = isUserLoading || isCourseLoading || isProfileLoading;
+    const isEnrolled = userProfile?.studentProfile?.enrolledCourses?.includes(courseId);
+
 
     if (isLoading) {
         return (
@@ -239,6 +257,29 @@ export default function MockPaymentPage() {
                  <Button onClick={() => router.back()} className="mt-6">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
                 </Button>
+            </div>
+        )
+    }
+
+    if (isEnrolled) {
+        return (
+             <div className="max-w-2xl mx-auto py-12 px-4 text-center">
+                <ScrollReveal>
+                    <Card className="max-w-md mx-auto">
+                        <CardHeader>
+                        <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-4" />
+                        <CardTitle className="text-2xl">Already Enrolled</CardTitle>
+                        <CardDescription>
+                            You already have access to this course.
+                        </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                        <Button onClick={() => router.push(`/dashboard/courses/${courseId}`)}>
+                            Go to Course
+                        </Button>
+                        </CardContent>
+                    </Card>
+                </ScrollReveal>
             </div>
         )
     }
@@ -314,14 +355,24 @@ export default function MockPaymentPage() {
                             </div>
                         </div>
                     </CardContent>
-                    <CardFooter>
+                    <CardFooter className="flex flex-col gap-4">
                         <Button 
-                            onClick={handleConfirmPurchase}
+                            onClick={handleInitiatePurchase}
                             className="w-full h-12 text-lg" 
                             disabled={isPurchasing || paymentDetails.upiLink === '#'}
                         >
                             {isPurchasing ? 'Processing...' : `Pay with UPI for ₹${paymentDetails.finalAmount.toFixed(2)}`}
                         </Button>
+                         <div className="w-full text-center">
+                            <p className="text-xs text-muted-foreground mb-2">For testing purposes, you can simulate a successful payment confirmation.</p>
+                            <Button
+                                variant="outline"
+                                className="w-full"
+                                onClick={handleConfirmPurchase}
+                            >
+                                <RefreshCw className="mr-2 h-4 w-4" /> Manually Confirm Payment
+                            </Button>
+                        </div>
                     </CardFooter>
                 </Card>
             </ScrollReveal>
