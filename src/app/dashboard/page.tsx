@@ -29,6 +29,7 @@ import { useUser, useFirebase, useCollection, useMemoFirebase, useDoc } from "@/
 import { doc, collection, query, where, orderBy, limit } from "firebase/firestore";
 import type { Topic } from "@/lib/types";
 import { format } from "date-fns";
+import { Recommendations } from "./_components/recommendations";
 
 
 const AnimatedCounter = ({ to, prefix = "", suffix = "" }: { to: number, prefix?: string, suffix?: string }) => {
@@ -401,7 +402,7 @@ const StudentDashboard = ({ userRole }: { userRole: string }) => {
         }
     };
 
-    if (isUserLoading || isProfileLoading) return <div className="p-8">
+    if (isUserLoading || isProfileLoading || !userProfile) return <div className="p-8">
             <div className="space-y-8">
                 <Skeleton className="h-12 w-1/2" />
                 <Skeleton className="h-40 w-full" />
@@ -471,6 +472,10 @@ const StudentDashboard = ({ userRole }: { userRole: string }) => {
                         </CardContent>
                     </Card>
                 </ScrollReveal>
+            </div>
+
+            <div className="pt-4">
+                <Recommendations userProfile={userProfile} />
             </div>
 
             <ScrollReveal delay={0.4}>
