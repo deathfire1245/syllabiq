@@ -319,7 +319,7 @@ export default function Home() {
             </p>
             <Button size="lg" asChild className="mt-8 bg-primary text-primary-foreground hover:bg-primary/_90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">
               <Link href="/signup">
-                Sign Up for Free <ChevronRight className="ml-2 h-5 w-5" />
+                Start Tracking your syllabus <ChevronRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
           </ScrollReveal>
