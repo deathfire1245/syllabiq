@@ -54,17 +54,13 @@ service cloud.firestore {
       // UPDATE:
       // - Admins can update any user profile.
       // - A user can update their own profile, but cannot change critical fields like role, uid, email.
-      // - A user cannot remove courses they are enrolled in, only add to the list.
       allow update: if isAdmin(request.auth.uid) ||
                     (
                       isOwner(uid) &&
-                      // Prevent changing critical immutable fields
                       request.resource.data.uid == resource.data.uid &&
                       request.resource.data.email == resource.data.email &&
                       request.resource.data.role == resource.data.role &&
-                      request.resource.data.createdAt == resource.data.createdAt &&
-                      // Allow enrolledCourses to be added to, but not removed
-                      (!request.resource.data.studentProfile.keys().hasAny(['enrolledCourses']) || request.resource.data.studentProfile.enrolledCourses.hasAll(resource.data.studentProfile.enrolledCourses))
+                      request.resource.data.createdAt == resource.data.createdAt
                     );
 
       // DELETE: Only admins can delete user profiles.
@@ -132,33 +128,22 @@ service cloud.firestore {
                      (isStudent(request.auth.uid) && request.query.get("studentId") == request.auth.uid) ||
                      (isTeacher(request.auth.uid) && request.query.get("teacherId") == request.auth.uid);
 
-        // CREATE: Any signed-in user can create a ticket for themselves, but it must be in the 'INITIATED' state.
-        allow create: if isSignedIn() && 
-                       request.resource.data.studentId == request.auth.uid &&
-                       request.resource.data.status == 'INITIATED';
+        // CREATE: Any signed-in user can create a ticket for themselves.
+        allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
 
         // UPDATE:
-        // - ONLY an ADMIN can update a ticket from 'INITIATED' to 'PAID' (payment approval).
-        // - A Teacher can update an 'ACTIVE' session ticket.
+        // - A user can update a ticket they are part of to move it through its lifecycle states.
+        // - Core fields are immutable after creation.
         allow update: if 
-          // Admin can approve a payment from INITIATED to PAID
           (
-            isAdmin(request.auth.uid) &&
-            resource.data.status == 'INITIATED' &&
-            request.resource.data.status == 'PAID' &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'used', 'refundable'])
-          )
-        ||
-           // Teacher actions for live sessions
-          (
-            isTeacher(request.auth.uid) && isOwner(resource.data.teacherId) && 
-            (
-              (resource.data.status == 'WAITING_FOR_TEACHER' && request.resource.data.status == 'ACTIVE') ||
-              request.resource.data.status == 'COMPLETED' || 
-              request.resource.data.status == 'CANCELLED' ||
-              request.resource.data.status == 'REFUND_PROCESSED'
-            )
-          );
+            isSignedIn() &&
+            (isOwner(resource.data.studentId) || isOwner(resource.data.teacherId)) &&
+            request.resource.data.studentId == resource.data.studentId &&
+            request.resource.data.teacherId == resource.data.teacherId &&
+            request.resource.data.createdAt == resource.data.createdAt &&
+            request.resource.data.orderId == resource.data.orderId
+          ) || 
+          isAdmin(request.auth.uid);
 
         // DELETE: No one can delete tickets, for auditing.
         allow delete: if false;

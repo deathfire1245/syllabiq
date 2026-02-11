@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -8,34 +7,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
-import { collection, doc, runTransaction, arrayUnion } from "firebase/firestore";
+import { collection, query, orderBy } from "firebase/firestore";
 import { Skeleton } from "../ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
 
 const statusStyles: { [key: string]: string } = {
-  INITIATED: "bg-orange-100 text-orange-800 border-orange-200",
-  PAID: "bg-green-100 text-green-800 border-green-200",
-  ACTIVE: "bg-blue-100 text-blue-800 border-blue-200 animate-pulse",
-  COMPLETED: "bg-gray-100 text-gray-800 border-gray-200",
-  CANCELLED: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  REFUND_PROCESSED: "bg-red-100 text-red-800 border-red-200",
-  WAITING_FOR_TEACHER: "bg-purple-100 text-purple-800 border-purple-200",
+  PAID: "bg-green-100 text-green-800",
+  ACTIVE: "bg-blue-100 text-blue-800",
+  COMPLETED: "bg-gray-100 text-gray-800",
+  CANCELLED: "bg-yellow-100 text-yellow-800",
+  REFUND_PROCESSED: "bg-red-100 text-red-800",
+  WAITING_FOR_TEACHER: "bg-purple-100 text-purple-800",
 };
 
 export function TicketsTable() {
   const { firestore } = useFirebase();
-  const { toast } = useToast();
   const [filter, setFilter] = React.useState('all');
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [approving, setApproving] = React.useState<string | null>(null);
 
-  const ticketsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'tickets') : null, [firestore]);
-  const { data: ticketsData, isLoading } = useCollection(ticketsQuery);
+  const ticketsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'tickets'), orderBy("createdAt", "desc")) : null, [firestore]);
+  const { data: tickets, isLoading } = useCollection(ticketsQuery);
   
   const filteredTickets = React.useMemo(() => {
-    if (!ticketsData) return [];
+    if (!tickets) return [];
     
-    let filtered = ticketsData;
+    let filtered = tickets;
 
     if (filter !== 'all') {
       filtered = filtered.filter(t => t.status === filter);
@@ -49,42 +44,8 @@ export function TicketsTable() {
         );
     }
     
-    return filtered.sort((a,b) => (a.createdAt?.toDate() > b.createdAt?.toDate() ? -1 : 1));
-  }, [ticketsData, filter, searchTerm]);
-
-  const handleApprovePayment = async (ticket: any) => {
-     if (!firestore) {
-         toast({ variant: 'destructive', title: 'Error', description: 'Database not available.' });
-         return;
-     }
-     setApproving(ticket.id);
-
-     const ticketRef = doc(firestore, 'tickets', ticket.id);
-     const userRef = doc(firestore, 'users', ticket.studentId);
-     const courseId = ticket.courseId;
-
-     try {
-        await runTransaction(firestore, async (transaction) => {
-            const ticketDoc = await transaction.get(ticketRef);
-            if (!ticketDoc.exists() || ticketDoc.data().status !== 'INITIATED') {
-                throw new Error('This ticket is not awaiting payment approval.');
-            }
-            
-            // 1. Update ticket status
-            transaction.update(ticketRef, { status: 'PAID', used: true, refundable: false });
-
-            // 2. Grant course access to user
-            transaction.update(userRef, { 'studentProfile.enrolledCourses': arrayUnion(courseId) });
-        });
-        
-        toast({ title: 'Payment Approved!', description: `${ticket.studentName} now has access to the course.` });
-
-     } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Approval Failed', description: error.message || 'Could not approve payment.' });
-     } finally {
-        setApproving(null);
-     }
-  }
+    return filtered;
+  }, [tickets, filter, searchTerm]);
 
 
   return (
@@ -102,7 +63,6 @@ export function TicketsTable() {
             </SelectTrigger>
             <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="INITIATED">Initiated</SelectItem>
                 <SelectItem value="PAID">Paid</SelectItem>
                 <SelectItem value="ACTIVE">Active</SelectItem>
                 <SelectItem value="WAITING_FOR_TEACHER">Waiting</SelectItem>
@@ -137,24 +97,13 @@ export function TicketsTable() {
                   <TableCell className="text-center">
                     <Badge variant="outline" className={statusStyles[ticket.status]}>{ticket.status.replace(/_/g, ' ')}</Badge>
                   </TableCell>
-                  <TableCell className="text-center space-x-2">
-                     {ticket.status === 'INITIATED' && (
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="h-8 bg-green-500 text-white hover:bg-green-600"
-                            onClick={() => handleApprovePayment(ticket)}
-                            disabled={approving === ticket.id}
-                        >
-                           {approving === ticket.id ? 'Approving...' : 'Approve Payment'}
-                        </Button>
-                     )}
+                  <TableCell className="text-center">
                      {ticket.refundable && <Button variant="outline" size="sm" className="h-8" disabled>Refund</Button>}
                   </TableCell>
                 </TableRow>
               ))
             ) : (
-              <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">No tickets found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center">No tickets found.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
