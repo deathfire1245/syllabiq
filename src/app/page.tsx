@@ -42,22 +42,22 @@ const features = [
 
 const testimonials = [
   {
-    name: "Alex Johnson",
-    role: "Grade 10 Student",
-    quote: "SyllabiQ has been a game-changer for my exam preparation. The summarized notes are a lifesaver!",
-    avatar: "https://picsum.photos/seed/alex/100"
+    name: "Priya Sharma",
+    role: "Class 12 Science Student",
+    quote: "SyllabiQ has been a game-changer for my exam preparation. The video lessons helped me understand concepts I struggled with all year.",
+    avatar: "https://picsum.photos/seed/priya/100"
   },
   {
-    name: "Maria Garcia",
-    role: "High School Teacher",
-    quote: "I recommend SyllabiQ to all my students. It perfectly complements our classroom teaching and helps them organize their study.",
-    avatar: "https://picsum.photos/seed/maria/100"
+    name: "Rohan Mehta",
+    role: "Class 10 Student",
+    quote: "Thanks to the practice questions, I was much more confident for my board exams. The summarized notes also made revision so much faster.",
+    avatar: "https://picsum.photos/seed/rohan/100"
   },
   {
-    name: "Sam Lee",
-    role: "Grade 12 Student",
-    quote: "The important questions section helped me focus on what really matters. I scored 15% higher than I expected!",
-    avatar: "https://picsum.photos/seed/sam/100"
+    name: "Mrs. Anjali Desai",
+    role: "Maths Teacher",
+    quote: "A great tool for my students to supplement their learning. It helps them stay organized and practice key concepts we cover in class.",
+    avatar: "https://picsum.photos/seed/anjali/100"
   },
 ];
 
