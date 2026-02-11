@@ -54,10 +54,10 @@ const testimonials = [
     avatar: "https://picsum.photos/seed/rohan/100"
   },
   {
-    name: "Mrs. Anjali Desai",
-    role: "Maths Teacher",
-    quote: "A great tool for my students to supplement their learning. It helps them stay organized and practice key concepts we cover in class.",
-    avatar: "https://picsum.photos/seed/anjali/100"
+    name: "Ananya Desai",
+    role: "NEET Aspirant",
+    quote: "A great tool to supplement my learning. It helps me stay organized and practice key concepts we cover in class.",
+    avatar: "https://picsum.photos/seed/ananya/100"
   },
 ];
 
@@ -104,14 +104,15 @@ export default function Home() {
       <main className="flex-grow">
         {/* Hero Section */}
         <section className="relative h-[60vh] min-h-[500px] flex items-center justify-center text-center text-white">
-          <Image
-            src="https://picsum.photos/seed/dashboard-preview/1920/1080"
-            alt="Students learning"
-            fill
-            className="object-cover"
-            priority
-            data-ai-hint="education students"
-          />
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute z-0 w-full h-full object-cover"
+          >
+            <source src="/0_Student_Boy_1920x1080.mp4" type="video/mp4" />
+          </video>
           <div className="absolute inset-0 bg-black/50 z-10" />
           <div className="container relative z-20 mx-auto px-4 sm:px-6 lg:px-8">
             <ScrollReveal>
@@ -122,8 +123,8 @@ export default function Home() {
             </ScrollReveal>
             <ScrollReveal delay={0.2}>
               <Button size="lg" asChild className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">
-                <Link href="/dashboard">
-                  Start Learning Now <ArrowRight className="ml-2 h-5 w-5" />
+                <Link href="/signup">
+                  Start Tracking your syllabus <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
             </ScrollReveal>
