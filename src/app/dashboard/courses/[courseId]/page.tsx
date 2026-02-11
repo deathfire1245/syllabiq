@@ -1,9 +1,10 @@
+
 'use client';
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useFirebase, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, query, where, limit, runTransaction, arrayUnion } from 'firebase/firestore';
+import { doc, collection, query, where, limit } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,8 +28,6 @@ export default function CourseContentPage() {
     const { firestore } = useFirebase();
     const { user, isUserLoading } = useUser();
 
-    const [isConfirming, setIsConfirming] = React.useState(false);
-
     const courseDocRef = useMemoFirebase(() => {
         if (!firestore || !courseId) return null;
         return doc(firestore, 'courses', courseId);
@@ -39,19 +38,20 @@ export default function CourseContentPage() {
         return doc(firestore, 'users', user.uid);
     }, [firestore, user]);
 
-    // Check for an initiated ticket for this course
+    // Check for a non-completed ticket for this course
     const ticketQuery = useMemoFirebase(() => {
         if (!firestore || !user || !courseId) return null;
         return query(
             collection(firestore, 'tickets'),
             where('studentId', '==', user.uid),
             where('courseId', '==', courseId),
+            where('status', '!=', 'COMPLETED'), // Look for any active, pending, or initiated ticket
             limit(1)
         );
     }, [firestore, user, courseId]);
 
     const { data: course, isLoading: isCourseLoading } = useDoc(courseDocRef);
-    const { data: userProfile, isLoading: isProfileLoading, mutate } = useDoc(userDocRef);
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
     const { data: tickets, isLoading: isTicketLoading } = useCollection(ticketQuery);
 
     const isEnrolled = React.useMemo(() => {
@@ -61,45 +61,10 @@ export default function CourseContentPage() {
     const pendingTicket = React.useMemo(() => {
         if (!tickets || tickets.length === 0) return null;
         const ticket = tickets[0];
+        // The user should only see the 'pending' message if the ticket is initiated but not yet paid.
         return ticket.status === 'INITIATED' ? ticket : null;
     }, [tickets]);
     
-    const handleConfirmPayment = async () => {
-        if (!firestore || !user || !pendingTicket) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not find a pending payment to confirm.'});
-            return;
-        }
-        setIsConfirming(true);
-        const ticketRef = doc(firestore, 'tickets', pendingTicket.id);
-        const userRef = doc(firestore, 'users', user.uid);
-
-        try {
-            await runTransaction(firestore, async (transaction) => {
-                const ticketDoc = await transaction.get(ticketRef);
-                if (!ticketDoc.exists() || ticketDoc.data().status !== 'INITIATED') {
-                    throw new Error('Ticket is not in a valid state to be confirmed.');
-                }
-
-                // 1. Update the ticket status to PAID
-                transaction.update(ticketRef, { status: 'PAID', used: true, refundable: false });
-
-                // 2. Grant course access to the user
-                transaction.update(userRef, {
-                    'studentProfile.enrolledCourses': arrayUnion(courseId)
-                });
-            });
-
-            toast({ title: 'Payment Confirmed!', description: 'You now have access to the course.'});
-            // Optimistically update the UI without a full reload
-            await mutate();
-
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Confirmation Failed', description: error.message || 'Could not confirm your payment. Please try again.' });
-        } finally {
-            setIsConfirming(false);
-        }
-    }
-
     if (isUserLoading || isCourseLoading || isProfileLoading || isTicketLoading) {
         return (
             <div className="max-w-4xl mx-auto py-12 px-4 space-y-8">
@@ -131,12 +96,10 @@ export default function CourseContentPage() {
                             <CardHeader>
                                 <AlertTriangle className="w-12 h-12 mx-auto text-yellow-500 mb-4"/>
                                 <CardTitle className="text-2xl">Payment Pending</CardTitle>
-                                <CardDescription>Your purchase has been initiated. If you have completed the payment, please confirm below.</CardDescription>
+                                <CardDescription>Your purchase is being verified by an admin. You will gain access once the payment is approved.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                 <Button onClick={handleConfirmPayment} disabled={isConfirming}>
-                                    {isConfirming ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin"/>Confirming...</> : 'I have paid, Confirm Purchase'}
-                                 </Button>
+                                 <p className="text-sm text-muted-foreground">Please check back shortly.</p>
                             </CardContent>
                         </Card>
                     ) : (

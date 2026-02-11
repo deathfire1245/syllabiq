@@ -64,7 +64,7 @@ service cloud.firestore {
                       request.resource.data.role == resource.data.role &&
                       request.resource.data.createdAt == resource.data.createdAt &&
                       // Allow enrolledCourses to be added to, but not removed
-                      request.resource.data.studentProfile.enrolledCourses.hasAll(resource.data.studentProfile.enrolledCourses)
+                      (!request.resource.data.studentProfile.keys().hasAny(['enrolledCourses']) || request.resource.data.studentProfile.enrolledCourses.hasAll(resource.data.studentProfile.enrolledCourses))
                     );
 
       // DELETE: Only admins can delete user profiles.
@@ -138,22 +138,27 @@ service cloud.firestore {
                        request.resource.data.status == 'INITIATED';
 
         // UPDATE:
-        // - Student can update status from INITIATED to PAID (simulates payment confirmation).
-        // - Admins can update anything.
+        // - ONLY an ADMIN can update a ticket from 'INITIATED' to 'PAID' (payment approval).
+        // - A Teacher can update an 'ACTIVE' session ticket.
         allow update: if 
-          // Student actions (confirming payment)
+          // Admin can approve a payment from INITIATED to PAID
           (
-            isOwner(resource.data.studentId) &&
+            isAdmin(request.auth.uid) &&
             resource.data.status == 'INITIATED' &&
             request.resource.data.status == 'PAID' &&
-            request.resource.data.used == true &&
-            request.resource.data.refundable == false &&
-            // Only allow these specific fields to change during payment confirmation
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'used', 'refundable'])
           )
-        || 
-          // Admin can do anything
-          isAdmin(request.auth.uid);
+        ||
+           // Teacher actions for live sessions
+          (
+            isTeacher(request.auth.uid) && isOwner(resource.data.teacherId) && 
+            (
+              (resource.data.status == 'WAITING_FOR_TEACHER' && request.resource.data.status == 'ACTIVE') ||
+              request.resource.data.status == 'COMPLETED' || 
+              request.resource.data.status == 'CANCELLED' ||
+              request.resource.data.status == 'REFUND_PROCESSED'
+            )
+          );
 
         // DELETE: No one can delete tickets, for auditing.
         allow delete: if false;
