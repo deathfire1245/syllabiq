@@ -157,20 +157,17 @@ export default function MockPaymentPage() {
             const ticketsCollectionRef = collection(firestore, 'tickets');
             const promoDocRef = appliedPromo ? doc(firestore, 'promoCodes', appliedPromo) : null;
             
-            // This transaction only creates the ticket. It does NOT grant access.
             await runTransaction(firestore, async (transaction) => {
                 if (promoDocRef) {
                     const promoSnap = await transaction.get(promoDocRef);
                     if (!promoSnap.exists() || !promoSnap.data().isActive || promoSnap.data().usedBy?.includes(user.uid)) {
                         throw new Error("Promo code is invalid or has already been used.");
                     }
-                    // We mark the promo code as used here to prevent reuse.
-                     transaction.update(promoDocRef, {
+                    transaction.update(promoDocRef, {
                         usedBy: arrayUnion(user.uid)
                     });
                 }
-
-                // Create the ticket document with 'INITIATED' status
+                
                 const newTicketPayload = {
                     orderId: `mock_${Date.now()}`,
                     ticketCode: `TKT-${Date.now().toString().slice(-8)}`,
@@ -181,40 +178,32 @@ export default function MockPaymentPage() {
                     saleType: 'COURSE',
                     courseId: course.id,
                     courseTitle: course.title,
-                    status: 'INITIATED', // <-- CRITICAL: Status is INITIATED, not PAID
+                    status: 'PAID',
                     price: paymentDetails.baseAmount,
                     finalPrice: paymentDetails.finalAmount,
                     appliedPromoCode: appliedPromo,
                     commissionPercent: 10, // Assuming a fixed commission
                     duration: 0,
                     createdAt: serverTimestamp(),
-                    validFrom: serverTimestamp(), // Placeholder
-                    validTill: serverTimestamp(), // Placeholder
-                    used: false, // <-- CRITICAL: Not used until payment is confirmed
-                    refundable: true, // Refundable until confirmed
+                    validFrom: serverTimestamp(),
+                    validTill: serverTimestamp(),
+                    used: true,
+                    refundable: false,
                 };
                 
                 transaction.set(doc(ticketsCollectionRef), newTicketPayload);
+
+                const userDocRef = doc(firestore, 'users', user.uid);
+                transaction.update(userDocRef, {
+                    'studentProfile.enrolledCourses': arrayUnion(courseId)
+                });
             });
 
-            toast({ title: "Purchase Initiated!", description: "Redirecting to payment. Please confirm on the course page after paying."});
-            
-            const isMobile = /Mobi/i.test(navigator.userAgent);
-            if (isMobile) {
-                window.location.href = paymentDetails.upiLink;
-            } else {
-                toast({
-                    variant: 'destructive',
-                    title: "Payment Method Unavailable",
-                    description: "UPI payment is not available on this device. Please use a mobile phone with a UPI app installed.",
-                    duration: 8000,
-                });
-                setIsPurchasing(false);
-            }
+            toast({ title: "Purchase Initiated!", description: "Redirecting to payment..." });
+            window.location.href = paymentDetails.upiLink;
 
         } catch (error: any) {
             console.error("Purchase transaction failed:", error);
-            setIsPurchasing(false);
             
             if (error.code === 'permission-denied') {
                  const permissionError = new FirestorePermissionError({
@@ -226,6 +215,8 @@ export default function MockPaymentPage() {
             } else {
                 toast({ variant: 'destructive', title: 'Purchase Failed', description: error.message || "Could not complete the purchase. Please try again." });
             }
+             // Only reset loading state on failure
+            setIsPurchasing(false);
         }
     };
     

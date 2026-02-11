@@ -1,85 +1,52 @@
-
 "use client";
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, LogIn } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { useUser } from "@/firebase";
-import { doc, getDoc } from "firebase/firestore";
-import { useFirestore } from "@/firebase";
-import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 
 export default function LockedPage() {
+  const [code, setCode] = React.useState("");
   const router = useRouter();
   const { toast } = useToast();
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
   const [isVerifying, setIsVerifying] = React.useState(false);
 
-  // Automatically check role when user is loaded
-  React.useEffect(() => {
-    if (isUserLoading) return;
-
-    const verifyAdmin = async () => {
-      if (!user || !firestore) {
-        // User not logged in, no need to proceed.
-        setIsVerifying(false);
-        return;
-      }
-
-      setIsVerifying(true);
-      try {
-        const userDocRef = doc(firestore, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-
-        if (userDoc.exists() && userDoc.data().role === 'admin') {
-          sessionStorage.setItem("isAdminAuthenticated", "true");
-          toast({
-            title: "Access Granted",
-            description: "Welcome to the Admin Portal.",
-          });
-          router.replace("/admin");
-        } else {
-          // If the user is logged in but not an admin, deny access.
-           toast({
-            variant: "destructive",
-            title: "Authorization Failed",
-            description: "You do not have permission to access the admin portal.",
-          });
-          sessionStorage.removeItem("isAdminAuthenticated");
-        }
-      } catch (error) {
+  const handleVerify = () => {
+    setIsVerifying(true);
+    // In a real app, this would be a server-side check
+    setTimeout(() => {
+      if (code === "SyllabiQAdmin2024") {
+        sessionStorage.setItem("isAdminAuthenticated", "true");
+        toast({
+          title: "Access Granted",
+          description: "Welcome to the Admin Portal.",
+        });
+        router.push("/admin");
+      } else {
         toast({
           variant: "destructive",
-          title: "Error",
-          description: "Could not verify your role. Please try again.",
+          title: "Access Denied",
+          description: "The provided access code is incorrect.",
         });
-      } finally {
-        setIsVerifying(false);
       }
-    };
-    
-    verifyAdmin();
+      setIsVerifying(false);
+    }, 1000);
+  };
 
-  }, [user, isUserLoading, firestore, router, toast]);
+  // Check if user is already authenticated
+  React.useEffect(() => {
+    const isAuthenticated = sessionStorage.getItem("isAdminAuthenticated");
+    if (isAuthenticated) {
+      router.push("/admin");
+    }
+  }, [router]);
 
-  if (isUserLoading || isVerifying) {
-    return (
-        <div className="min-h-screen flex items-center justify-center">
-            <Card className="w-full max-w-md h-[300px] flex flex-col items-center justify-center">
-                <ShieldCheck className="w-16 h-16 text-primary animate-pulse mb-4"/>
-                <p className="text-lg font-semibold text-muted-foreground">Verifying administrator access...</p>
-                <Skeleton className="w-3/4 h-4 mt-2" />
-            </Card>
-        </div>
-    )
-  }
-  
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-secondary/50 p-4">
       <div className="absolute top-8">
@@ -91,16 +58,32 @@ export default function LockedPage() {
             <ShieldCheck className="w-8 h-8 text-primary" />
           </div>
           <CardTitle className="text-2xl">Admin Portal Access</CardTitle>
-          <CardDescription>You must be an administrator to access this area. Please log in with an admin account to continue.</CardDescription>
+          <CardDescription>Enter the access code to manage the platform.</CardDescription>
         </CardHeader>
-        <CardContent>
-            <Button asChild className="w-full">
-              <Link href="/login">
-                <LogIn className="mr-2 h-4 w-4" /> Go to Login
-              </Link>
-            </Button>
+        <CardContent className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="access-code">Access Code</Label>
+                <Input 
+                    id="access-code" 
+                    type="password"
+                    placeholder="••••••••" 
+                    value={code} 
+                    onChange={(e) => setCode(e.target.value)} 
+                    onKeyDown={(e) => e.key === 'Enter' && handleVerify()}
+                />
+            </div>
+          <Button onClick={handleVerify} className="w-full" disabled={isVerifying}>
+            {isVerifying ? "Verifying..." : "Verify & Enter"}
+          </Button>
         </CardContent>
       </Card>
+      <div className="mt-4">
+          <Button variant="link" asChild>
+            <Link href="/login">
+                <LogIn className="mr-2 h-4 w-4" /> Login as a user
+            </Link>
+          </Button>
+      </div>
     </div>
   );
 }
