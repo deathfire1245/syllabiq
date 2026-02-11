@@ -3,12 +3,12 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useFirebase, useUser, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { doc, collection, addDoc, serverTimestamp, runTransaction, arrayUnion, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, collection, addDoc, serverTimestamp, getDoc, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, BadgePercent, X, IndianRupee, CheckCircle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, BadgePercent, X, IndianRupee, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollReveal } from '@/components/ScrollReveal';
 import { upiLinks } from '@/lib/upi-links';
@@ -210,32 +210,6 @@ export default function MockPaymentPage() {
         }
     };
     
-    const handleConfirmPurchase = async () => {
-        if (!firestore || !user || !courseId) return;
-
-        // This is a simulation of a secure confirmation from a webhook/backend
-        // In a real app, this would be a Cloud Function call with a payment ID
-        toast({ title: "Simulating Payment Confirmation...", description: "This is a mock confirmation." });
-        
-        try {
-            await runTransaction(firestore, async (transaction) => {
-                const userDocRef = doc(firestore, 'users', user.uid);
-                
-                // You would typically find the correct ticket based on a transaction ID
-                // For this mock, we are just granting access
-                transaction.update(userDocRef, {
-                    'studentProfile.enrolledCourses': arrayUnion(courseId)
-                });
-            });
-
-            toast({ title: "Payment Confirmed!", description: `You now have access to ${course?.title}.`});
-            router.push(`/dashboard/courses/${courseId}`);
-        } catch (error) {
-            console.error("Confirmation failed:", error);
-            toast({ variant: "destructive", title: "Confirmation Failed", description: "Could not grant course access." });
-        }
-    }
-    
     const isLoading = isUserLoading || isCourseLoading || isProfileLoading;
     const isEnrolled = userProfile?.studentProfile?.enrolledCourses?.includes(courseId);
 
@@ -363,16 +337,6 @@ export default function MockPaymentPage() {
                         >
                             {isPurchasing ? 'Processing...' : `Pay with UPI for ₹${paymentDetails.finalAmount.toFixed(2)}`}
                         </Button>
-                         <div className="w-full text-center">
-                            <p className="text-xs text-muted-foreground mb-2">For testing purposes, you can simulate a successful payment confirmation.</p>
-                            <Button
-                                variant="outline"
-                                className="w-full"
-                                onClick={handleConfirmPurchase}
-                            >
-                                <RefreshCw className="mr-2 h-4 w-4" /> Manually Confirm Payment
-                            </Button>
-                        </div>
                     </CardFooter>
                 </Card>
             </ScrollReveal>
