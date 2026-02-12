@@ -101,7 +101,7 @@ export default function SignupPage() {
   return (
     <GlassForm>
       <div className="text-center mb-6">
-        <h1 className="text-3xl font-bold text-white">Create Account</h1>
+        <h1 className="text-2xl font-bold text-white">Create Account</h1>
         <p className="text-gray-300 mt-2">Join our community of learners and educators.</p>
       </div>
 
