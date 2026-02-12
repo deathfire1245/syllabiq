@@ -13,6 +13,10 @@ import { Slider } from "@/components/ui/slider";
 import { AnimatePresence, motion } from "framer-motion";
 import { CalendarCheck, Download, RefreshCw, Save, Share2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUser, useFirebase, useDoc, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, where, doc } from 'firebase/firestore';
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Subject } from "@/lib/types";
 
 type Day = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
 
@@ -26,13 +30,44 @@ interface Timetable {
 }
 
 export default function TimetableGeneratorPage() {
-    const subjects = getSubjects().slice(0, 8); // Using placeholder subjects
     const { toast } = useToast();
+    const { user } = useUser();
+    const { firestore } = useFirebase();
+
+    const coursesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
+    const { data: allCourses, isLoading: isLoadingCourses } = useCollection(coursesQuery);
+
+    const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
+    const { data: userProfile, isLoading: isLoadingProfile } = useDoc(userDocRef);
+
     const [selectedSubjects, setSelectedSubjects] = React.useState<string[]>([]);
     const [studyHours, setStudyHours] = React.useState([3]);
     const [selectedDays, setSelectedDays] = React.useState<Day[]>([]);
     
     const [generatedTimetable, setGeneratedTimetable] = React.useState<Timetable | null>(null);
+    
+    const availableSubjects = React.useMemo(() => {
+        const allStaticSubjects = getSubjects();
+        if (!userProfile || !allCourses) return allStaticSubjects.slice(0, 8);
+        
+        const enrolledCourseIds = userProfile.studentProfile?.enrolledCourses || [];
+        if (enrolledCourseIds.length === 0) {
+            return allStaticSubjects.slice(0, 8);
+        }
+
+        const enrolledCourses = allCourses.filter(course => enrolledCourseIds.includes(course.id));
+        const subjectNames = [...new Set(enrolledCourses.map(course => course.category))];
+        
+        if (subjectNames.length === 0) return allStaticSubjects.slice(0, 8);
+        
+        return allStaticSubjects.filter(s => subjectNames.includes(s.name));
+    }, [userProfile, allCourses]);
+
+    React.useEffect(() => {
+        if (availableSubjects.length > 0) {
+            setSelectedSubjects(availableSubjects.map(s => s.id));
+        }
+    }, [availableSubjects]);
 
     const handleSubjectToggle = (subjectId: string) => {
         setSelectedSubjects(prev =>
@@ -55,36 +90,30 @@ export default function TimetableGeneratorPage() {
             toast({
                 variant: "destructive",
                 title: "Missing Information",
-                description: "Please select at least one subject and one day to generate a timetable.",
+                description: "Please select at least one subject and one day to generate a schedule.",
             });
             return;
         }
 
         const timetable: Timetable = {};
         const dailyHours = studyHours[0];
-        const totalSlots = selectedDays.length * selectedSubjects.length;
-        // Simple distribution: allocate subjects sequentially across the selected days.
-        let subjectIndex = 0;
+        
+        const allStaticSubjects = getSubjects();
+        const subjectsToSchedule = allStaticSubjects.filter(s => selectedSubjects.includes(s.id));
+        
+        if (subjectsToSchedule.length === 0) return;
 
-        // Shuffle subjects for variety
-        const shuffledSubjects = [...selectedSubjects].sort(() => Math.random() - 0.5);
+        const shuffledSubjects = [...subjectsToSchedule].sort(() => Math.random() - 0.5);
 
         selectedDays.forEach(day => {
             timetable[day] = [];
-            // Assign subjects to slots for the day
             for (let i = 0; i < shuffledSubjects.length; i++) {
-                const subjectId = shuffledSubjects[subjectIndex % shuffledSubjects.length];
-                const subject = subjects.find(s => s.id === subjectId);
-                
-                if (subject) {
-                     timetable[day].push({
-                        subject: subject.name,
-                        duration: `${(dailyHours / shuffledSubjects.length).toFixed(1)} hrs`,
-                    });
-                }
-                subjectIndex++;
+                const subject = shuffledSubjects[i];
+                 timetable[day].push({
+                    subject: subject.name,
+                    duration: `${(dailyHours / shuffledSubjects.length).toFixed(1)} hrs`,
+                });
             }
-            // Shuffle the daily slots for more randomness
             timetable[day].sort(() => Math.random() - 0.5);
         });
 
@@ -92,43 +121,46 @@ export default function TimetableGeneratorPage() {
     };
 
     const daysOrder: Day[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const isLoading = isLoadingCourses || isLoadingProfile;
 
     return (
         <div className="space-y-8">
             <ScrollReveal>
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Timetable Generator</h1>
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Study Schedule Generator</h1>
                 <p className="text-muted-foreground mt-2 text-lg">Plan your study schedule in minutes.</p>
             </ScrollReveal>
 
-            {/* Step 1: Subject Selection */}
             <ScrollReveal delay={0.1}>
                 <Card>
                     <CardHeader>
                         <CardTitle>Step 1: Choose Your Subjects</CardTitle>
-                        <CardDescription>Select the subjects you want to include in your study plan.</CardDescription>
+                        <CardDescription>Select the subjects you want to include in your study plan. We've pre-selected subjects from your enrolled courses.</CardDescription>
                     </CardHeader>
                     <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {subjects.map(subject => (
-                            <div key={subject.id}
-                                className={cn("rounded-lg border p-4 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 text-center",
-                                    selectedSubjects.includes(subject.id) ? "bg-primary/10 border-primary" : "hover:bg-accent"
-                                )}
-                                onClick={() => handleSubjectToggle(subject.id)}
-                            >
-                                <Checkbox
-                                    id={`subject-${subject.id}`}
-                                    checked={selectedSubjects.includes(subject.id)}
-                                    className="h-5 w-5"
-                                    onCheckedChange={() => handleSubjectToggle(subject.id)}
-                                />
-                                <Label htmlFor={`subject-${subject.id}`} className="font-medium text-sm cursor-pointer">{subject.name}</Label>
-                            </div>
-                        ))}
+                        {isLoading ? (
+                            [...Array(8)].map(i => <Skeleton key={i} className="h-24 w-full" />)
+                        ) : (
+                            availableSubjects.map(subject => (
+                                <div key={subject.id}
+                                    className={cn("rounded-lg border p-4 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 text-center",
+                                        selectedSubjects.includes(subject.id) ? "bg-primary/10 border-primary" : "hover:bg-accent"
+                                    )}
+                                    onClick={() => handleSubjectToggle(subject.id)}
+                                >
+                                    <Checkbox
+                                        id={`subject-${subject.id}`}
+                                        checked={selectedSubjects.includes(subject.id)}
+                                        className="h-5 w-5"
+                                        onCheckedChange={() => handleSubjectToggle(subject.id)}
+                                    />
+                                    <Label htmlFor={`subject-${subject.id}`} className="font-medium text-sm cursor-pointer">{subject.name}</Label>
+                                </div>
+                            ))
+                        )}
                     </CardContent>
                 </Card>
             </ScrollReveal>
 
-            {/* Step 2: Time Configuration */}
             <ScrollReveal delay={0.2}>
                 <Card>
                     <CardHeader>
@@ -168,7 +200,6 @@ export default function TimetableGeneratorPage() {
                 </Card>
             </ScrollReveal>
 
-            {/* Step 3: Generate */}
             {!generatedTimetable && (
                 <ScrollReveal delay={0.3} className="text-center">
                     <Button
@@ -177,12 +208,11 @@ export default function TimetableGeneratorPage() {
                         className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow transform hover:scale-105"
                     >
                         <Sparkles className="mr-2 h-5 w-5" />
-                        Generate Timetable
+                        Generate Schedule
                     </Button>
                 </ScrollReveal>
             )}
 
-            {/* Output */}
             <AnimatePresence>
                 {generatedTimetable && (
                     <motion.div
@@ -195,7 +225,7 @@ export default function TimetableGeneratorPage() {
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                   <CalendarCheck className="w-6 h-6 text-primary"/>
-                                  Your Generated Timetable
+                                  Your Generated Schedule
                                 </CardTitle>
                                 <CardDescription>Here is your personalized study plan. You can save or download it.</CardDescription>
                             </CardHeader>
@@ -234,7 +264,7 @@ export default function TimetableGeneratorPage() {
                                       className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow transform hover:scale-105"
                                     >
                                       <RefreshCw className="mr-2 h-5 w-5" />
-                                      Generate New Timetable
+                                      Generate New Schedule
                                     </Button>
                                     <div className="flex flex-wrap gap-3">
                                       <Button variant="outline" disabled><Download className="mr-2 h-4 w-4"/>Download PDF</Button>
