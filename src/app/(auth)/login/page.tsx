@@ -90,7 +90,7 @@ export default function LoginPage() {
   return (
     <GlassForm>
       <div className="text-center mb-6">
-        <h1 className="text-3xl font-bold text-white">Welcome Back</h1>
+        <h1 className="text-2xl font-bold text-white">Welcome Back</h1>
         <p className="text-gray-300 mt-2">Login to continue your journey.</p>
       </div>
       <FormProvider {...form}>
