@@ -102,7 +102,7 @@ export default function LoginPage() {
               <FormItem>
                 <FormLabel className="text-white">Email</FormLabel>
                 <FormControl>
-                  <Input type="email" placeholder="you@example.com" {...field} className="bg-white/10 text-white placeholder:text-gray-400 border-white/20 focus:ring-primary/50" />
+                  <Input type="email" placeholder="you@example.com" {...field} className="bg-black/30 text-white placeholder:text-gray-400 border-white/20 focus:ring-primary/50" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -115,7 +115,7 @@ export default function LoginPage() {
               <FormItem>
                 <FormLabel className="text-white">Password</FormLabel>
                 <FormControl>
-                  <Input type="password" placeholder="••••••••" {...field} className="bg-white/10 text-white placeholder:text-gray-400 border-white/20 focus:ring-primary/50" />
+                  <Input type="password" placeholder="••••••••" {...field} className="bg-black/30 text-white placeholder:text-gray-400 border-white/20 focus:ring-primary/50" />
                 </FormControl>
                 <FormMessage />
               </FormItem>

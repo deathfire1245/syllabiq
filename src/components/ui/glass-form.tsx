@@ -1,3 +1,4 @@
+
 "use client";
 
 import { cn } from "@/lib/utils";
@@ -28,7 +29,7 @@ export const GlassForm = React.forwardRef<HTMLDivElement, GlassFormProps>(
           ref={divRef}
           onMouseMove={handleMouseMove}
           className={cn(
-            "relative w-full max-w-sm rounded-2xl bg-white/5 p-8 shadow-2xl backdrop-blur-lg",
+            "relative w-full max-w-sm rounded-2xl bg-black/30 p-8 shadow-2xl backdrop-blur-lg",
             "border border-white/10 transition-all duration-300",
             "before:pointer-events-none before:absolute before:-inset-px before:rounded-[inherit]",
             "before:bg-radial-gradient-spotlight before:opacity-0 before:transition-opacity before:duration-300",
