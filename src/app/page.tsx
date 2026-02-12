@@ -105,7 +105,7 @@ export default function Home() {
         {/* Hero Section */}
         <section className="relative h-[60vh] min-h-[500px] flex items-center justify-center text-center text-white overflow-hidden">
            <Image
-            src="/lol.jpg"
+            src="https://i.ibb.co/0R2xszrb/lol.jpg"
             alt="A student learning with a laptop"
             fill
             className="object-cover z-0"
