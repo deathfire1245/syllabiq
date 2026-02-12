@@ -105,11 +105,11 @@ export default function Home() {
         {/* Hero Section */}
         <section className="relative h-[60vh] min-h-[500px] flex items-center justify-center text-center text-white overflow-hidden">
            <Image
-            src="https://picsum.photos/seed/student-learning/1920/1080"
-            alt="A student engaged in learning"
+            src="https://picsum.photos/seed/student-laptop/1920/1080"
+            alt="A student learning with a laptop"
             fill
             className="object-cover z-0"
-            data-ai-hint="student learning"
+            data-ai-hint="student laptop"
             priority
           />
           <div className="absolute inset-0 bg-black/50 z-10" />
