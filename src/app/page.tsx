@@ -105,11 +105,11 @@ export default function Home() {
         {/* Hero Section */}
         <section className="relative h-[60vh] min-h-[500px] flex items-center justify-center text-center text-white overflow-hidden">
            <Image
-            src="https://picsum.photos/seed/student-learning/1920/1080"
-            alt="A student learning"
+            src="https://picsum.photos/seed/student-laptop-2/1920/1080"
+            alt="A student learning with a laptop"
             fill
             className="object-cover z-0"
-            data-ai-hint="student learning"
+            data-ai-hint="student laptop"
             priority
           />
           <div className="absolute inset-0 bg-black/50 z-10" />
@@ -117,7 +117,7 @@ export default function Home() {
             <ScrollReveal>
               <Badge variant="secondary" className="mb-4 text-sm font-medium py-1 px-3">Your Personal Learning Assistant</Badge>
               <h1 className="font-headline text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-10">
-                <span className="text-primary">SyllabiQ</span>-finish your syllabus 2x faster or track, learn and succeed
+                <span className="text-primary">SyllabiQ</span>-track , learn and succeed
               </h1>
             </ScrollReveal>
             <ScrollReveal delay={0.2}>
