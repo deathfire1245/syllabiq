@@ -104,19 +104,14 @@ export default function Home() {
       <main className="flex-grow">
         {/* Hero Section */}
         <section className="relative h-[60vh] min-h-[500px] flex items-center justify-center text-center text-white overflow-hidden">
-          <div 
-            className="sp-embed-player absolute top-0 left-0 w-full h-full z-0" 
-            data-id="cOnlQ7n0XXb"
-          >
-            <Script src="https://go.screenpal.com/player/appearance/cOnlQ7n0XXb" strategy="lazyOnload" />
-            <iframe 
-              className="w-full h-full border-0"
-              src="https://go.screenpal.com/player/cOnlQ7n0XXb?autoplay=1&loop=1&muted=1&controls=0&bg=transparent&embed=1" 
-              title="SyllabiQ background video"
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-            ></iframe>
-          </div>
+           <Image
+            src="https://picsum.photos/seed/hero-background/1920/1080"
+            alt="An abstract educational background"
+            fill
+            className="object-cover z-0"
+            data-ai-hint="education abstract"
+            priority
+          />
           <div className="absolute inset-0 bg-black/50 z-10" />
           <div className="container relative z-20 mx-auto px-4 sm:px-6 lg:px-8">
             <ScrollReveal>
