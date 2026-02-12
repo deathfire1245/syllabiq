@@ -138,7 +138,7 @@ export default function TimetableGeneratorPage() {
                     </CardHeader>
                     <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                         {isLoading ? (
-                            [...Array(8)].map(i => <Skeleton key={i} className="h-24 w-full" />)
+                            [...Array(8)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
                         ) : (
                             availableSubjects.map(subject => (
                                 <div key={subject.id}
@@ -237,12 +237,12 @@ export default function TimetableGeneratorPage() {
                                             <div className="bg-card rounded-lg border p-4 min-w-[200px] sm:min-w-0 h-full">
                                                 <h3 className="font-bold text-center mb-4">{day}</h3>
                                                 <div className="space-y-3">
-                                                    {generatedTimetable[day].map((slot: any, slotIndex: number) => (
+                                                    {generatedTimetable[day].map((slot: any) => (
                                                          <motion.div
-                                                            key={slotIndex}
+                                                            key={slot.subject}
                                                             initial={{ opacity: 0, scale: 0.9 }}
                                                             animate={{ opacity: 1, scale: 1 }}
-                                                            transition={{ delay: 0.2 + slotIndex * 0.1 }}
+                                                            transition={{ delay: 0.2 + (daysOrder.indexOf(day) * 0.1) }}
                                                         >
                                                             <div className="bg-secondary p-3 rounded-md shadow-sm">
                                                                 <p className="font-semibold text-sm">{slot.subject}</p>
