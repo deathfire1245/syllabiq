@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -16,38 +15,67 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase, useDoc, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, doc } from 'firebase/firestore';
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Subject } from "@/lib/types";
+import type { Subject, Topic } from "@/lib/types";
 
 type Day = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
 
+// This will now hold the actual topic object
 interface TimeSlot {
-    subject: string;
+    topic: Topic;
     duration: string;
 }
 
-interface Timetable {
-    [key: string]: TimeSlot[];
+// The new structure will group topics by subject for a given day
+interface DailySchedule {
+    [subjectName: string]: TimeSlot[];
 }
+
+interface Timetable {
+    [day: string]: DailySchedule;
+}
+
+
+// Helper function to format duration
+const formatDuration = (decimalHours: number): string => {
+    if (isNaN(decimalHours) || decimalHours <= 0) {
+        return "N/A";
+    }
+    const totalMinutes = Math.round(decimalHours * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (hours > 0 && minutes > 0) {
+        return `${hours} hour${hours > 1 ? 's' : ''} ${minutes} min`;
+    } else if (hours > 0) {
+        return `${hours} hour${hours > 1 ? 's' : ''}`;
+    } else {
+        return `${minutes} min`;
+    }
+};
 
 export default function TimetableGeneratorPage() {
     const { toast } = useToast();
     const { user } = useUser();
     const { firestore } = useFirebase();
 
+    // Course and Profile fetching remains to determine available subjects
     const coursesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
     const { data: allCourses, isLoading: isLoadingCourses } = useCollection(coursesQuery);
 
     const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
     const { data: userProfile, isLoading: isLoadingProfile } = useDoc(userDocRef);
-
+    
+    // State for user preferences
     const [selectedSubjects, setSelectedSubjects] = React.useState<string[]>([]);
     const [studyHours, setStudyHours] = React.useState([3]);
     const [selectedDays, setSelectedDays] = React.useState<Day[]>([]);
     
     const [generatedTimetable, setGeneratedTimetable] = React.useState<Timetable | null>(null);
+
+    const allStaticSubjects = getSubjects();
     
+    // Determine which subjects are available for selection
     const availableSubjects = React.useMemo(() => {
-        const allStaticSubjects = getSubjects();
         if (!userProfile || !allCourses) return allStaticSubjects.slice(0, 8);
         
         const enrolledCourseIds = userProfile.studentProfile?.enrolledCourses || [];
@@ -60,15 +88,28 @@ export default function TimetableGeneratorPage() {
         
         if (subjectNames.length === 0) return allStaticSubjects.slice(0, 8);
         
+        // Return the full subject object
         return allStaticSubjects.filter(s => subjectNames.includes(s.name));
-    }, [userProfile, allCourses]);
+    }, [userProfile, allCourses, allStaticSubjects]);
 
+    // Pre-select subjects based on what's available
     React.useEffect(() => {
         if (availableSubjects.length > 0) {
             setSelectedSubjects(availableSubjects.map(s => s.id));
         }
     }, [availableSubjects]);
 
+    // NEW: Fetch topics based on selected subjects
+    const topicsQuery = useMemoFirebase(() => {
+        if (!firestore || selectedSubjects.length === 0) return null;
+        // Firestore 'in' queries are limited to 30 values. We'll cap it here for safety.
+        const queryableSubjects = selectedSubjects.slice(0, 30);
+        return query(collection(firestore, 'topics'), where('subjectId', 'in', queryableSubjects));
+    }, [firestore, selectedSubjects]);
+
+    const { data: topics, isLoading: isLoadingTopics } = useCollection<Topic>(topicsQuery);
+    
+    // Handlers for UI interaction
     const handleSubjectToggle = (subjectId: string) => {
         setSelectedSubjects(prev =>
             prev.includes(subjectId)
@@ -85,36 +126,48 @@ export default function TimetableGeneratorPage() {
         );
     };
 
+    // Main generation logic
     const handleGenerate = () => {
-        if (selectedSubjects.length === 0 || selectedDays.length === 0) {
+        if (!topics || topics.length === 0) {
+            toast({
+                variant: "destructive",
+                title: "No Topics Found",
+                description: "Could not find any topics for the selected subjects. Please select other subjects.",
+            });
+            return;
+        }
+        if (selectedDays.length === 0) {
             toast({
                 variant: "destructive",
                 title: "Missing Information",
-                description: "Please select at least one subject and one day to generate a schedule.",
+                description: "Please select at least one day to generate a schedule.",
             });
             return;
         }
 
         const timetable: Timetable = {};
         const dailyHours = studyHours[0];
-        
-        const allStaticSubjects = getSubjects();
-        const subjectsToSchedule = allStaticSubjects.filter(s => selectedSubjects.includes(s.id));
-        
-        if (subjectsToSchedule.length === 0) return;
+        const topicsPerDay = Math.ceil(topics.length / selectedDays.length);
+        const shuffledTopics = [...topics].sort(() => Math.random() - 0.5);
 
-        const shuffledSubjects = [...subjectsToSchedule].sort(() => Math.random() - 0.5);
-
-        selectedDays.forEach(day => {
-            timetable[day] = [];
-            for (let i = 0; i < shuffledSubjects.length; i++) {
-                const subject = shuffledSubjects[i];
-                 timetable[day].push({
-                    subject: subject.name,
-                    duration: `${(dailyHours / shuffledSubjects.length).toFixed(1)} hrs`,
-                });
-            }
-            timetable[day].sort(() => Math.random() - 0.5);
+        selectedDays.forEach((day, index) => {
+            const dayTopics = shuffledTopics.slice(index * topicsPerDay, (index + 1) * topicsPerDay);
+            const durationPerTopic = dayTopics.length > 0 ? dailyHours / dayTopics.length : 0;
+            const formattedDuration = formatDuration(durationPerTopic);
+            
+            // Group topics by subject for this day
+            const dailySchedule: DailySchedule = {};
+            dayTopics.forEach(topic => {
+                const subject = allStaticSubjects.find(s => s.id === topic.subjectId);
+                const subjectName = subject ? subject.name : "Unknown Subject";
+                
+                if (!dailySchedule[subjectName]) {
+                    dailySchedule[subjectName] = [];
+                }
+                dailySchedule[subjectName].push({ topic, duration: formattedDuration });
+            });
+            
+            timetable[day] = dailySchedule;
         });
 
         setGeneratedTimetable(timetable);
@@ -206,9 +259,9 @@ export default function TimetableGeneratorPage() {
                         size="lg"
                         onClick={handleGenerate}
                         className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow transform hover:scale-105"
+                        disabled={isLoadingTopics}
                     >
-                        <Sparkles className="mr-2 h-5 w-5" />
-                        Generate Schedule
+                        {isLoadingTopics ? <><RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Fetching Topics...</> : <><Sparkles className="mr-2 h-5 w-5" /> Generate Schedule</>}
                     </Button>
                 </ScrollReveal>
             )}
@@ -231,24 +284,31 @@ export default function TimetableGeneratorPage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="overflow-x-auto">
-                                <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-${selectedDays.length > 4 ? 4 : selectedDays.length}`}>
+                                <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-${selectedDays.length > 4 ? 4 : Math.max(1, selectedDays.length)}`}>
                                     {daysOrder.filter(day => generatedTimetable[day]).map((day, dayIndex) => (
                                         <ScrollReveal key={day} delay={dayIndex * 0.1}>
                                             <div className="bg-card rounded-lg border p-4 min-w-[200px] sm:min-w-0 h-full">
                                                 <h3 className="font-bold text-center mb-4">{day}</h3>
-                                                <div className="space-y-3">
-                                                    {generatedTimetable[day].map((slot: any) => (
-                                                         <motion.div
-                                                            key={slot.subject}
-                                                            initial={{ opacity: 0, scale: 0.9 }}
-                                                            animate={{ opacity: 1, scale: 1 }}
-                                                            transition={{ delay: 0.2 + (daysOrder.indexOf(day) * 0.1) }}
-                                                        >
-                                                            <div className="bg-secondary p-3 rounded-md shadow-sm">
-                                                                <p className="font-semibold text-sm">{slot.subject}</p>
-                                                                <p className="text-xs text-muted-foreground">{slot.duration}</p>
+                                                <div className="space-y-4">
+                                                    {Object.entries(generatedTimetable[day]).map(([subjectName, timeSlots]) => (
+                                                         <div key={subjectName}>
+                                                            <h4 className="font-semibold text-md mb-2">{subjectName}</h4>
+                                                            <div className="space-y-2 pl-2 border-l-2 border-primary/50">
+                                                                {timeSlots.map(({ topic, duration }) => (
+                                                                    <motion.div
+                                                                        key={topic.id}
+                                                                        initial={{ opacity: 0, x: -10 }}
+                                                                        animate={{ opacity: 1, x: 0 }}
+                                                                        transition={{ delay: 0.2 + (dayIndex * 0.1) }}
+                                                                    >
+                                                                        <div className="bg-secondary p-3 rounded-md shadow-sm">
+                                                                            <p className="font-semibold text-sm">{topic.name}</p>
+                                                                            <p className="text-xs text-muted-foreground">{duration} • {topic.chapter}</p>
+                                                                        </div>
+                                                                    </motion.div>
+                                                                ))}
                                                             </div>
-                                                        </motion.div>
+                                                        </div>
                                                     ))}
                                                 </div>
                                             </div>
