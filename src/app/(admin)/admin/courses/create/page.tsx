@@ -30,7 +30,7 @@ interface CourseContent {
   url: string;
 }
 
-const priceTiers = [300, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 5000];
+const priceTiers = [0, 300, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 5000];
 
 
 export default function CreateCoursePage() {
@@ -251,7 +251,7 @@ export default function CreateCoursePage() {
             <Card>
               <CardHeader>
                 <CardTitle>Set Your Price</CardTitle>
-                <CardDescription>Choose a price tier for your course.</CardDescription>
+                <CardDescription>Choose a price tier for your course. Select 'Free' to make it accessible to all students.</CardDescription>
               </CardHeader>
               <CardContent className="max-w-xs mx-auto">
                 <Select value={courseData.price} onValueChange={(value) => setCourseData({...courseData, price: value})}>
@@ -263,7 +263,7 @@ export default function CreateCoursePage() {
                   </SelectTrigger>
                   <SelectContent>
                     {priceTiers.map(tier => (
-                      <SelectItem key={tier} value={String(tier)}>{`₹ ${tier}`}</SelectItem>
+                      <SelectItem key={tier} value={String(tier)}>{tier === 0 ? 'Free' : `₹ ${tier}`}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

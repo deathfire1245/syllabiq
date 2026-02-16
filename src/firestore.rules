@@ -54,7 +54,7 @@ service cloud.firestore {
       // UPDATE:
       // - Admins can update any user profile.
       // - A user can update their own profile, but cannot change critical fields.
-      // - CRUCIALLY, a user cannot modify their own 'enrolledCourses'.
+      // - A user CAN add courses to their 'enrolledCourses' list, but cannot remove them.
       allow update: if isAdmin(request.auth.uid) ||
                     (
                       isOwner(uid) &&
@@ -62,8 +62,9 @@ service cloud.firestore {
                       request.resource.data.email == resource.data.email &&
                       request.resource.data.role == resource.data.role &&
                       request.resource.data.createdAt == resource.data.createdAt &&
-                      // This rule ensures a user cannot change their own course enrollments.
-                      request.resource.data.studentProfile.enrolledCourses == resource.data.studentProfile.enrolledCourses
+                      // This rule allows a user to ADD to their enrolledCourses, but not remove.
+                      (request.resource.data.studentProfile.enrolledCourses.size() >= resource.data.studentProfile.enrolledCourses.size() &&
+                       request.resource.data.studentProfile.enrolledCourses.containsAll(resource.data.studentProfile.enrolledCourses))
                     );
 
       // DELETE: Only admins can delete user profiles.
@@ -177,7 +178,7 @@ service cloud.firestore {
     //----------------------------------------------------------------------
     match /courses/{courseId} {
       allow read: if isSignedIn();
-      allow write: if isTeacher(request.auth.uid);
+      allow write: if isTeacher(request.auth.uid) || isAdmin(request.auth.uid);
     }
 
     match /topics/{topicId} {

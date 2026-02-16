@@ -109,7 +109,7 @@ export function AdminCoursesTable() {
                   <TableCell>{course.author}</TableCell>
                   <TableCell><Badge variant="outline">{course.category}</Badge></TableCell>
                   <TableCell><Badge variant="secondary">{course.difficulty}</Badge></TableCell>
-                  <TableCell className="text-right font-mono">₹{course.price}</TableCell>
+                  <TableCell className="text-right font-mono">{course.price === '0' ? 'Free' : `₹${course.price}`}</TableCell>
                   <TableCell className="text-center">{course.lessons}</TableCell>
                 </TableRow>
               ))

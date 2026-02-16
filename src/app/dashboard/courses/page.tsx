@@ -7,9 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useCollection, useFirebase, useMemoFirebase, useUser, useDoc } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSearch } from "@/contexts/SearchContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface Course {
   id: string;
@@ -28,6 +29,8 @@ export default function CoursesPage() {
   const { firestore } = useFirebase();
   const { user } = useUser();
   const { searchTerm } = useSearch();
+  const { toast } = useToast();
+  const [addingCourseId, setAddingCourseId] = React.useState<string | null>(null);
 
   const coursesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -41,7 +44,7 @@ export default function CoursesPage() {
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
 
-  const { data: userProfile } = useDoc(userDocRef);
+  const { data: userProfile, mutate: mutateUserProfile } = useDoc(userDocRef);
   const enrolledCourses = userProfile?.studentProfile?.enrolledCourses || [];
 
   const filteredCourses = React.useMemo(() => {
@@ -55,6 +58,38 @@ export default function CoursesPage() {
       course.category.toLowerCase().includes(lowercasedTerm)
     );
   }, [courses, searchTerm]);
+
+  const handleAddToLibrary = async (courseId: string) => {
+    if (!user || !firestore) {
+      toast({ variant: "destructive", title: "You must be logged in." });
+      return;
+    }
+    setAddingCourseId(courseId);
+    try {
+      const userRef = doc(firestore, 'users', user.uid);
+      await updateDoc(userRef, {
+        'studentProfile.enrolledCourses': arrayUnion(courseId)
+      });
+
+      // Optimistically update local state
+      if (userProfile?.studentProfile) {
+        mutateUserProfile({
+            ...userProfile,
+            studentProfile: {
+                ...userProfile.studentProfile,
+                enrolledCourses: [...(userProfile.studentProfile.enrolledCourses || []), courseId]
+            }
+        })
+      }
+
+      toast({ title: "Success!", description: "The course has been added to your library." });
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "Could not add course to library." });
+    } finally {
+      setAddingCourseId(null);
+    }
+  };
 
 
   if (isLoading) {
@@ -86,6 +121,7 @@ export default function CoursesPage() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filteredCourses.map((course, index) => {
               const isEnrolled = enrolledCourses.includes(course.id);
+              const isFree = course.price === '0';
               return (
               <ScrollReveal key={course.id} delay={index * 0.1}>
                 <Card className="group relative overflow-hidden transform transition-all duration-300 hover:shadow-xl h-full flex flex-col">
@@ -109,17 +145,28 @@ export default function CoursesPage() {
                     </p>
                   </CardContent>
                   <CardFooter className="flex justify-between items-center bg-secondary/50 p-4">
-                     <div className="flex flex-col">
-                        <p className="text-2xl font-bold text-primary">₹{course.price}</p>
-                        <Badge variant="destructive" className="w-fit mt-1 text-xs">20% OFF with promo</Badge>
-                     </div>
-                     <Button asChild>
-                        {isEnrolled ? (
+                     {isFree ? (
+                        <p className="text-2xl font-bold text-primary">Free</p>
+                      ) : (
+                        <div className="flex flex-col">
+                            <p className="text-2xl font-bold text-primary">₹{course.price}</p>
+                            <Badge variant="destructive" className="w-fit mt-1 text-xs">20% OFF with promo</Badge>
+                        </div>
+                      )}
+                     
+                     {isEnrolled ? (
+                        <Button asChild>
                             <Link href={`/dashboard/courses/${course.id}`}>View Course</Link>
-                        ) : (
+                        </Button>
+                      ) : isFree ? (
+                        <Button onClick={() => handleAddToLibrary(course.id)} disabled={addingCourseId === course.id}>
+                            {addingCourseId === course.id ? 'Adding...' : 'Add to Library'}
+                        </Button>
+                      ) : (
+                        <Button asChild>
                             <Link href={`/dashboard/payment/${course.id}`}>Buy</Link>
-                        )}
-                     </Button>
+                        </Button>
+                      )}
                   </CardFooter>
                 </Card>
               </ScrollReveal>
