@@ -163,7 +163,7 @@ service cloud.firestore {
     //----------------------------------------------------------------------
     match /courses/{courseId} {
       allow read: if isSignedIn();
-      allow write: if isTeacher(request.auth.uid);
+      allow write: if isTeacher(request.auth.uid) || isAdmin(request.auth.uid);
     }
 
     match /topics/{topicId} {
