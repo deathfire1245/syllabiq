@@ -89,7 +89,7 @@
     },
     "Course": {
       "title": "Course",
-      "description": "Represents a course created by a teacher.",
+      "description": "Represents a course created by a teacher, containing modules and lessons.",
       "type": "object",
       "properties": {
         "title": { "type": "string" },
@@ -102,21 +102,42 @@
         "authorId": { "type": "string" },
         "author": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "lessons": { "type": "number" },
-        "content": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "title": { "type": "string" },
-              "type": { "type": "string", "enum": ["pdf", "video"] },
-              "url": { "type": "string", "format": "uri" }
-            },
-            "required": ["title", "type", "url"]
-          }
-        }
+        "learningOutcomes": { "type": "array", "items": { "type": "string" }, "description": "List of things students will learn." },
+        "modulesCount": { "type": "number" },
+        "lessonsCount": { "type": "number" },
+        "totalDuration": { "type": "number", "description": "Total course duration in minutes." },
+        "previewLessonId": { "type": "string", "description": "ID of the free preview lesson." },
+        "hasPracticeQuestions": { "type": "boolean" },
+        "hasFinalTest": { "type": "boolean" }
       },
-      "required": ["title", "description", "authorId", "author", "createdAt", "content"]
+      "required": ["title", "description", "authorId", "author", "createdAt", "price"]
+    },
+    "Module": {
+        "title": "Module",
+        "description": "A module within a course, containing several lessons.",
+        "type": "object",
+        "properties": {
+            "title": { "type": "string" },
+            "order": { "type": "number" },
+            "courseId": { "type": "string" }
+        },
+        "required": ["title", "order", "courseId"]
+    },
+    "Lesson": {
+        "title": "Lesson",
+        "description": "A single lesson within a module.",
+        "type": "object",
+        "properties": {
+            "title": { "type": "string" },
+            "order": { "type": "number" },
+            "moduleId": { "type": "string" },
+            "courseId": { "type": "string" },
+            "contentType": { "type": "string", "enum": ["pdf", "video"] },
+            "contentUrl": { "type": "string", "format": "uri" },
+            "isPreview": { "type": "boolean" },
+            "duration": { "type": "number", "description": "Lesson duration in minutes." }
+        },
+        "required": ["title", "order", "moduleId", "courseId", "contentType", "contentUrl", "duration"]
     },
     "Meeting": {
       "title": "Meeting",
@@ -219,6 +240,14 @@
       {
         "path": "/courses/{courseId}",
         "definition": { "entityName": "Course", "schema": { "$ref": "#/backend/entities/Course" }, "description": "Stores course information created by teachers.", "params": [{ "name": "courseId", "description": "The unique identifier of the course." }] }
+      },
+      {
+        "path": "/courses/{courseId}/modules/{moduleId}",
+        "definition": { "entityName": "Module", "schema": { "$ref": "#/backend/entities/Module" }, "description": "Stores modules for a specific course.", "params": [{ "name": "courseId", "description": "The ID of the parent course." }, { "name": "moduleId", "description": "The unique identifier of the module." }] }
+      },
+      {
+        "path": "/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}",
+        "definition": { "entityName": "Lesson", "schema": { "$ref": "#/backend/entities/Lesson" }, "description": "Stores lessons for a specific module.", "params": [{ "name": "courseId", "description": "The ID of the parent course." }, { "name": "moduleId", "description": "The ID of the parent module." }, { "name": "lessonId", "description": "The unique identifier of the lesson." }] }
       },
       {
         "path": "/meetings/{meetingCode}",
