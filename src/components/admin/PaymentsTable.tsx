@@ -70,6 +70,7 @@ export function PaymentsTable() {
                 netAmount,
                 status,
                 bankDetails: teacher?.teacherProfile?.bankDetails,
+                appliedPromoCode: ticket.appliedPromoCode,
             };
         });
 
@@ -125,13 +126,14 @@ export function PaymentsTable() {
               <TableHead className="text-right">Commission</TableHead>
               <TableHead className="text-right">Net Payout</TableHead>
               <TableHead className="text-center">Status</TableHead>
+              <TableHead>Promo Code</TableHead>
               <TableHead className="text-center">Bank Details</TableHead>
               <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow><TableCell colSpan={10} className="text-center"><Skeleton className="h-24 w-full" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center"><Skeleton className="h-24 w-full" /></TableCell></TableRow>
             ) : paymentsData && paymentsData.length > 0 ? (
                  paymentsData.map((payment) => (
                     <TableRow key={payment.paymentId} className="hover:bg-accent transition-colors">
@@ -145,6 +147,7 @@ export function PaymentsTable() {
                         <TableCell className="text-center">
                         <Badge variant="outline" className={statusStyles[payment.status]}>{payment.status.replace(/_/g, ' ')}</Badge>
                         </TableCell>
+                        <TableCell className="font-mono text-xs">{payment.appliedPromoCode || "N/A"}</TableCell>
                         <TableCell className="text-center">
                             {payment.bankDetails ? (
                                <Dialog>
@@ -188,7 +191,7 @@ export function PaymentsTable() {
                     </TableRow>
                 ))
             ) : (
-                <TableRow><TableCell colSpan={10} className="text-center">No course payment data available.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center">No course payment data available.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

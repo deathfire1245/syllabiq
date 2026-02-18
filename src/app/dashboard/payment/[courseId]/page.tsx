@@ -166,7 +166,7 @@ export default function MockPaymentPage() {
             status: 'INITIATED',
             price: paymentDetails.baseAmount,
             finalPrice: paymentDetails.finalAmount,
-            appliedPromoCode: appliedPromo,
+            appliedPromoCode: appliedPromo || "N/A",
             commissionPercent: 10,
             createdAt: serverTimestamp(),
             validFrom: serverTimestamp(),
