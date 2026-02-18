@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -11,19 +12,18 @@ import { collection, doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSearch } from "@/contexts/SearchContext";
 import { useToast } from "@/hooks/use-toast";
+import type { Course } from "@/lib/types";
+import { Layers, BookOpen } from "lucide-react";
 
-interface Course {
-  id: string;
-  title: string;
-  author: string;
-  description: string;
-  coverImage: string;
-  imageHint: string;
-  price: string;
-  category: string;
-  difficulty: string;
-  lessons: number;
-}
+const formatDuration = (minutes: number) => {
+  if (!minutes || minutes <= 0) return null;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours > 0 && remainingMinutes > 0) return `${hours}h ${remainingMinutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${remainingMinutes}m`;
+};
+
 
 export default function CoursesPage() {
   const { firestore } = useFirebase();
@@ -122,29 +122,37 @@ export default function CoursesPage() {
             {filteredCourses.map((course, index) => {
               const isEnrolled = enrolledCourses.includes(course.id);
               const isFree = course.price === '0';
+              const durationText = formatDuration(course.totalDuration);
               return (
               <ScrollReveal key={course.id} delay={index * 0.1}>
                 <Card className="group relative overflow-hidden transform transition-all duration-300 hover:shadow-xl h-full flex flex-col">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                           <Badge variant="outline">{course.category}</Badge>
-                           <Badge variant="secondary">{course.difficulty}</Badge>
+                  <Link href={`/dashboard/courses/${course.id}`} className="flex flex-col flex-grow">
+                    <CardHeader>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                <Badge variant="outline">{course.category}</Badge>
+                                <Badge variant="secondary">{course.difficulty}</Badge>
+                                </div>
+                                <CardTitle className="text-xl font-bold line-clamp-2 group-hover:text-primary transition-colors">
+                                {course.title}
+                                </CardTitle>
+                                <CardDescription className="text-sm mt-1">by {course.author}</CardDescription>
+                            </div>
                         </div>
-                        <CardTitle className="text-xl font-bold line-clamp-2 group-hover:text-primary transition-colors">
-                          {course.title}
-                        </CardTitle>
-                        <CardDescription className="text-sm mt-1">by {course.author}</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="flex-grow">
-                    <p className="text-sm text-muted-foreground line-clamp-3">
-                      {course.description}
-                    </p>
-                  </CardContent>
-                  <CardFooter className="flex justify-between items-center bg-secondary/50 p-4">
+                    </CardHeader>
+                    <CardContent className="flex-grow">
+                        <p className="text-sm text-muted-foreground line-clamp-3">
+                        {course.description}
+                        </p>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-4 pt-4 border-t">
+                            {course.modulesCount > 0 && <span className="flex items-center gap-1.5"><Layers className="w-4 h-4" />{course.modulesCount} modules</span>}
+                            {course.lessonsCount > 0 && <span className="flex items-center gap-1.5"><BookOpen className="w-4 h-4" />{course.lessonsCount} lessons</span>}
+                            {durationText && <span className="flex items-center gap-1.5">{durationText}</span>}
+                        </div>
+                    </CardContent>
+                  </Link>
+                  <CardFooter className="flex justify-between items-center bg-secondary/50 p-4 mt-auto">
                      {isFree ? (
                         <p className="text-2xl font-bold text-primary">Free</p>
                       ) : (

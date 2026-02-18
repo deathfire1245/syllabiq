@@ -1,4 +1,49 @@
 
+export type Lesson = {
+  id: string;
+  title: string;
+  order: number;
+  moduleId: string;
+  courseId: string;
+  contentType: 'pdf' | 'video';
+  contentUrl: string;
+  isPreview: boolean;
+  duration: number; // in minutes
+};
+
+export type Module = {
+  id: string;
+  title: string;
+  order: number;
+  courseId: string;
+  lessons: Lesson[];
+};
+
+export type Course = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  difficulty: string;
+  price: string;
+  coverImage: string;
+  imageHint: string;
+  authorId: string;
+  author: string;
+  createdAt?: any;
+  learningOutcomes: string[];
+  modulesCount: number;
+  lessonsCount: number;
+  totalDuration: number; // in minutes
+  previewLessonId?: string;
+  hasPracticeQuestions: boolean;
+  hasFinalTest: boolean;
+  // For backward compatibility
+  content?: { title: string; type: 'pdf' | 'video'; url: string }[];
+  lessons?: number;
+};
+
+
 export type Topic = {
   id: string;
   subjectId: string;
