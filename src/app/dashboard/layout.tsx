@@ -5,6 +5,8 @@ import { SidebarNav } from "./_components/sidebar-nav";
 import { Header } from "./_components/header";
 import { BottomNav } from "./_components/bottom-nav";
 import { SearchProvider } from "@/contexts/SearchContext";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
 
 export default function DashboardLayout({
   children,
@@ -12,6 +14,30 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const isMobile = useIsMobile();
+  const router = useRouter();
+  const [user, setUser] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+      if (!currentUser) {
+        router.replace("/get-started"); // redirect to login/signup if not logged in
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
+  // Show loading state until auth is determined
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <SearchProvider>

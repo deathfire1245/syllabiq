@@ -9,6 +9,7 @@ import Link from "next/link";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
 import { collection } from "firebase/firestore";
+import { getAuth } from "firebase/auth"; // use Firebase auth directly
 import type { Topic } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSearch } from "@/contexts/SearchContext";
@@ -45,10 +46,13 @@ export default function SubjectsPage() {
   const { firestore } = useFirebase();
   const { searchTerm } = useSearch();
 
+  const auth = getAuth(); // get current Firebase user
+
+  // Only run query if firestore exists and user is authenticated
   const topicsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !auth.currentUser) return null;
     return collection(firestore, 'topics');
-  }, [firestore]);
+  }, [firestore, auth.currentUser]);
 
   const { data: allTopics, isLoading } = useCollection<Topic>(topicsQuery);
 
