@@ -13,6 +13,7 @@ import { ScrollReveal } from '@/components/ScrollReveal';
 import { Badge } from '@/components/ui/badge';
 import type { Course, Module, Lesson } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import Link from 'next/link';
 
 const formatDuration = (minutes: number) => {
   if (!minutes || minutes <= 0) return 'N/A';

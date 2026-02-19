@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useCollection, useFirebase, useMemoFirebase, useUser, useDoc } from "@/firebase";
-import { collection, doc, updateDoc, arrayUnion } from "firebase/firestore";
+import { collection, doc, setDoc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSearch } from "@/contexts/SearchContext";
 import { useToast } from "@/hooks/use-toast";
@@ -44,7 +44,7 @@ export default function CoursesPage() {
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
 
-  const { data: userProfile, mutate: mutateUserProfile } = useDoc(userDocRef);
+  const { data: userProfile } = useDoc(userDocRef);
   const enrolledCourses = userProfile?.studentProfile?.enrolledCourses || [];
 
   const filteredCourses = React.useMemo(() => {
@@ -60,27 +60,31 @@ export default function CoursesPage() {
   }, [courses, searchTerm]);
 
   const handleAddToLibrary = async (courseId: string) => {
-    if (!user || !firestore) {
-      toast({ variant: "destructive", title: "You must be logged in." });
+    if (!user || !firestore || !userProfile) {
+      toast({ variant: "destructive", title: "You must be logged in and profile loaded." });
       return;
     }
     setAddingCourseId(courseId);
     try {
       const userRef = doc(firestore, 'users', user.uid);
-      await updateDoc(userRef, {
-        'studentProfile.enrolledCourses': arrayUnion(courseId)
-      });
-
-      // Optimistically update local state
-      if (userProfile?.studentProfile) {
-        mutateUserProfile({
-            ...userProfile,
-            studentProfile: {
-                ...userProfile.studentProfile,
-                enrolledCourses: [...(userProfile.studentProfile.enrolledCourses || []), courseId]
-            }
-        })
+      const currentEnrolled = userProfile.studentProfile?.enrolledCourses || [];
+      if (currentEnrolled.includes(courseId)) {
+        toast({ title: "Already in Library", description: "This course is already in your library." });
+        setAddingCourseId(null);
+        return;
       }
+      const newEnrolledCourses = [...currentEnrolled, courseId];
+      
+      const updatedData = {
+          ...userProfile,
+          studentProfile: {
+              ...userProfile.studentProfile,
+              enrolledCourses: newEnrolledCourses
+          }
+      };
+      delete updatedData.id;
+
+      await setDoc(userRef, updatedData, { merge: true });
 
       toast({ title: "Success!", description: "The course has been added to your library." });
     } catch (error) {
