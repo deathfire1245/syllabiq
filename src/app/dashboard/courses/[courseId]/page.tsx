@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useFirebase, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, query, orderBy } from 'firebase/firestore';
+import { doc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,7 +25,11 @@ const formatDuration = (minutes: number) => {
 // --- Sub-components for clarity ---
 
 const PublicCourseView = ({ course, courseId }: { course: Course, courseId: string }) => {
-    const modulesQuery = useMemoFirebase(() => collection(doc(collection(useFirebase().firestore, 'courses'), courseId), 'modules'), [courseId]);
+    const { firestore } = useFirebase();
+    const modulesQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'courses', courseId, 'modules'), orderBy('order'));
+    }, [firestore, courseId]);
     const { data: modules, isLoading: isLoadingModules } = useCollection<Omit<Module, 'lessons'>>(modulesQuery);
 
     return (
@@ -56,7 +60,7 @@ const PublicCourseView = ({ course, courseId }: { course: Course, courseId: stri
                         <CardContent>
                            {isLoadingModules ? <Skeleton className="h-48 w-full" /> : (
                              <Accordion type="single" collapsible className="w-full">
-                                {modules?.sort((a,b) => a.order - b.order).map(module => (
+                                {modules?.map(module => (
                                     <AccordionItem value={`module-${module.id}`} key={module.id}>
                                         <AccordionTrigger>{module.title}</AccordionTrigger>
                                         <AccordionContent>
@@ -91,25 +95,44 @@ const PublicCourseView = ({ course, courseId }: { course: Course, courseId: stri
     )
 };
 
+const ModuleLessons = ({ courseId, moduleId }: { courseId: string, moduleId: string }) => {
+    const { firestore } = useFirebase();
+    const lessonsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'courses', courseId, 'modules', moduleId, 'lessons'), orderBy('order'));
+    }, [firestore, courseId, moduleId]);
+
+    const { data: lessons, isLoading } = useCollection<Lesson>(lessonsQuery);
+
+    if (isLoading) {
+        return <div className="space-y-2 pt-2"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>
+    }
+
+    return (
+        <ul className="space-y-2 pt-2">
+            {lessons?.map(lesson => (
+                <li key={lesson.id}>
+                    <a href={lesson.contentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary transition-colors">
+                        <div className="flex items-center gap-3">
+                            {lesson.contentType === 'pdf' ? <FileText className="w-5 h-5 text-destructive" /> : <Video className="w-5 h-5 text-blue-500" />}
+                            <span>{lesson.title}</span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">{formatDuration(lesson.duration)}</span>
+                    </a>
+                </li>
+            ))}
+             {(!lessons || lessons.length === 0) && <p className="text-muted-foreground text-sm p-3">No lessons in this module yet.</p>}
+        </ul>
+    );
+};
+
+
 const EnrolledCourseView = ({ course, courseId }: { course: Course, courseId: string }) => {
     const router = useRouter();
     const { firestore } = useFirebase();
 
     const modulesQuery = useMemoFirebase(() => query(collection(firestore, 'courses', courseId, 'modules'), orderBy('order')), [firestore, courseId]);
     const { data: modulesData, isLoading: isLoadingModules } = useCollection<Omit<Module, 'lessons'>>(modulesQuery);
-
-    const [lessons, setLessons] = React.useState<Record<string, Lesson[]>>({});
-    
-    React.useEffect(() => {
-        if (!firestore || !modulesData) return;
-        modulesData.forEach(module => {
-            const lessonsQuery = query(collection(firestore, 'courses', courseId, 'modules', module.id, 'lessons'), orderBy('order'));
-            onSnapshot(lessonsQuery, (snapshot) => {
-                const moduleLessons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lesson));
-                setLessons(prev => ({...prev, [module.id]: moduleLessons }));
-            });
-        });
-    }, [firestore, courseId, modulesData]);
 
     // --- Backward Compatibility ---
     if (course.content) {
@@ -149,19 +172,7 @@ const EnrolledCourseView = ({ course, courseId }: { course: Course, courseId: st
                                     <AccordionItem value={`module-${module.id}`} key={module.id}>
                                         <AccordionTrigger className="text-lg font-semibold">{module.title}</AccordionTrigger>
                                         <AccordionContent>
-                                            <ul className="space-y-2 pt-2">
-                                                {lessons[module.id]?.map(lesson => (
-                                                    <li key={lesson.id}>
-                                                        <a href={lesson.contentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary transition-colors">
-                                                            <div className="flex items-center gap-3">
-                                                                {lesson.contentType === 'pdf' ? <FileText className="w-5 h-5 text-destructive" /> : <Video className="w-5 h-5 text-blue-500" />}
-                                                                <span>{lesson.title}</span>
-                                                            </div>
-                                                            <span className="text-sm text-muted-foreground">{formatDuration(lesson.duration)}</span>
-                                                        </a>
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                           <ModuleLessons courseId={courseId} moduleId={module.id} />
                                         </AccordionContent>
                                     </AccordionItem>
                                 ))}
