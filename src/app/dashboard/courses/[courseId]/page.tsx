@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useFirebase, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { doc, collection, query, orderBy, onSnapshot, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Course, Module, Lesson } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
 
 const formatDuration = (minutes: number) => {
   if (!minutes || minutes <= 0) return 'N/A';
@@ -26,13 +27,15 @@ const formatDuration = (minutes: number) => {
 
 // --- Sub-components for clarity ---
 
-const PublicCourseView = ({ course, courseId }: { course: Course, courseId: string }) => {
+const PublicCourseView = ({ course, courseId, handleAddToLibrary, addingCourseId }: { course: Course, courseId: string, handleAddToLibrary: (courseId: string) => Promise<void>, addingCourseId: string | null }) => {
     const { firestore } = useFirebase();
     const modulesQuery = useMemoFirebase(() => {
         if (!firestore) return null;
         return query(collection(firestore, 'courses', courseId, 'modules'), orderBy('order'));
     }, [firestore, courseId]);
     const { data: modules, isLoading: isLoadingModules } = useCollection<Omit<Module, 'lessons'>>(modulesQuery);
+    
+    const isFree = course.price === '0';
 
     return (
         <div className="max-w-4xl mx-auto py-12 px-4 space-y-8">
@@ -78,10 +81,20 @@ const PublicCourseView = ({ course, courseId }: { course: Course, courseId: stri
                 <div className="md:col-span-1 space-y-6">
                      <Card className="sticky top-24 shadow-lg">
                         <CardHeader>
-                             <div className="text-3xl font-bold">₹{course.price}</div>
+                            {isFree ? (
+                                <div className="text-3xl font-bold">Free</div>
+                            ) : (
+                                <div className="text-3xl font-bold">₹{course.price}</div>
+                            )}
                         </CardHeader>
                         <CardContent className="space-y-4">
-                             <Button size="lg" className="w-full" asChild><Link href={`/dashboard/payment/${courseId}`}>Buy now</Link></Button>
+                            {isFree ? (
+                                <Button size="lg" className="w-full" onClick={() => handleAddToLibrary(courseId)} disabled={addingCourseId === courseId}>
+                                    {addingCourseId === courseId ? 'Adding...' : 'Add to Library'}
+                                </Button>
+                            ) : (
+                                <Button size="lg" className="w-full" asChild><Link href={`/dashboard/payment/${courseId}`}>Buy now</Link></Button>
+                            )}
                              <div className="space-y-3 pt-4 border-t">
                                 <p className="font-semibold">This course includes:</p>
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground"><Clock className="w-4 h-4" /> {formatDuration(course.totalDuration)} total duration</div>
@@ -229,6 +242,7 @@ const OldCourseFormatView = ({ course }: { course: Course }) => {
 export default function CourseContentPage() {
   const params = useParams();
   const courseId = params.courseId as string;
+  const { toast } = useToast();
 
   const { firestore } = useFirebase();
   const { user, isUserLoading } = useUser();
@@ -238,6 +252,44 @@ export default function CourseContentPage() {
 
   const { data: course, isLoading: isCourseLoading } = useDoc<Course>(courseDocRef);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+
+  const [addingCourseId, setAddingCourseId] = React.useState<string | null>(null);
+
+  const handleAddToLibrary = async (courseId: string) => {
+    if (!user || !firestore || !userProfile) {
+      toast({ variant: "destructive", title: "You must be logged in and profile loaded." });
+      return;
+    }
+    setAddingCourseId(courseId);
+    try {
+      const userRef = doc(firestore, 'users', user.uid);
+      const currentEnrolled = userProfile.studentProfile?.enrolledCourses || [];
+      if (currentEnrolled.includes(courseId)) {
+        toast({ title: "Already in Library", description: "This course is already in your library." });
+        setAddingCourseId(null);
+        return;
+      }
+      const newEnrolledCourses = [...currentEnrolled, courseId];
+      
+      const updatedData = {
+          ...userProfile,
+          studentProfile: {
+              ...userProfile.studentProfile,
+              enrolledCourses: newEnrolledCourses
+          }
+      };
+      delete updatedData.id;
+
+      await setDoc(userRef, updatedData, { merge: true });
+
+      toast({ title: "Success!", description: "The course has been added to your library." });
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "Could not add course to library." });
+    } finally {
+      setAddingCourseId(null);
+    }
+  };
 
   const isEnrolled = React.useMemo(() => {
     return userProfile?.studentProfile?.enrolledCourses?.includes(courseId) || false;
@@ -261,5 +313,5 @@ export default function CourseContentPage() {
     );
   }
 
-  return isEnrolled ? <EnrolledCourseView course={course} courseId={courseId} /> : <PublicCourseView course={course} courseId={courseId} />;
+  return isEnrolled ? <EnrolledCourseView course={course} courseId={courseId} /> : <PublicCourseView course={course} courseId={courseId} handleAddToLibrary={handleAddToLibrary} addingCourseId={addingCourseId} />;
 }
