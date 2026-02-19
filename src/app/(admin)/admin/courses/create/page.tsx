@@ -31,7 +31,7 @@ interface LessonData {
   id: string;
   title: string;
   contentType: 'pdf' | 'video';
-  contentUrl: string;
+  url: string;
   duration: string; // in minutes
   isPreview: boolean;
 }
@@ -92,7 +92,7 @@ export default function CreateCoursePage() {
     setModules(modules.map(m => m.id === moduleId ? { ...m, title } : m));
   };
   const addLesson = (moduleId: string, type: 'pdf' | 'video') => {
-    const newLesson: LessonData = { id: `l-${Date.now()}`, title: "", contentType: type, contentUrl: "", duration: "", isPreview: false };
+    const newLesson: LessonData = { id: `l-${Date.now()}`, title: "", contentType: type, url: "", duration: "", isPreview: false };
     setModules(modules.map(m => m.id === moduleId ? { ...m, lessons: [...m.lessons, newLesson] } : m));
   };
   const removeLesson = (moduleId: string, lessonId: string) => {
@@ -122,7 +122,7 @@ export default function CreateCoursePage() {
 
   const validation = React.useMemo(() => {
     const isStep1Valid = courseData.title.trim() !== '' && courseData.description.trim() !== '' && courseData.category.trim() !== '' && courseData.learningOutcomes.every(o => o.trim() !== '');
-    const isStep2Valid = modules.length > 0 && modules.every(m => m.title.trim() !== '' && m.lessons.length > 0 && m.lessons.every(l => l.title.trim() !== '' && l.contentUrl.trim() !== '' && Number(l.duration) > 0)) && hasPreview;
+    const isStep2Valid = modules.length > 0 && modules.every(m => m.title.trim() !== '' && m.lessons.length > 0 && m.lessons.every(l => l.title.trim() !== '' && l.url.trim() !== '' && Number(l.duration) > 0)) && hasPreview;
     const isStep3Valid = courseData.price !== "";
 
     const priceValidation = {
@@ -208,7 +208,7 @@ export default function CreateCoursePage() {
                     moduleId: moduleDocRef.id,
                     courseId: courseDocRef.id,
                     contentType: lessonData.contentType,
-                    contentUrl: lessonData.contentUrl,
+                    url: lessonData.url,
                     isPreview: lessonData.isPreview,
                     duration: Number(lessonData.duration),
                 });
@@ -284,7 +284,7 @@ export default function CreateCoursePage() {
                                 <div key={lesson.id} className="border rounded p-3 space-y-3 bg-card relative">
                                     <div className="flex justify-between items-center"><h4 className="font-semibold">Lesson {lessonIndex + 1}</h4><Button variant="ghost" size="icon" onClick={() => removeLesson(module.id, lesson.id)} className="text-destructive"><Trash2 className="w-4 h-4" /></Button></div>
                                     <div className="space-y-2"><Label>Lesson Title</Label><Input value={lesson.title} onChange={e => updateLesson(module.id, lesson.id, 'title', e.target.value)} /></div>
-                                    <div className="space-y-2"><Label>{lesson.contentType === 'pdf' ? 'PDF/Doc URL' : 'Video URL'}</Label><Input value={lesson.contentUrl} onChange={e => updateLesson(module.id, lesson.id, 'contentUrl', e.target.value)} /></div>
+                                    <div className="space-y-2"><Label>{lesson.contentType === 'pdf' ? 'PDF/Doc URL' : 'Video URL'}</Label><Input value={lesson.url} onChange={e => updateLesson(module.id, lesson.id, 'url', e.target.value)} /></div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2"><Label>Duration (min)</Label><Input type="number" value={lesson.duration} onChange={e => updateLesson(module.id, lesson.id, 'duration', e.target.value)} /></div>
                                         <div className="space-y-2"><Label>Free Preview</Label><div className="h-10 flex items-center"><Switch checked={lesson.isPreview} onCheckedChange={() => setPreviewLesson(module.id, lesson.id)} /></div></div>
