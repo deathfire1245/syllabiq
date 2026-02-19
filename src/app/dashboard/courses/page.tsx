@@ -7,8 +7,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { useCollection, useFirebase, useMemoFirebase, useUser, useDoc } from "@/firebase";
-import { collection, doc, setDoc } from "firebase/firestore";
+import { useCollection, useFirebase, useMemoFirebase, useUser, useDoc, errorEmitter, FirestorePermissionError } from "@/firebase";
+import { collection, doc, updateDoc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSearch } from "@/contexts/SearchContext";
 import { useToast } from "@/hooks/use-toast";
@@ -75,21 +75,23 @@ export default function CoursesPage() {
       }
       const newEnrolledCourses = [...currentEnrolled, courseId];
       
-      const updatedData = {
-          ...userProfile,
-          studentProfile: {
-              ...userProfile.studentProfile,
-              enrolledCourses: newEnrolledCourses
-          }
-      };
-      delete updatedData.id;
-
-      await setDoc(userRef, updatedData, { merge: true });
+      await updateDoc(userRef, {
+        'studentProfile.enrolledCourses': newEnrolledCourses
+      });
 
       toast({ title: "Success!", description: "The course has been added to your library." });
-    } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "Could not add course to library." });
+    } catch (error: any) {
+        if (error.code === 'permission-denied') {
+             const permissionError = new FirestorePermissionError({
+              path: `users/${user.uid}`,
+              operation: 'update',
+              requestResourceData: { 'studentProfile.enrolledCourses': '...' },
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        } else {
+            console.error(error);
+            toast({ variant: "destructive", title: "Error", description: "Could not add course to library." });
+        }
     } finally {
       setAddingCourseId(null);
     }
@@ -125,7 +127,7 @@ export default function CoursesPage() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filteredCourses.map((course, index) => {
               const isEnrolled = enrolledCourses.includes(course.id);
-              const isFree = course.price === '0';
+              const isFree = String(course.price) === '0';
               const durationText = formatDuration(course.totalDuration);
               return (
               <ScrollReveal key={course.id} delay={index * 0.1}>

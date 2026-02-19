@@ -3,8 +3,8 @@
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useDoc, useFirebase, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, query, orderBy, onSnapshot, setDoc } from 'firebase/firestore';
+import { useDoc, useFirebase, useUser, useMemoFirebase, useCollection, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { doc, collection, query, orderBy, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,7 +35,7 @@ const PublicCourseView = ({ course, courseId, handleAddToLibrary, addingCourseId
     }, [firestore, courseId]);
     const { data: modules, isLoading: isLoadingModules } = useCollection<Omit<Module, 'lessons'>>(modulesQuery);
     
-    const isFree = course.price === '0';
+    const isFree = String(course.price) === '0';
 
     return (
         <div className="max-w-4xl mx-auto py-12 px-4 space-y-8">
@@ -271,21 +271,23 @@ export default function CourseContentPage() {
       }
       const newEnrolledCourses = [...currentEnrolled, courseId];
       
-      const updatedData = {
-          ...userProfile,
-          studentProfile: {
-              ...userProfile.studentProfile,
-              enrolledCourses: newEnrolledCourses
-          }
-      };
-      delete updatedData.id;
-
-      await setDoc(userRef, updatedData, { merge: true });
+      await updateDoc(userRef, {
+        'studentProfile.enrolledCourses': newEnrolledCourses
+      });
 
       toast({ title: "Success!", description: "The course has been added to your library." });
-    } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "Could not add course to library." });
+    } catch (error: any) {
+      if (error.code === 'permission-denied') {
+          const permissionError = new FirestorePermissionError({
+            path: `users/${user.uid}`,
+            operation: 'update',
+            requestResourceData: { 'studentProfile.enrolledCourses': '...' },
+          });
+          errorEmitter.emit('permission-error', permissionError);
+      } else {
+            console.error(error);
+            toast({ variant: "destructive", title: "Error", description: "Could not add course to library." });
+      }
     } finally {
       setAddingCourseId(null);
     }
