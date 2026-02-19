@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -112,7 +113,7 @@ const ModuleLessons = ({ courseId, moduleId }: { courseId: string, moduleId: str
         <ul className="space-y-2 pt-2">
             {lessons?.map(lesson => (
                 <li key={lesson.id}>
-                    <a href={lesson.contentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary transition-colors">
+                    <a href={lesson.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary transition-colors">
                         <div className="flex items-center gap-3">
                             {lesson.contentType === 'pdf' ? <FileText className="w-5 h-5 text-destructive" /> : <Video className="w-5 h-5 text-blue-500" />}
                             <span>{lesson.title}</span>

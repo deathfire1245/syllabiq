@@ -6,7 +6,7 @@ export type Lesson = {
   moduleId: string;
   courseId: string;
   contentType: 'pdf' | 'video';
-  contentUrl: string;
+  url: string;
   isPreview: boolean;
   duration: number; // in minutes
 };
