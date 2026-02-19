@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "../ui/button";
 import { IndianRupee } from "lucide-react";
-import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
-import { collection, query } from "firebase/firestore";
+import { useCollection, useFirebase, useMemoFirebase, useUser, useDoc } from "@/firebase";
+import { collection, query, where, doc } from "firebase/firestore";
 import { Skeleton } from "../ui/skeleton";
 import {
   Dialog,
@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label";
 
 
 const statusStyles: { [key: string]: string } = {
@@ -35,19 +36,43 @@ interface BankDetails {
 
 export function PaymentsTable() {
     const { firestore } = useFirebase();
+    const { user, isUserLoading } = useUser();
     const [filter, setFilter] = React.useState('all');
     const [searchTerm, setSearchTerm] = React.useState('');
 
-    const ticketsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, "tickets")) : null, [firestore]);
+    const userDocRef = useMemoFirebase(() => (user && firestore) ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+
+    const ticketsQuery = useMemoFirebase(() => {
+        if (!firestore || !user || !userProfile) return null;
+        
+        const baseQuery = collection(firestore, "tickets");
+
+        if (userProfile.role === 'admin') {
+            return query(baseQuery);
+        }
+        if (userProfile.role === 'teacher') {
+            return query(baseQuery, where("teacherId", "==", user.uid));
+        }
+        if (userProfile.role === 'student') {
+             return query(baseQuery, where("studentId", "==", user.uid));
+        }
+        return null;
+    }, [firestore, user, userProfile]);
+
     const { data: tickets, isLoading: areTicketsLoading } = useCollection(ticketsQuery);
     
-    const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, "users") : null, [firestore]);
+    const usersQuery = useMemoFirebase(() => {
+      if (!firestore || !userProfile || userProfile.role !== 'admin') return null;
+      return collection(firestore, "users");
+    }, [firestore, userProfile]);
+
     const { data: users, isLoading: areUsersLoading } = useCollection(usersQuery);
 
     const paymentsData = React.useMemo(() => {
-        if (!tickets || !users) return [];
+        if (!tickets) return [];
         
-        const usersMap = new Map(users.map(u => [u.id, u]));
+        const usersMap = users ? new Map(users.map(u => [u.id, u])) : new Map();
         const courseSaleTickets = tickets.filter(ticket => ticket.saleType === 'COURSE');
 
         let derivedPayments = courseSaleTickets.map(ticket => {
@@ -90,7 +115,7 @@ export function PaymentsTable() {
         return derivedPayments;
     }, [tickets, users, filter, searchTerm]);
     
-    const isLoading = areTicketsLoading || areUsersLoading;
+    const isLoading = areTicketsLoading || areUsersLoading || isUserLoading || isProfileLoading;
 
   return (
     <div className="space-y-4">
