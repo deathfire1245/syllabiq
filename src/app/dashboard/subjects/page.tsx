@@ -8,8 +8,8 @@ import { BookOpen, Calculator, FlaskConical, Scroll, Globe, Dna, Beaker, Atom, L
 import Link from "next/link";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
-import { collection } from "firebase/firestore";
-import { getAuth } from "firebase/auth"; // use Firebase auth directly
+import { collection, query, where, getDoc, doc } from "firebase/firestore"; // added getDoc and doc
+import { getAuth } from "firebase/auth"; 
 import type { Topic } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSearch } from "@/contexts/SearchContext";
@@ -46,13 +46,35 @@ export default function SubjectsPage() {
   const { firestore } = useFirebase();
   const { searchTerm } = useSearch();
 
-  const auth = getAuth(); // get current Firebase user
+  const auth = getAuth(); 
+  const [role, setRole] = React.useState<string | null>(null);
+
+  // Fetch user role from Firestore
+  React.useEffect(() => {
+    if (!auth.currentUser || !firestore) return;
+
+    const fetchRole = async () => {
+      const userDoc = await getDoc(doc(firestore, "users", auth.currentUser!.uid));
+      if (userDoc.exists()) {
+        setRole(userDoc.data().role || null);
+      }
+    };
+
+    fetchRole();
+  }, [auth.currentUser, firestore]);
 
   // Only run query if firestore exists and user is authenticated
   const topicsQuery = useMemoFirebase(() => {
-    if (!firestore || !auth.currentUser) return null;
+    if (!firestore || !auth.currentUser || !role) return null;
+
+    // Safe Firestore query: filter by createdBy for students to avoid permission errors
+    if (role === "student") {
+      return query(collection(firestore, "topics"), where("createdBy", "==", auth.currentUser.uid));
+    }
+
+    // Teachers/Admins can fetch all topics
     return collection(firestore, 'topics');
-  }, [firestore, auth.currentUser]);
+  }, [firestore, auth.currentUser, role]);
 
   const { data: allTopics, isLoading } = useCollection<Topic>(topicsQuery);
 
