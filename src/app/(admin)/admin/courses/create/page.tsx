@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, Check, IndianRupee, Book, Layers, PlusCircle, Trash2, Link as LinkIcon, FileText, Video, Sparkles, AlertCircle, Info, Star } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, IndianRupee, Book, Layers, PlusCircle, Trash2, Link as LinkIcon, FileText, Video, Sparkles, AlertCircle, Info, Star, Upload, RefreshCw } from "lucide-react";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { useFirebase, useUser } from "@/firebase";
 import { addDoc, collection, serverTimestamp, getDoc, doc, writeBatch } from "firebase/firestore";
@@ -19,6 +19,7 @@ import { getSubjects } from "@/lib/data";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { UploadButton } from "@/lib/uploadthing";
 
 const steps = [
   { id: 1, name: "Basic Info", icon: Book },
@@ -284,7 +285,41 @@ export default function CreateCoursePage() {
                                 <div key={lesson.id} className="border rounded p-3 space-y-3 bg-card relative">
                                     <div className="flex justify-between items-center"><h4 className="font-semibold">Lesson {lessonIndex + 1}</h4><Button variant="ghost" size="icon" onClick={() => removeLesson(module.id, lesson.id)} className="text-destructive"><Trash2 className="w-4 h-4" /></Button></div>
                                     <div className="space-y-2"><Label>Lesson Title</Label><Input value={lesson.title} onChange={e => updateLesson(module.id, lesson.id, 'title', e.target.value)} /></div>
-                                    <div className="space-y-2"><Label>{lesson.contentType === 'pdf' ? 'PDF/Doc URL' : 'Video URL'}</Label><Input value={lesson.url} onChange={e => updateLesson(module.id, lesson.id, 'url', e.target.value)} /></div>
+                                    <div className="space-y-2">
+                                        <Label>{lesson.contentType === 'pdf' ? 'PDF/Doc File' : 'Video File'}</Label>
+                                        {lesson.url ? (
+                                            <div className="flex items-center gap-2 text-sm text-green-600">
+                                                <Check className="w-4 h-4" />
+                                                <span>Upload Complete</span>
+                                                <Button variant="link" size="sm" onClick={() => updateLesson(module.id, lesson.id, 'url', '')} className="p-0 h-auto">Replace</Button>
+                                            </div>
+                                        ) : (
+                                            <UploadButton
+                                                endpoint={lesson.contentType === 'pdf' ? 'coursePdfUploader' : 'courseVideoUploader'}
+                                                onClientUploadComplete={(res) => {
+                                                    if (res && res.length > 0) {
+                                                        updateLesson(module.id, lesson.id, 'url', res[0].url);
+                                                        toast({ title: "Upload Complete!", description: `File ${res[0].name} uploaded.` });
+                                                    }
+                                                }}
+                                                onUploadError={(error: Error) => {
+                                                    toast({ variant: "destructive", title: "Upload Failed", description: error.message });
+                                                }}
+                                                content={{
+                                                    button({ ready, isUploading }) {
+                                                        return (
+                                                            <div className="flex items-center gap-2">
+                                                                {isUploading ? <RefreshCw className="animate-spin w-4 h-4" /> : <Upload className="w-4 h-4"/>}
+                                                                {isUploading ? "Uploading..." : `Choose ${lesson.contentType === 'pdf' ? 'PDF' : 'Video'}`}
+                                                            </div>
+                                                        );
+                                                    },
+                                                    allowedContent: `Max size: ${lesson.contentType === 'pdf' ? '16MB' : '512MB'}`,
+                                                }}
+                                                className="ut-button:bg-primary ut-button:ut-readying:bg-primary/50 ut-button:w-full ut-allowed-content:text-muted-foreground"
+                                            />
+                                        )}
+                                    </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2"><Label>Duration (min)</Label><Input type="number" value={lesson.duration} onChange={e => updateLesson(module.id, lesson.id, 'duration', e.target.value)} /></div>
                                         <div className="space-y-2"><Label>Free Preview</Label><div className="h-10 flex items-center"><Switch checked={lesson.isPreview} onCheckedChange={() => setPreviewLesson(module.id, lesson.id)} /></div></div>
@@ -387,3 +422,5 @@ export default function CreateCoursePage() {
     </div>
   );
 }
+
+    
