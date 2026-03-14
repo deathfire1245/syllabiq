@@ -1,4 +1,4 @@
-export type ProductCategory = "digital" | "physical" | "educational";
+export type ProductCategory = "digital" | "physical";
 export type ProductStatus = "active" | "draft";
 export type OrderStatus = "PAID" | "PENDING" | "CANCELLED";
 

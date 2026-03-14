@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ShoppingBag, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
-const categories: (ProductCategory | "all")[] = ["all", "digital", "physical", "educational"];
+const categories: (ProductCategory | "all")[] = ["all", "digital", "physical"];
 
 export default function MarketplacePage() {
   const { firestore } = useFirebase();

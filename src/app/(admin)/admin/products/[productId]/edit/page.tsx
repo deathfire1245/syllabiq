@@ -19,6 +19,8 @@ import { Product } from "@/lib/product-types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 
+const priceTiers = [0, 300, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 5000];
+
 export default function EditProductPage() {
   const { productId } = useParams();
   const router = useRouter();
@@ -37,8 +39,8 @@ export default function EditProductPage() {
   const [formData, setFormData] = React.useState({
     title: "",
     description: "",
-    price: "",
-    category: "digital",
+    price: "0",
+    category: "digital" as "digital" | "physical",
     images: [] as string[],
     fileUrl: "",
     stock: "",
@@ -142,16 +144,20 @@ export default function EditProductPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="price">Price (₹)</Label>
-                <Input id="price" type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
+                <Select value={formData.price} onValueChange={v => setFormData({...formData, price: v})}>
+                  <SelectTrigger id="price"><SelectValue placeholder="Select price" /></SelectTrigger>
+                  <SelectContent>
+                    {priceTiers.map(tier => <SelectItem key={tier} value={String(tier)}>{tier === 0 ? 'Free' : `₹ ${tier}`}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Category</Label>
-                <Select value={formData.category} onValueChange={v => setFormData({...formData, category: v})}>
+                <Select value={formData.category} onValueChange={(v: "digital" | "physical") => setFormData({...formData, category: v})}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="digital">Digital</SelectItem>
                     <SelectItem value="physical">Physical</SelectItem>
-                    <SelectItem value="educational">Educational</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
