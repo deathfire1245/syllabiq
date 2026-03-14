@@ -57,7 +57,7 @@ export default function EditProductPage() {
         images: product.images?.length ? product.images : product.imageUrl ? [product.imageUrl] : [],
         fileUrl: product.fileUrl,
         stock: product.stock !== null ? String(product.stock) : "",
-        tags: product.tags.join(", "),
+        tags: product.tags?.join(", ") || "",
         status: product.status,
       });
     }

@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { UploadButton } from "@/lib/uploadthing";
 import { Check, Upload, ArrowLeft, Plus, Trash2, Info } from "lucide-react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 
 export default function NewProductPage() {
   const router = useRouter();
