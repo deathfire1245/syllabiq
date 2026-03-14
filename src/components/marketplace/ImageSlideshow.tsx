@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ImageSlideshowProps {
   images: string[];
@@ -58,26 +59,33 @@ export function ImageSlideshow({ images = [], className }: ImageSlideshowProps) 
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <img
-        src={validImages[currentIndex]}
-        alt={`Slide ${currentIndex + 1}`}
-        className="w-full h-full object-cover transition-opacity duration-500"
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = 'none';
-        }}
-      />
+      <AnimatePresence initial={false}>
+        <motion.img
+          key={currentIndex}
+          src={validImages[currentIndex]}
+          alt={`Slide ${currentIndex + 1}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+          className="absolute inset-0 w-full h-full object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      </AnimatePresence>
 
       {validImages.length > 1 && (
         <>
           <button
             onClick={prev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/40 text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all hover:bg-black/60 active:scale-90"
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
           <button
             onClick={next}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/40 text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all hover:bg-black/60 active:scale-90"
           >
             <ChevronRight className="w-6 h-6" />
           </button>
@@ -87,11 +95,15 @@ export function ImageSlideshow({ images = [], className }: ImageSlideshowProps) 
               <button
                 key={idx}
                 onClick={(e) => setIndex(e, idx)}
-                className={cn(
-                  "w-2 h-2 rounded-full transition-all",
-                  idx === currentIndex ? "bg-white w-4" : "bg-white/50"
-                )}
-              />
+                className="p-1"
+              >
+                <div 
+                  className={cn(
+                    "h-1.5 rounded-full transition-all duration-300",
+                    idx === currentIndex ? "bg-white w-6 shadow-[0_0_8px_rgba(255,255,255,0.5)]" : "bg-white/40 w-1.5 hover:bg-white/60"
+                  )}
+                />
+              </button>
             ))}
           </div>
         </>
