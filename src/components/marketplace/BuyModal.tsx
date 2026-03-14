@@ -56,6 +56,18 @@ export function BuyModal({ product, isOpen, onClose }: BuyModalProps) {
       toast({ variant: "destructive", title: "Missing Info", description: "Please fill all delivery details." });
       return;
     }
+
+    // Basic 10-digit phone validation
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(deliveryInfo.phone)) {
+      toast({ 
+        variant: "destructive", 
+        title: "Invalid Phone Number", 
+        description: "Please enter a valid 10-digit mobile number." 
+      });
+      return;
+    }
+
     setStep("payment");
   };
 
@@ -194,6 +206,7 @@ export function BuyModal({ product, isOpen, onClose }: BuyModalProps) {
                   <Input
                     id="phone"
                     type="tel"
+                    placeholder="e.g. 9876543210"
                     value={deliveryInfo.phone}
                     onChange={(e) => setDeliveryInfo({ ...deliveryInfo, phone: e.target.value })}
                     required
