@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
+import { ImageSlideshow } from "./ImageSlideshow";
 
 interface ProductCardProps {
   product: Product;
@@ -15,25 +16,24 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onBuy }: ProductCardProps) {
   // Handle backward compatibility for images
-  const coverImage = product.images?.[0] || (product as any).imageUrl || "https://placehold.co/600x600?text=No+Image";
+  const productImages = product.images?.length 
+    ? product.images 
+    : (product as any).imageUrl 
+      ? [(product as any).imageUrl] 
+      : [];
 
   return (
     <Card className="flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-lg group">
-      <Link href={`/dashboard/marketplace/${product.id}`} className="block relative aspect-square overflow-hidden bg-secondary/20">
-        <img
-          src={coverImage}
-          alt={product.title}
-          className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = "https://placehold.co/600x600?text=Error+Loading+Image";
-          }}
-        />
-        <div className="absolute top-2 left-2">
+      <div className="relative aspect-square overflow-hidden bg-secondary/20">
+        <Link href={`/dashboard/marketplace/${product.id}`} className="block w-full h-full">
+          <ImageSlideshow images={productImages} className="rounded-none border-none shadow-none h-full w-full" />
+        </Link>
+        <div className="absolute top-2 left-2 z-10">
           <Badge className="bg-primary/90 text-primary-foreground backdrop-blur-sm">
             {product.category.charAt(0).toUpperCase() + product.category.slice(1)}
           </Badge>
         </div>
-      </Link>
+      </div>
       <CardHeader className="p-4 pb-2">
         <Link href={`/dashboard/marketplace/${product.id}`}>
           <CardTitle className="text-lg line-clamp-1 hover:text-primary transition-colors">

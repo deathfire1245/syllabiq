@@ -35,13 +35,21 @@ export function ImageSlideshow({ images = [], className }: ImageSlideshowProps) 
   }
 
   const next = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     setCurrentIndex((prev) => (prev + 1) % validImages.length);
   };
 
   const prev = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     setCurrentIndex((prev) => (prev - 1 + validImages.length) % validImages.length);
+  };
+
+  const setIndex = (e: React.MouseEvent, idx: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentIndex(idx);
   };
 
   return (
@@ -63,22 +71,22 @@ export function ImageSlideshow({ images = [], className }: ImageSlideshowProps) 
         <>
           <button
             onClick={prev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
           <button
             onClick={next}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
           >
             <ChevronRight className="w-6 h-6" />
           </button>
 
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2">
             {validImages.map((_, idx) => (
               <button
                 key={idx}
-                onClick={() => setCurrentIndex(idx)}
+                onClick={(e) => setIndex(e, idx)}
                 className={cn(
                   "w-2 h-2 rounded-full transition-all",
                   idx === currentIndex ? "bg-white w-4" : "bg-white/50"
