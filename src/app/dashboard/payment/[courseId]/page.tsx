@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useFirebase, useUser, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { doc, collection, addDoc, serverTimestamp, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, collection, addDoc, serverTimestamp, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -52,6 +52,8 @@ export default function MockPaymentPage() {
     const [appliedPromo, setAppliedPromo] = React.useState<string | null>(null);
     const [isApplying, setIsApplying] = React.useState(false);
     const [isPurchasing, setIsPurchasing] = React.useState(false);
+    const [awaitingConfirmation, setAwaitingConfirmation] = React.useState(false);
+    const [pendingTicketId, setPendingTicketId] = React.useState<string | null>(null);
 
     const [paymentDetails, setPaymentDetails] = React.useState<{
         baseAmount: number;
@@ -149,6 +151,17 @@ export default function MockPaymentPage() {
     };
 
     const handleInitiatePurchase = async () => {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        if (!isMobile) {
+            toast({
+                variant: 'destructive',
+                title: 'Mobile Device Required',
+                description: 'UPI payments can only be completed on a mobile device with a UPI app installed. Please open this page on your phone.',
+            });
+            return;
+        }
+
         if (!firestore || !user || !course || !userProfile || paymentDetails.upiLink === '#') return;
         
         setIsPurchasing(true);
@@ -179,20 +192,10 @@ export default function MockPaymentPage() {
             const ticketsCollectionRef = collection(firestore, 'tickets');
             const ticketDocRef = await addDoc(ticketsCollectionRef, newTicketPayload);
             
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-            if (isMobile) {
-                toast({ title: "Purchase Initiated!", description: "Redirecting to payment..." });
-                window.location.href = paymentDetails.upiLink;
-            } else {
-                await updateDoc(ticketDocRef, { status: 'APP_NOT_AVAILABLE' });
-                toast({ 
-                    variant: 'destructive', 
-                    title: 'Payment App Not Found', 
-                    description: 'Please use a mobile device with a UPI app installed to complete the payment.' 
-                });
-                setIsPurchasing(false);
-            }
+            setPendingTicketId(ticketDocRef.id);
+            setAwaitingConfirmation(true);
+            toast({ title: "Purchase Initiated!", description: "Redirecting to payment..." });
+            window.location.href = paymentDetails.upiLink;
 
         } catch (error: any) {
             console.error("Purchase initiation failed:", error);
@@ -208,6 +211,45 @@ export default function MockPaymentPage() {
             }
             setIsPurchasing(false);
         }
+    };
+
+    const handleConfirmPayment = async () => {
+        if (!firestore || !pendingTicketId || !user || !course) return;
+        setIsPurchasing(true);
+        try {
+            // Mark ticket as PAID
+            await updateDoc(doc(firestore, 'tickets', pendingTicketId), {
+                status: 'PAID',
+            });
+            // Mark promo code as used if applied
+            if (appliedPromo) {
+                await updateDoc(doc(firestore, 'promoCodes', appliedPromo), {
+                    usedBy: arrayUnion(user.uid),
+                });
+            }
+            toast({ title: '🎉 Enrollment Successful!', description: 'You now have access to the course.' });
+            router.push(`/dashboard/courses/${courseId}`);
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not confirm payment. Please contact support.' });
+        } finally {
+            setIsPurchasing(false);
+        }
+    };
+
+    const handleCancelPayment = async () => {
+        if (!firestore || !pendingTicketId) return;
+        try {
+            // Mark ticket as CANCELLED
+            await updateDoc(doc(firestore, 'tickets', pendingTicketId), {
+                status: 'CANCELLED',
+            });
+        } catch (e) {
+            console.error('Could not cancel ticket:', e);
+        }
+        setAwaitingConfirmation(false);
+        setPendingTicketId(null);
+        setIsPurchasing(false);
+        toast({ title: 'Payment Cancelled', description: 'Your order has been cancelled.' });
     };
     
     const isLoading = isUserLoading || isCourseLoading || isProfileLoading;
@@ -256,6 +298,30 @@ export default function MockPaymentPage() {
                 </ScrollReveal>
             </div>
         )
+    }
+
+    if (awaitingConfirmation) {
+        return (
+            <div className="max-w-2xl mx-auto py-12 px-4 text-center">
+                <Card className="max-w-md mx-auto">
+                    <CardHeader>
+                        <IndianRupee className="w-12 h-12 mx-auto text-primary mb-4" />
+                        <CardTitle className="text-2xl">Did you complete the payment?</CardTitle>
+                        <CardDescription>
+                            Please confirm only after your UPI app shows a successful transaction.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <Button className="w-full" onClick={handleConfirmPayment} disabled={isPurchasing}>
+                            {isPurchasing ? "Confirming..." : "✅ Yes, Payment Successful"}
+                        </Button>
+                        <Button variant="destructive" className="w-full" onClick={handleCancelPayment} disabled={isPurchasing}>
+                            ❌ No, Payment Failed / I did not pay
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
     }
 
     return (
