@@ -1,4 +1,4 @@
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -40,9 +40,8 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/',
-        has: [{ type: 'host', value: 'shop.syllabiq.in' }],
         destination: '/dashboard/marketplace',
-        permanent: false,
+        permanent: false, // set to true if you want browser caching
       },
     ];
   },
