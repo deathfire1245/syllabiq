@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebase } from "@/firebase";
-import { IndianRupee, CheckCircle, Download, ExternalLink } from "lucide-react";
+import { IndianRupee, CheckCircle, Download } from "lucide-react";
 import { upiLinks } from "@/lib/upi-links";
 import { doc, updateDoc } from "firebase/firestore";
 
@@ -57,7 +57,7 @@ export function BuyModal({ product, isOpen, onClose }: BuyModalProps) {
       return;
     }
 
-    // Basic 10-digit phone validation
+    // Basic 10-digit phone validation (Indian standards start with 6-9)
     const phoneRegex = /^[6-9]\d{9}$/;
     if (!phoneRegex.test(deliveryInfo.phone)) {
       toast({ 
@@ -203,14 +203,20 @@ export function BuyModal({ product, isOpen, onClose }: BuyModalProps) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="e.g. 9876543210"
-                    value={deliveryInfo.phone}
-                    onChange={(e) => setDeliveryInfo({ ...deliveryInfo, phone: e.target.value })}
-                    required
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium border-r pr-2 h-5 flex items-center">
+                      +91
+                    </span>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="9876543210"
+                      className="pl-14"
+                      value={deliveryInfo.phone}
+                      onChange={(e) => setDeliveryInfo({ ...deliveryInfo, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="address">Delivery Address</Label>
