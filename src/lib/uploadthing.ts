@@ -4,58 +4,55 @@ import {
   generateUploadButton,
   generateUploadDropzone,
 } from "@uploadthing/react";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged, type User } from "firebase/auth";
 
 import type { OurFileRouter } from "@/app/api/uploadthing/route";
 
 /**
- * This is a custom fetcher function that intercepts UploadThing's upload requests.
- * Its purpose is to get the current Firebase user's ID token and inject it into
- * the 'Authorization' header, so the server-side middleware can validate the user.
- * @param url The original URL for the upload request.
- * @param opts The original fetch options.
- * @returns A new fetch promise with the added Authorization header.
+ * Custom fetch function for UploadThing.
+ * Waits for Firebase Auth to initialize before sending the request.
  */
-const customAuthFetcher = async (url: string, opts?: any) => {
+const customAuthFetcher = async (
+  input: string | Request | URL,
+  init?: RequestInit
+): Promise<Response> => {
   const auth = getAuth();
-  const user = auth.currentUser;
+
+  // Wait for Firebase Auth to finish initializing
+  const user: User | null = await new Promise<User | null>((resolve) => {
+    if (auth.currentUser) {
+      resolve(auth.currentUser);
+    } else {
+      const unsubscribe = onAuthStateChanged(auth, (u) => {
+        unsubscribe();
+        resolve(u);
+      });
+    }
+  });
 
   // If no user is logged in, proceed without a token.
-  // The server middleware is expected to reject this request.
   if (!user) {
-    return fetch(url, opts);
+    return fetch(input.toString(), init);
   }
 
   try {
-    // Get the Firebase ID token for the current user.
     const token = await user.getIdToken();
-
-    // Create new headers and add the Authorization token.
-    const headers = new Headers(opts?.headers);
+    const headers = new Headers(init?.headers);
     headers.set('Authorization', `Bearer ${token}`);
-    
-    // Return a new fetch call with the updated headers.
-    return fetch(url, {
-      ...opts,
-      headers,
-    });
+    return fetch(input.toString(), { ...init, headers });
   } catch (e) {
     console.error("Error getting Firebase ID token:", e);
-    // If there's an error getting the token, proceed without it.
-    return fetch(url, opts);
+    return fetch(input.toString(), init);
   }
 };
 
-
-// We re-generate the UploadButton and UploadDropzone components,
-// this time providing our custom fetcher logic. Any component in your app
-// that imports these will now automatically handle Firebase auth for uploads.
+// Use `fetch` property instead of `fetcher` as per latest UploadThing types
 export const UploadButton = generateUploadButton<OurFileRouter>({
-  fetcher: customAuthFetcher,
+  fetch: customAuthFetcher,
 });
 
 export const UploadDropzone = generateUploadDropzone<OurFileRouter>({
-  fetcher: customAuthFetcher,
+  fetch: customAuthFetcher,
 });
 
 export type { OurFileRouter };

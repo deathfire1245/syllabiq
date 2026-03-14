@@ -179,23 +179,25 @@ service cloud.firestore {
     match /courses/{courseId} {
       allow read: if isSignedIn();
       allow write: if isTeacher(request.auth.uid) || isAdmin(request.auth.uid);
-
-      // Rules for subcollections
-      match /modules/{moduleId} {
-        allow read: if isSignedIn();
-        allow write: if isTeacher(request.auth.uid) || isAdmin(request.auth.uid);
-
-        match /lessons/{lessonId} {
-          allow read: if isSignedIn();
-          allow write: if isTeacher(request.auth.uid) || isAdmin(request.auth.uid);
-        }
-      }
     }
 
     match /topics/{topicId} {
       allow read: if isSignedIn();
       allow create: if isTeacher(request.auth.uid) && request.resource.data.createdBy == request.auth.uid;
       allow update, delete: if isTeacher(request.auth.uid) && resource.data.createdBy == request.auth.uid;
+    }
+
+    //----------------------------------------------------------------------
+    //  MARKETPLACE RULES
+    //----------------------------------------------------------------------
+    match /products/{productId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin(request.auth.uid);
+    }
+
+    match /productOrders/{orderId} {
+      allow read: if request.auth.uid == resource.data.buyerId || isAdmin(request.auth.uid);
+      allow create: if request.auth != null;
     }
   }
 }
