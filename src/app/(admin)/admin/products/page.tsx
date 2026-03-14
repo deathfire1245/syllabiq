@@ -33,7 +33,7 @@ export default function AdminProductsPage() {
     [firestore]
   );
 
-  const { data: products, isLoading } = useCollection(productsQuery);
+  const { data: products, isLoading } = useCollection<any>(productsQuery);
 
   const handleToggleStatus = async (productId: string, currentStatus: string) => {
     if (!firestore) return;
@@ -98,49 +98,52 @@ export default function AdminProductsPage() {
                       </TableRow>
                     ))
                   ) : products && products.length > 0 ? (
-                    products.map((p) => (
-                      <TableRow key={p.id}>
-                        <TableCell>
-                          <img src={p.imageUrl} alt={p.title} className="w-10 h-10 object-cover rounded" />
-                        </TableCell>
-                        <TableCell className="font-medium">{p.title}</TableCell>
-                        <TableCell className="capitalize">{p.category}</TableCell>
-                        <TableCell className="text-right">₹{p.price}</TableCell>
-                        <TableCell className="text-center">{p.stock ?? "∞"}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant={p.status === "active" ? "default" : "secondary"}>
-                            {p.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(p.id, p.status)}>
-                            {p.status === "active" ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
-                          </Button>
-                          <Button variant="ghost" size="icon" asChild>
-                            <Link href={`/admin/products/${p.id}/edit`}>
-                              <Edit className="w-4 h-4" />
-                            </Link>
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-destructive">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Product?</AlertDialogTitle>
-                                <AlertDialogDescription>This will permanently remove "{p.title}".</AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(p.id)} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    products.map((p) => {
+                      const coverImage = p.images?.[0] || p.imageUrl || "https://placehold.co/100x100?text=No+Image";
+                      return (
+                        <TableRow key={p.id}>
+                          <TableCell>
+                            <img src={coverImage} alt={p.title} className="w-10 h-10 object-cover rounded bg-secondary/20" />
+                          </TableCell>
+                          <TableCell className="font-medium">{p.title}</TableCell>
+                          <TableCell className="capitalize">{p.category}</TableCell>
+                          <TableCell className="text-right">₹{p.price}</TableCell>
+                          <TableCell className="text-center">{p.stock ?? "∞"}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={p.status === "active" ? "default" : "secondary"}>
+                              {p.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right space-x-2">
+                            <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(p.id, p.status)}>
+                              {p.status === "active" ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+                            </Button>
+                            <Button variant="ghost" size="icon" asChild>
+                              <Link href={`/admin/products/${p.id}/edit`}>
+                                <Edit className="w-4 h-4" />
+                              </Link>
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-destructive">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Product?</AlertDialogTitle>
+                                  <AlertDialogDescription>This will permanently remove "{p.title}".</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDelete(p.id)} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   ) : (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No products found.</TableCell>

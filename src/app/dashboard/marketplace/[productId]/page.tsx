@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, ShoppingCart, Tag, Info } from "lucide-react";
 import { BuyModal } from "@/components/marketplace/BuyModal";
+import { ImageSlideshow } from "@/components/marketplace/ImageSlideshow";
 
 export default function ProductDetailPage() {
   const { productId } = useParams();
@@ -23,7 +24,7 @@ export default function ProductDetailPage() {
     [firestore, productId]
   );
 
-  const { data: product, isLoading } = useDoc<Product>(productRef);
+  const { data: product, isLoading } = useDoc<any>(productRef);
 
   if (isLoading) {
     return (
@@ -52,6 +53,8 @@ export default function ProductDetailPage() {
     );
   }
 
+  const productImages = product.images?.length ? product.images : product.imageUrl ? [product.imageUrl] : [];
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-12">
       <ScrollReveal>
@@ -60,15 +63,9 @@ export default function ProductDetailPage() {
         </Button>
       </ScrollReveal>
 
-      <div className="grid md:grid-cols-2 gap-12">
-        <ScrollReveal delay={0.1}>
-          <div className="rounded-2xl overflow-hidden border bg-white shadow-sm">
-            <img
-              src={product.imageUrl || "https://placehold.co/800x800?text=No+Image"}
-              alt={product.title}
-              className="w-full aspect-square object-cover"
-            />
-          </div>
+      <div className="grid md:grid-cols-2 gap-12 items-start">
+        <ScrollReveal delay={0.1} className="md:sticky md:top-24">
+          <ImageSlideshow images={productImages} className="shadow-lg border" />
         </ScrollReveal>
 
         <ScrollReveal delay={0.2} className="space-y-8">
@@ -101,7 +98,7 @@ export default function ProductDetailPage() {
               <Tag className="w-4 h-4" /> Tags
             </h3>
             <div className="flex flex-wrap gap-2">
-              {product.tags.map((tag) => (
+              {product.tags.map((tag: string) => (
                 <Badge key={tag} variant="outline">{tag}</Badge>
               ))}
             </div>

@@ -14,13 +14,19 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onBuy }: ProductCardProps) {
+  // Handle backward compatibility for images
+  const coverImage = product.images?.[0] || (product as any).imageUrl || "https://placehold.co/600x600?text=No+Image";
+
   return (
     <Card className="flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-lg group">
-      <Link href={`/dashboard/marketplace/${product.id}`} className="block relative aspect-square overflow-hidden">
+      <Link href={`/dashboard/marketplace/${product.id}`} className="block relative aspect-square overflow-hidden bg-secondary/20">
         <img
-          src={product.imageUrl || "https://placehold.co/600x600?text=No+Image"}
+          src={coverImage}
           alt={product.title}
           className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = "https://placehold.co/600x600?text=Error+Loading+Image";
+          }}
         />
         <div className="absolute top-2 left-2">
           <Badge className="bg-primary/90 text-primary-foreground backdrop-blur-sm">
