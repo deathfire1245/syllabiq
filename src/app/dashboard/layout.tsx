@@ -24,7 +24,7 @@ export default function DashboardLayout({
       setUser(currentUser);
       setLoading(false);
       if (!currentUser) {
-        router.replace("/get-started"); // redirect to login/signup if not logged in
+        router.replace("/login"); // redirect to login/signup if not logged in
       }
     });
     return () => unsubscribe();
