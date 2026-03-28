@@ -24,7 +24,8 @@ export default function DashboardLayout({
       setUser(currentUser);
       setLoading(false);
       if (!currentUser) {
-        router.replace("/login"); // redirect to login/signup if not logged in
+        // Redirect to /login which exists, instead of /get-started which didn't
+        router.replace("/login"); 
       }
     });
     return () => unsubscribe();
@@ -33,8 +34,9 @@ export default function DashboardLayout({
   // Show loading state until auth is determined
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        Loading...
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <p className="text-muted-foreground animate-pulse">Entering Dashboard...</p>
       </div>
     );
   }
