@@ -15,11 +15,22 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Users, MessageSquare, Timer, UserCircle, Check, X, ShieldAlert, MoreVertical, Send, Play, Square } from "lucide-react";
+import { Users, MessageSquare, Timer, UserCircle, Check, X, ShieldAlert, MoreVertical, Send, Play, Square, UserX } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { StudyPartnerProfile, StudyPartnerConnection, StudyPartnerMessage, StudyPartnerSession } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // --- Profile Component ---
 
@@ -551,6 +562,31 @@ function ChatView({ connection, onBack }: { connection: StudyPartnerConnection, 
     }
   };
 
+  const handleBlockPartner = async () => {
+    if (!user || !firestore) return;
+    try {
+      const connRef = doc(firestore, 'studyPartnerConnections', connection.id);
+      await updateDoc(connRef, {
+        status: 'blocked',
+        isBlocked: true,
+        blockedBy: user.uid,
+        endedAt: serverTimestamp()
+      });
+      
+      if (activeSession) {
+        await updateDoc(doc(firestore, `studyPartnerConnections/${connection.id}/studySessions`, activeSession.id), {
+          status: 'abandoned',
+          endedAt: serverTimestamp()
+        });
+      }
+
+      toast({ title: "Partner Blocked", description: "The connection has been terminated." });
+      onBack();
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Could not block partner." });
+    }
+  };
+
   const partnerId = user?.uid === connection.studentIdA ? connection.studentIdB : connection.studentIdA;
   const partnerName = connection[`name_${partnerId}`] || connection.initiatedByName || "Study Partner";
 
@@ -569,15 +605,39 @@ function ChatView({ connection, onBack }: { connection: StudyPartnerConnection, 
             </p>
           </div>
         </div>
-        {activeSession ? (
-          <Button variant="destructive" size="sm" onClick={handleEndSession} className="gap-2">
-            <Square className="h-3 w-3 fill-current" /> End Session
-          </Button>
-        ) : (
-          <Button size="sm" onClick={handleStartSession} className="gap-2 bg-green-600 hover:bg-green-700">
-            <Play className="h-3 w-3 fill-current" /> Start Study
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
+                <UserX className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Block Study Partner?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will immediately terminate your partnership with {partnerName}. You will no longer be able to message each other or see their profile. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleBlockPartner} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Block Partner
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {activeSession ? (
+            <Button variant="destructive" size="sm" onClick={handleEndSession} className="gap-2">
+              <Square className="h-3 w-3 fill-current" /> End Session
+            </Button>
+          ) : (
+            <Button size="sm" onClick={handleStartSession} className="gap-2 bg-green-600 hover:bg-green-700">
+              <Play className="h-3 w-3 fill-current" /> Start Study
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-secondary/5">
@@ -631,7 +691,7 @@ export default function StudyPartnerPage() {
   const connsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     // We fetch connections where the user is a participant to handle filtering and identification
-    return query(collection(firestore, "studyPartnerConnections"), where(`participants.${user.uid}`, '==', true));
+    return query(collection(firestore, "studyPartnerConnections"), where(`participants.${user.uid}`, '==', true), where('status', '!=', 'blocked'));
   }, [firestore, user]);
 
   const { data: connections, isLoading: areConnsLoading } = useCollection<StudyPartnerConnection>(connsQuery);
