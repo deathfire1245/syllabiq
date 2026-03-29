@@ -43,6 +43,16 @@ const nextConfig: NextConfig = {
         destination: '/dashboard',
         permanent: false,
       },
+      {
+        source: '/dashboard/marketplace/:path*',
+        destination: '/dashboard',
+        permanent: false,
+      },
+      {
+        source: '/admin/products/:path*',
+        destination: '/admin',
+        permanent: false,
+      },
     ];
   },
 };
