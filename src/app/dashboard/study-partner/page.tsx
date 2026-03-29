@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -192,13 +191,12 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  // Query for students with the same target exam
+  // ✅ FIXED: Query only by targetExam (simple field, no nested filters)
   const matchesQuery = useMemoFirebase(() => {
     if (!firestore || !profile) return null;
     return query(
       collection(firestore, "students"), 
       where("partnerProfile.targetExam", "==", profile.targetExam),
-      where("partnerProfile.status", "==", "available"),
       limit(20)
     );
   }, [firestore, profile]);
@@ -206,14 +204,18 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
   const { data: students, isLoading } = useCollection(matchesQuery);
   const [connectingId, setConnectingId] = React.useState<string | null>(null);
 
-  // Filter out existing connections and current user
+  // ✅ FIXED: Filter by status and availability IN CODE instead of in query
   const potentialMatches = React.useMemo(() => {
     if (!students || !user) return [];
     // Ensure we filter based on IDs found in any position of the connection
     const connectedIds = new Set(connections.flatMap(c => [c.studentIdA, c.studentIdB]));
     
     return students
-      .filter(s => s.id !== user.uid && !connectedIds.has(s.id))
+      .filter(s => 
+        s.id !== user.uid && 
+        !connectedIds.has(s.id) &&
+        s.partnerProfile?.status === "available"  // ← Filter status here (client-side)
+      )
       .map(student => {
         // Calculate compatibility score
         const sharedSubjects = student.partnerProfile?.subjects?.filter((s: string) => profile?.subjects?.includes(s)) || [];
@@ -688,15 +690,15 @@ export default function StudyPartnerPage() {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<StudyPartnerProfile>(profileRef);
 
-  // Split connections query into directional ones to satisfy security rules constraints
+  // ✅ FIXED: Split connections query into directional ones to satisfy security rules constraints
   const connsQueryA = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(collection(firestore, "studyPartnerConnections"), where('studentIdA', '==', user.uid), where('status', '!=', 'blocked'));
+    return query(collection(firestore, "studyPartnerConnections"), where('studentIdA', '==', user.uid));
   }, [firestore, user]);
 
   const connsQueryB = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(collection(firestore, "studyPartnerConnections"), where('studentIdB', '==', user.uid), where('status', '!=', 'blocked'));
+    return query(collection(firestore, "studyPartnerConnections"), where('studentIdB', '==', user.uid));
   }, [firestore, user]);
 
   const { data: connsA, isLoading: loadingA } = useCollection<StudyPartnerConnection>(connsQueryA);
