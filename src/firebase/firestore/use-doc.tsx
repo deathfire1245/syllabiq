@@ -7,7 +7,6 @@ import {
   DocumentData,
   FirestoreError,
   DocumentSnapshot,
-  updateDoc,
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -23,7 +22,6 @@ export interface UseDocResult<T> {
   data: WithId<T> | null; // Document data with ID, or null.
   isLoading: boolean;       // True if loading.
   error: FirestoreError | Error | null; // Error object, or null.
-  mutate: (data: Partial<T>) => Promise<void>; // Function to update the document
 }
 
 /**
@@ -38,7 +36,7 @@ export interface UseDocResult<T> {
  * @template T Optional type for document data. Defaults to any.
  * @param {DocumentReference<DocumentData> | null | undefined} docRef -
  * The Firestore DocumentReference. Waits if null/undefined.
- * @returns {UseDocResult<T>} Object with data, isLoading, error, and mutate function.
+ * @returns {UseDocResult<T>} Object with data, isLoading, error.
  */
 export function useDoc<T = any>(
   memoizedDocRef: DocumentReference<DocumentData> | null | undefined,
@@ -48,39 +46,6 @@ export function useDoc<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
-
-  const mutate = async (updateData: Partial<T>) => {
-    if (!memoizedDocRef) {
-      throw new Error("Cannot mutate document: DocumentReference is not provided.");
-    }
-    
-    // Optimistic update
-    setData(prevData => prevData ? { ...prevData, ...updateData } : null);
-
-    try {
-      await updateDoc(memoizedDocRef, updateData);
-    } catch (e) {
-        // Revert on error
-        const contextualError = new FirestorePermissionError({
-          operation: 'update',
-          path: memoizedDocRef.path,
-          requestResourceData: updateData,
-        });
-
-        setError(contextualError);
-        errorEmitter.emit('permission-error', contextualError);
-        
-        // Re-fetch data to get the true state
-        const unsubscribe = onSnapshot(memoizedDocRef, (snapshot) => {
-            if(snapshot.exists()) {
-                setData({ ...(snapshot.data() as T), id: snapshot.id });
-            }
-            unsubscribe();
-        });
-        
-        throw contextualError;
-    }
-  };
 
   useEffect(() => {
     if (!memoizedDocRef) {
@@ -92,6 +57,7 @@ export function useDoc<T = any>(
 
     setIsLoading(true);
     setError(null);
+    // Optional: setData(null); // Clear previous data instantly
 
     const unsubscribe = onSnapshot(
       memoizedDocRef,
@@ -99,9 +65,10 @@ export function useDoc<T = any>(
         if (snapshot.exists()) {
           setData({ ...(snapshot.data() as T), id: snapshot.id });
         } else {
+          // Document does not exist
           setData(null);
         }
-        setError(null);
+        setError(null); // Clear any previous error on successful snapshot (even if doc doesn't exist)
         setIsLoading(false);
       },
       (error: FirestoreError) => {
@@ -114,14 +81,13 @@ export function useDoc<T = any>(
         setData(null)
         setIsLoading(false)
 
+        // trigger global error propagation
         errorEmitter.emit('permission-error', contextualError);
       }
     );
 
     return () => unsubscribe();
-  }, [memoizedDocRef]);
+  }, [memoizedDocRef]); // Re-run if the memoizedDocRef changes.
 
-  return { data, isLoading, error, mutate };
+  return { data, isLoading, error };
 }
-
-    

@@ -1,270 +1,527 @@
-
 {
   "entities": {
-    "User": {
-      "title": "User",
+    "Student": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Student",
       "type": "object",
-      "description": "Represents a user within the SyllabiQ platform.",
+      "description": "Represents a student user in the SyllabiQ platform. Authentication and core user profile data are assumed to be managed by an external system. This entity focuses on minimal student information required for partner matching and display.",
       "properties": {
-        "uid": { "type": "string", "description": "Unique identifier for the User entity." },
-        "email": { "type": "string", "description": "Email address of the user.", "format": "email" },
-        "name": { "type": "string", "description": "Display name of the user." },
-        "role": { "type": "string", "description": "Role of the user, one of 'student', 'teacher', or 'admin'.", "enum": ["student", "teacher", "admin"] },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp indicating when the user was created." },
-        "lastLogin": { "type": "string", "format": "date-time", "description": "User's last login." },
-        "isActive": { "type": "boolean", "description": "Indicates if the user account is active." },
-        "profilePicture": { "type": "string", "format": "uri", "description": "URL of the user's profile picture." },
-        "studentProfile": {
-          "type": "object",
-          "properties": {
-            "gradeLevel": { "type": "string" },
-            "schoolBoard": { "type": "string" },
-            "preferredSubjects": { "type": "array", "items": { "type": "string" } },
-            "learningGoals": { "type": "string" },
-            "interests": { "type": "array", "items": { "type": "string" } },
-            "enrolledCourses": { "type": "array", "items": { "type": "string" }, "description": "Array of course IDs the student is enrolled in." }
-          }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Student entity."
         },
-        "teacherProfile": {
-          "type": "object",
-          "properties": {
-            "subjects": { "type": "array", "items": { "type": "string" } },
-            "qualifications": { "type": "array", "items": { "type": "string" } },
-            "experienceYears": { "type": "number" },
-            "hourlyRate": { "type": "number" },
-            "bio": { "type": "string" },
-            "availability": {
-              "type": "object",
-              "properties": {
-                "days": { "type": "array", "items": { "type": "string" } },
-                "timeSlots": { "type": "array", "items": { "type": "string" } }
-              }
-            },
-            "isVerified": { "type": "boolean" },
-            "bankDetails": {
-              "type": "object",
-              "description": "Bank account details for payouts.",
-              "properties": {
-                "accountHolderName": { "type": "string" },
-                "accountNumber": { "type": "string" },
-                "ifscCode": { "type": "string" }
-              }
-            }
-          }
+        "name": {
+          "type": "string",
+          "description": "The student's display name, typically first name and last initial."
+        },
+        "profileImageUrl": {
+          "type": "string",
+          "description": "URL to the student's profile image.",
+          "format": "uri"
         }
       },
-      "required": ["uid", "email", "role", "name", "createdAt", "isActive"]
+      "required": [
+        "id",
+        "name"
+      ]
     },
-    "PromoCode": {
-        "title": "Promo Code",
-        "description": "Represents a promotional code that grants a one-time discount.",
-        "type": "object",
-        "properties": {
-            "code": { "type": "string", "description": "The unique code string." },
-            "percentage": { "type": "number", "description": "The discount percentage (e.g., 30 for 30%)." },
-            "isActive": { "type": "boolean", "description": "Whether the code is currently active." },
-            "usedBy": { "type": "array", "items": { "type": "string" }, "description": "An array of user UIDs who have already used this code." }
-        },
-        "required": ["code", "percentage", "isActive"]
-    },
-    "PublicTutorProfile": {
-      "title": "Public Tutor Profile",
-      "description": "Represents the public-facing, safe-to-display profile of a teacher.",
+    "StudyPartnerProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StudyPartnerProfile",
       "type": "object",
+      "description": "Stores specific preferences and settings for a student related to the Study Partner feature, used for matching and discovery.",
       "properties": {
-        "name": { "type": "string" },
-        "profilePicture": { "type": "string", "format": "uri" },
-        "subjects": { "type": "array", "items": { "type": "string" } },
-        "hourlyRate": { "type": "number" },
-        "availability": {
-          "type": "object",
-          "properties": {
-            "days": { "type": "array", "items": { "type": "string" } },
-            "timeSlots": { "type": "array", "items": { "type": "string" } }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StudyPartnerProfile entity."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to the Student who owns this study partner profile. (Relationship: Student 1:1 StudyPartnerProfile)"
+        },
+        "targetExam": {
+          "type": "string",
+          "description": "The target examination the student is preparing for (e.g., NEET, JEE Main, JEE Advanced)."
+        },
+        "subjects": {
+          "type": "array",
+          "description": "A list of subjects the student is studying for the target exam.",
+          "items": {
+            "type": "string"
           }
         },
-        "bio": { "type": "string" }
-      },
-      "required": ["name"]
-    },
-    "Course": {
-      "title": "Course",
-      "description": "Represents a course created by a teacher, containing modules and lessons.",
-      "type": "object",
-      "properties": {
-        "title": { "type": "string" },
-        "description": { "type": "string" },
-        "category": { "type": "string" },
-        "difficulty": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced"] },
-        "price": { "type": "string" },
-        "coverImage": { "type": "string", "format": "uri" },
-        "imageHint": { "type": "string" },
-        "authorId": { "type": "string" },
-        "author": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "learningOutcomes": { "type": "array", "items": { "type": "string" }, "description": "List of things students will learn." },
-        "modulesCount": { "type": "number" },
-        "lessonsCount": { "type": "number" },
-        "totalDuration": { "type": "number", "description": "Total course duration in minutes." },
-        "previewLessonId": { "type": "string", "description": "ID of the free preview lesson." },
-        "hasPracticeQuestions": { "type": "boolean" },
-        "hasFinalTest": { "type": "boolean" }
-      },
-      "required": ["title", "description", "authorId", "author", "createdAt", "price"]
-    },
-    "Module": {
-        "title": "Module",
-        "description": "A module within a course, containing several lessons.",
-        "type": "object",
-        "properties": {
-            "title": { "type": "string" },
-            "order": { "type": "number" },
-            "courseId": { "type": "string" }
+        "studyHoursPerDay": {
+          "type": "string",
+          "description": "The student's preferred daily study hour commitment (e.g., '2-3 hours')."
         },
-        "required": ["title", "order", "courseId"]
-    },
-    "Lesson": {
-        "title": "Lesson",
-        "description": "A single lesson within a module.",
-        "type": "object",
-        "properties": {
-            "title": { "type": "string" },
-            "order": { "type": "number" },
-            "moduleId": { "type": "string" },
-            "courseId": { "type": "string" },
-            "contentType": { "type": "string", "enum": ["pdf", "video"] },
-            "contentUrl": { "type": "string", "format": "uri" },
-            "isPreview": { "type": "boolean" },
-            "duration": { "type": "number", "description": "Lesson duration in minutes." }
+        "preferredStudyTime": {
+          "type": "string",
+          "description": "The preferred time range for studying (e.g., '6 AM - 8 AM')."
         },
-        "required": ["title", "order", "moduleId", "courseId", "contentType", "contentUrl", "duration"]
-    },
-    "Meeting": {
-      "title": "Meeting",
-      "type": "object",
-      "description": "Represents a meeting session within the SyllabiQ platform.",
-      "properties": {
-        "meetingCode": { "type": "string", "description": "Unique human-readable code for the meeting." },
-        "meetingRoomId": { "type": "string", "description": "Unique identifier for the meeting room (UUID)." },
-        "hostUid": { "type": "string", "description": "Reference to the User who is hosting the meeting." },
-        "isActive": { "type": "boolean", "description": "Indicates whether the meeting is currently active." },
-        "createdAt": { "type": "string", "description": "Timestamp indicating when the meeting was created.", "format": "date-time" }
+        "timezone": {
+          "type": "string",
+          "description": "The student's local timezone (e.g., 'Asia/Kolkata')."
+        },
+        "bio": {
+          "type": "string",
+          "description": "An optional short biography or statement of study goals."
+        },
+        "status": {
+          "type": "string",
+          "description": "The student's current availability status for matching (e.g., 'available', 'on_break', 'looking_for_partner')."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the study partner profile was first created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the study partner profile was last updated.",
+          "format": "date-time"
+        },
+        "lastActiveAt": {
+          "type": "string",
+          "description": "Timestamp when the student was last active in the study partner feature.",
+          "format": "date-time"
+        }
       },
-      "required": ["meetingCode", "meetingRoomId", "hostUid", "isActive", "createdAt"]
+      "required": [
+        "id",
+        "studentId",
+        "targetExam",
+        "subjects",
+        "studyHoursPerDay",
+        "preferredStudyTime",
+        "timezone",
+        "status",
+        "createdAt",
+        "updatedAt",
+        "lastActiveAt"
+      ]
     },
-    "Participant": {
-      "title": "Participant",
+    "StudyPartnerConnection": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StudyPartnerConnection",
       "type": "object",
-      "description": "Represents a participant in a meeting.",
+      "description": "Manages the relationship and shared data between two connected study partners, including status, match details, and moderation info.",
       "properties": {
-        "uid": { "type": "string", "description": "Reference to the User participating in the meeting." },
-        "name": { "type": "string", "description": "Display name of the participant." },
-        "role": { "type": "string", "description": "Role of the participant (teacher or student)." },
-        "joinedAt": { "type": "string", "description": "Timestamp indicating when the participant joined.", "format": "date-time" },
-        "cameraOn": { "type": "boolean", "description": "Indicates if the camera is on." },
-        "micOn": { "type": "boolean", "description": "Indicates if the mic is on." }
-      },
-      "required": ["uid", "role", "name", "joinedAt", "cameraOn", "micOn"]
-    },
-    "Ticket": {
-      "title": "Ticket",
-      "type": "object",
-      "description": "Represents a paid ticket for a one-on-one session or a course purchase.",
-      "properties": {
-        "ticketCode": { "type": "string", "description": "Unique human-readable code for the ticket." },
-        "orderId": { "type": "string", "description": "Idempotent unique identifier for the transaction (e.g., from a payment gateway)." },
-        "studentId": { "type": "string", "description": "UID of the student who bought the ticket." },
-        "teacherId": { "type": "string", "description": "UID of the teacher for whom the ticket is valid." },
-        "status": { "type": "string", "enum": ["PAID", "WAITING_FOR_TEACHER", "ACTIVE", "COMPLETED", "CANCELLED", "REFUND_PROCESSED"], "description": "The current state of the ticket lifecycle." },
-        "price": { "type": "number", "description": "The original cost of the item." },
-        "finalPrice": { "type": "number", "description": "The final price paid after discounts." },
-        "appliedPromoCode": { "type": "string", "description": "The promo code used for this purchase, if any." },
-        "duration": { "type": "number", "description": "Session duration in minutes." },
-        "commissionPercent": { "type": "number", "description": "Platform commission percentage." },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of ticket creation." },
-        "validFrom": { "type": "string", "format": "date-time", "description": "The timestamp from which the ticket is valid (session start - 15m)." },
-        "validTill": { "type": "string", "format": "date-time", "description": "The timestamp until which the ticket is valid (session end + 30m)." },
-        "used": { "type": "boolean", "description": "Indicates if the ticket has been consumed to join a meeting." },
-        "checkInTime": { "type": "string", "format": "date-time", "description": "Timestamp when the student checked into the meeting." },
-        "activatedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the session became active." },
-        "endedAt": { "type": "string", "format": "date-time", "description": "Timestamp when the session ended." },
-        "refundable": { "type": "boolean", "description": "Indicates if the ticket is eligible for a refund." },
-        "cancelReason": { "type": "string", "enum": ["TEACHER_NO_SHOW"], "description": "Reason for cancellation, if any." },
-        "endedBy": { "type": "string", "enum": ["TEACHER", "STUDENT", "SYSTEM"], "description": "Who or what ended the session." },
-        "saleType": { "type": "string", "enum": ["SESSION", "COURSE"], "description": "The type of sale this ticket represents." },
-        "courseId": { "type": "string", "description": "ID of the course purchased, if applicable." },
-        "courseTitle": { "type": "string", "description": "Title of the course purchased, if applicable." }
-      },
-      "required": ["ticketCode", "orderId", "studentId", "teacherId", "status", "price", "duration", "createdAt", "validFrom", "validTill", "used"]
-    },
-    "WhiteboardStroke": {
-      "title": "Whiteboard Stroke",
-      "description": "A single drawing action on a whiteboard.",
-      "type": "object",
-      "properties": {
-        "points": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StudyPartnerConnection entity."
+        },
+        "studentIdA": {
+          "type": "string",
+          "description": "Reference to the ID of the first student in the connection. (Relationship: Student N:N StudyPartnerConnection)"
+        },
+        "studentIdB": {
+          "type": "string",
+          "description": "Reference to the ID of the second student in the connection. (Relationship: Student N:N StudyPartnerConnection)"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the connection (e.g., 'pending', 'active', 'blocked', 'ended')."
+        },
+        "matchScore": {
+          "type": "number",
+          "description": "The compatibility score between the two students at the time of matching."
+        },
+        "initiatedBy": {
+          "type": "string",
+          "description": "Reference to the ID of the student who initiated this connection request. (Relationship: Student 1:N StudyPartnerConnection)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the connection request was initiated.",
+          "format": "date-time"
+        },
+        "acceptedAt": {
+          "type": "string",
+          "description": "Timestamp when the connection request was accepted, if applicable.",
+          "format": "date-time"
+        },
+        "endedAt": {
+          "type": "string",
+          "description": "Timestamp when the connection was ended, if applicable.",
+          "format": "date-time"
+        },
+        "commonSubjects": {
           "type": "array",
-          "items": { "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" } }, "required": ["x", "y"] }
+          "description": "A list of subjects common to both partners.",
+          "items": {
+            "type": "string"
+          }
         },
-        "tool": { "type": "string", "enum": ["pen", "eraser", "shape", "text"] },
-        "shape": { "type": "string", "enum": ["rectangle", "circle", "line", "arrow", null] },
-        "color": { "type": "string" },
-        "size": { "type": "number" },
-        "timestamp": { "type": "string", "format": "date-time" }
+        "commonStudyTimeStart": {
+          "type": "number",
+          "description": "The start hour (24-hour format) of the common study time overlap between partners."
+        },
+        "commonStudyTimeEnd": {
+          "type": "number",
+          "description": "The end hour (24-hour format) of the common study time overlap between partners."
+        },
+        "mutualReportCount": {
+          "type": "number",
+          "description": "A count of mutual reports against this connection, indicating potential issues."
+        },
+        "isBlocked": {
+          "type": "boolean",
+          "description": "Indicates if either student has blocked the other within this connection."
+        },
+        "blockedBy": {
+          "type": "string",
+          "description": "Reference to the ID of the student who initiated the block, if applicable. (Relationship: Student 1:N StudyPartnerConnection)"
+        },
+        "blockedReason": {
+          "type": "string",
+          "description": "The reason provided for blocking the partner, if applicable."
+        },
+        "messagesCount": {
+          "type": "number",
+          "description": "Total number of messages exchanged within this connection."
+        },
+        "lastMessageAt": {
+          "type": "string",
+          "description": "Timestamp of the last message sent in this connection.",
+          "format": "date-time"
+        }
       },
-      "required": ["points", "tool", "color", "size", "timestamp"]
+      "required": [
+        "id",
+        "studentIdA",
+        "studentIdB",
+        "status",
+        "matchScore",
+        "initiatedBy",
+        "createdAt",
+        "commonSubjects",
+        "commonStudyTimeStart",
+        "commonStudyTimeEnd",
+        "mutualReportCount",
+        "isBlocked",
+        "messagesCount"
+      ]
+    },
+    "StudyPartnerMessage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StudyPartnerMessage",
+      "type": "object",
+      "description": "Represents a message exchanged between two study partners within a specific connection.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StudyPartnerMessage entity."
+        },
+        "connectionId": {
+          "type": "string",
+          "description": "Reference to the StudyPartnerConnection this message belongs to. (Relationship: StudyPartnerConnection 1:N StudyPartnerMessage)"
+        },
+        "senderId": {
+          "type": "string",
+          "description": "Reference to the ID of the student who sent the message. (Relationship: Student 1:N StudyPartnerMessage)"
+        },
+        "receiverId": {
+          "type": "string",
+          "description": "Reference to the ID of the student who received the message. (Relationship: Student 1:N StudyPartnerMessage)"
+        },
+        "text": {
+          "type": "string",
+          "description": "The content of the message."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of message (e.g., 'text', 'system', 'session_update')."
+        },
+        "sentAt": {
+          "type": "string",
+          "description": "Timestamp when the message was sent.",
+          "format": "date-time"
+        },
+        "readAt": {
+          "type": "string",
+          "description": "Timestamp when the message was read by the receiver, if applicable.",
+          "format": "date-time"
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "Reference to the StudySession during which this message was sent, if applicable. (Relationship: StudySession 1:N StudyPartnerMessage)"
+        },
+        "flaggedForReview": {
+          "type": "boolean",
+          "description": "Indicates if the message has been flagged for moderation review."
+        },
+        "flagReason": {
+          "type": "string",
+          "description": "The reason the message was flagged for review, if applicable."
+        }
+      },
+      "required": [
+        "id",
+        "connectionId",
+        "senderId",
+        "receiverId",
+        "text",
+        "type",
+        "sentAt",
+        "flaggedForReview"
+      ]
+    },
+    "StudySession": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StudySession",
+      "type": "object",
+      "description": "Details about a single study session, whether initiated by an individual student or collaboratively within a study partner connection.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StudySession entity."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to the student who owns this personal study session log entry or initiated it individually. (Relationship: Student 1:N StudySession)"
+        },
+        "connectionId": {
+          "type": "string",
+          "description": "Reference to the StudyPartnerConnection this session is associated with, if applicable. (Relationship: StudyPartnerConnection 1:N StudySession)"
+        },
+        "partnerId": {
+          "type": "string",
+          "description": "Reference to the ID of the study partner involved in this session, if applicable. (Relationship: Student 1:N StudySession)"
+        },
+        "initiatedBy": {
+          "type": "string",
+          "description": "Reference to the student who initiated this specific session instance. (Relationship: Student 1:N StudySession)"
+        },
+        "subject": {
+          "type": "string",
+          "description": "The subject studied during the session."
+        },
+        "plannedDuration": {
+          "type": "number",
+          "description": "The planned duration of the session in seconds."
+        },
+        "actualDuration": {
+          "type": "number",
+          "description": "The actual duration the session lasted in seconds."
+        },
+        "startedAt": {
+          "type": "string",
+          "description": "Timestamp when the study session began.",
+          "format": "date-time"
+        },
+        "endedAt": {
+          "type": "string",
+          "description": "Timestamp when the study session ended, if applicable.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the study session (e.g., 'active', 'paused', 'completed', 'abandoned')."
+        },
+        "partnerJoinedAt": {
+          "type": "string",
+          "description": "Timestamp when a partner joined this session, if applicable.",
+          "format": "date-time"
+        },
+        "bothPartnersParticipated": {
+          "type": "boolean",
+          "description": "Indicates if both partners actively participated in this session (true if it was a collaborative session and both were active)."
+        },
+        "completionBonus": {
+          "type": "number",
+          "description": "Bonus points awarded to the student(s) for completing this session."
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "initiatedBy",
+        "subject",
+        "plannedDuration",
+        "startedAt",
+        "status",
+        "bothPartnersParticipated",
+        "completionBonus"
+      ]
+    },
+    "StudyPartnerMatch": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StudyPartnerMatch",
+      "type": "object",
+      "description": "Logs the history of potential study partner matches presented to students, including the outcome of the interaction.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StudyPartnerMatch entity."
+        },
+        "studentIdA": {
+          "type": "string",
+          "description": "Reference to the ID of the first student involved in the match. (Relationship: Student N:N StudyPartnerMatch)"
+        },
+        "studentIdB": {
+          "type": "string",
+          "description": "Reference to the ID of the second student involved in the match. (Relationship: Student N:N StudyPartnerMatch)"
+        },
+        "matchScore": {
+          "type": "number",
+          "description": "The compatibility score between the two students for this specific match."
+        },
+        "matchedAt": {
+          "type": "string",
+          "description": "Timestamp when the match was generated or presented.",
+          "format": "date-time"
+        },
+        "actionTaken": {
+          "type": "string",
+          "description": "The action taken by the student on this match (e.g., 'connected', 'skipped', 'expired', 'declined')."
+        },
+        "actionTakenAt": {
+          "type": "string",
+          "description": "Timestamp when the action was taken, if applicable.",
+          "format": "date-time"
+        },
+        "actionTakenBy": {
+          "type": "string",
+          "description": "Reference to the student who performed the action on the match, if applicable. (Relationship: Student 1:N StudyPartnerMatch)"
+        }
+      },
+      "required": [
+        "id",
+        "studentIdA",
+        "studentIdB",
+        "matchScore",
+        "matchedAt",
+        "actionTaken"
+      ]
     }
   },
   "auth": {
-    "providers": ["password", "google.com"]
+    "providers": [
+      "password",
+      "anonymous"
+    ]
   },
   "firestore": {
     "structure": [
       {
-        "path": "/users/{uid}",
-        "definition": { "entityName": "User", "schema": { "$ref": "#/backend/entities/User" }, "description": "Stores user profile information, including their role.", "params": [{ "name": "uid", "description": "The unique identifier of the user." }] }
-      },
-       {
-        "path": "/promoCodes/{code}",
-        "definition": { "entityName": "PromoCode", "schema": { "$ref": "#/backend/entities/PromoCode" }, "description": "Stores active promotional codes.", "params": [{ "name": "code", "description": "The unique promotional code." }] }
-      },
-       {
-        "path": "/tutors/{tutorId}",
+        "path": "/students/{studentId}",
         "definition": {
-          "entityName": "PublicTutorProfile",
-          "schema": { "$ref": "#/backend/entities/PublicTutorProfile" },
-          "description": "Stores public-facing profiles for tutors. Read-only for students, writable only by the tutor themselves.",
-          "params": [{ "name": "tutorId", "description": "The unique identifier of the tutor, matching their auth UID." }]
+          "entityName": "Student",
+          "schema": {
+            "$ref": "#/backend/entities/Student"
+          },
+          "description": "Core user profile data for a student. This collection holds general student information like 'name' and 'profileImageUrl'. Access is strictly limited to the owner. The 'studentId' parameter corresponds to the authenticated user's UID. Does not include study partner specific preferences."
         }
       },
       {
-        "path": "/courses/{courseId}",
-        "definition": { "entityName": "Course", "schema": { "$ref": "#/backend/entities/Course" }, "description": "Stores course information created by teachers.", "params": [{ "name": "courseId", "description": "The unique identifier of the course." }] }
+        "path": "/students/{studentId}/studyPartnerProfile",
+        "definition": {
+          "entityName": "StudyPartnerProfile",
+          "schema": {
+            "$ref": "#/backend/entities/StudyPartnerProfile"
+          },
+          "description": "Private study partner preferences and status for a specific student. This document is strictly readable and writable only by the owning student. Public-facing fields (e.g., targetExam, subjects, bio) necessary for partner display are denormalized into StudyPartnerConnection documents to ensure Authorization Independence when displaying connected partners.",
+          "params": [
+            {
+              "name": "studentId",
+              "description": "The unique identifier of the student who owns this study partner profile, corresponding to request.auth.uid."
+            }
+          ]
+        }
       },
       {
-        "path": "/courses/{courseId}/modules/{moduleId}",
-        "definition": { "entityName": "Module", "schema": { "$ref": "#/backend/entities/Module" }, "description": "Stores modules for a specific course.", "params": [{ "name": "courseId", "description": "The ID of the parent course." }, { "name": "moduleId", "description": "The unique identifier of the module." }] }
+        "path": "/studyPartnerConnections/{connectionId}",
+        "definition": {
+          "entityName": "StudyPartnerConnection",
+          "schema": {
+            "$ref": "#/backend/entities/StudyPartnerConnection"
+          },
+          "description": "Represents an active, pending, or ended study partnership between two students. This document includes denormalized 'studentIdA', 'studentIdB', and a 'participants' map for authorization independence, allowing direct participant checks in security rules. It also denormalizes public profile details for both partners (e.g., name, targetExam, subjects, bio) and critical real-time session status (e.g., 'currentActiveSession' details, 'isMessagingAllowedDuringOverlap') to facilitate secure messaging and session rules without 'get()' calls.",
+          "params": [
+            {
+              "name": "connectionId",
+              "description": "The unique identifier for a study partner connection."
+            }
+          ]
+        }
       },
       {
-        "path": "/courses/{courseId}/modules/{moduleId}/lessons/{lessonId}",
-        "definition": { "entityName": "Lesson", "schema": { "$ref": "#/backend/entities/Lesson" }, "description": "Stores lessons for a specific module.", "params": [{ "name": "courseId", "description": "The ID of the parent course." }, { "name": "moduleId", "description": "The ID of the parent module." }, { "name": "lessonId", "description": "The unique identifier of the lesson." }] }
+        "path": "/studyPartnerConnections/{connectionId}/messages/{messageId}",
+        "definition": {
+          "entityName": "StudyPartnerMessage",
+          "schema": {
+            "$ref": "#/backend/entities/StudyPartnerMessage"
+          },
+          "description": "Messages exchanged within a specific study partnership. Each message document includes denormalized 'senderId', 'receiverId', and a 'participants' map (from the parent connection) for authorization independence. Message creation, content moderation, and session-gating logic are strongly recommended to be handled by a Cloud Function for robust security, preventing the need for complex, 'get()'-violating rules.",
+          "params": [
+            {
+              "name": "connectionId",
+              "description": "The unique identifier of the parent study partner connection."
+            },
+            {
+              "name": "messageId",
+              "description": "The unique identifier for a specific message within the connection."
+            }
+          ]
+        }
       },
       {
-        "path": "/meetings/{meetingCode}",
-        "definition": { "entityName": "Meeting", "schema": { "$ref": "#/backend/entities/Meeting" }, "description": "Stores meeting metadata, linking a human-readable code to a unique room ID.", "params": [{ "name": "meetingCode", "description": "The unique, human-readable meeting code." }] }
+        "path": "/studyPartnerConnections/{connectionId}/studySessions/{sessionId}",
+        "definition": {
+          "entityName": "StudySession",
+          "schema": {
+            "$ref": "#/backend/entities/StudySession"
+          },
+          "description": "Details about a specific collaborative study session within a partnership. Each session document includes denormalized 'studentIdA', 'studentIdB', and a 'participants' map (from the parent connection) for authorization independence, allowing direct participant checks in security rules. This ensures only connected partners can interact with the session data.",
+          "params": [
+            {
+              "name": "connectionId",
+              "description": "The unique identifier of the parent study partner connection."
+            },
+            {
+              "name": "sessionId",
+              "description": "The unique identifier for a specific collaborative study session."
+            }
+          ]
+        }
       },
       {
-        "path": "/participants/{meetingRoomId}/users/{uid}",
-        "definition": { "entityName": "Participant", "schema": { "$ref": "#/backend/entities/Participant" }, "description": "Acts as a real-time presence list for each meeting room.", "params": [{ "name": "meetingRoomId", "description": "The unique identifier for the meeting room (UUID)." }, { "name": "uid", "description": "The unique identifier of the user participating." }] }
+        "path": "/studyPartnerMatches/{matchId}",
+        "definition": {
+          "entityName": "StudyPartnerMatch",
+          "schema": {
+            "$ref": "#/backend/entities/StudyPartnerMatch"
+          },
+          "description": "Historical log of a potential match presented to a student. Each match document includes denormalized 'studentIdA', 'studentIdB', and a 'participants' map for authorization independence, allowing direct participant checks in security rules. This is used to track match outcomes and prevent re-showing rejected users for a period.",
+          "params": [
+            {
+              "name": "matchId",
+              "description": "The unique identifier for a specific match history entry."
+            }
+          ]
+        }
       },
       {
-        "path": "/tickets/{ticketId}",
-        "definition": { "entityName": "Ticket", "schema": { "$ref": "#/backend/entities/Ticket" }, "description": "Stores information about a paid session ticket.", "params": [{ "name": "ticketId", "description": "The unique identifier of the ticket document." }] }
-      },
-      {
-        "path": "/whiteboards/{meetingId}/strokes/{strokeId}",
-        "definition": { "entityName": "WhiteboardStroke", "schema": { "$ref": "#/backend/entities/WhiteboardStroke" }, "description": "Stores individual drawing strokes for a meeting's whiteboard.", "params": [{ "name": "meetingId", "description": "The unique identifier of the meeting." }, { "name": "strokeId", "description": "The unique identifier of the whiteboard stroke." }] }
+        "path": "/students/{studentId}/studySessions/{sessionId}",
+        "definition": {
+          "entityName": "StudySession",
+          "schema": {
+            "$ref": "#/backend/entities/StudySession"
+          },
+          "description": "A personal log of all study sessions undertaken by a student, whether individual or part of a partnership. This document is strictly owned by the 'studentId'. It includes denormalized 'studentId' (owner) and 'partnerId' (if applicable) for authorization independence, enabling direct owner checks in security rules.",
+          "params": [
+            {
+              "name": "studentId",
+              "description": "The unique identifier of the student who owns this personal study session log entry."
+            },
+            {
+              "name": "sessionId",
+              "description": "The unique identifier for a specific personal study session."
+            }
+          ]
+        }
       }
-    ]
+    ],
+    "reasoning": "The proposed Firestore structure prioritizes security, scalability, and debuggability by strictly adhering to the core design principles, especially Authorization Independence and Structural Segregation. \n\n**Authorization Independence (CRITICAL) & Denormalization:**\nTo eliminate the need for `get()` calls in security rules (which break atomic operations and complicate debugging), authorization contexts are denormalized across related documents:\n\n1.  **`StudyPartnerProfile`:** This collection is nested under `students/{studentId}` and is strictly readable/writable only by the profile owner (`request.auth.uid == studentId`). Public-facing profile information (e.g., name, target exam, subjects, bio) required for displaying partners or during the matching process is **denormalized** into `StudyPartnerConnection` documents upon connection acceptance and into `StudyPartnerMatch` documents. This avoids requiring a `get()` call to individual `studyPartnerProfile` documents for displaying partner details.\n\n2.  **`StudyPartnerConnection`:** Each document in `/studyPartnerConnections/{connectionId}` explicitly contains `studentIdA`, `studentIdB`, and a `participants` map (`{ [studentIdA]: true, [studentIdB]: true }`). This enables rules to directly check `request.auth.uid in resource.data.participants` without a `get()` call. Furthermore, critical real-time state for messaging (e.g., `currentActiveSession` details like `endTime` and `isMessagingAllowedDuringOverlap`) is also denormalized into the `StudyPartnerConnection` document. This makes the connection document self-sufficient for evaluating messaging permissions based on session status and study time overlap, preventing `get()` calls to `studySessions` from `messages` rules.\n\n3.  **`StudyPartnerMessage` and `StudySession` (within connection):** Documents in `/studyPartnerConnections/{connectionId}/messages/{messageId}` and `/studyPartnerConnections/{connectionId}/studySessions/{sessionId}` also include the `participants` map (denormalized from their parent `StudyPartnerConnection` document). This ensures that any participant can be authorized to read/write these subcollection documents by checking `request.auth.uid in resource.data.participants` directly on the document itself. For message creation, content moderation, and session-gating, robust server-side validation via a **Cloud Function** is strongly recommended to ensure strict security without complex, potentially flawed, client-side rule evaluations that might implicitly violate the 'no get()' principle.\n\n4.  **`StudyPartnerMatch`:** Similar to connections, documents in `/studyPartnerMatches/{matchId}` contain `studentIdA`, `studentIdB`, and a `participants` map, allowing for direct participant validation without `get()` calls.\n\n**Structural Segregation (Homogeneous Security Posture):**\n\n1.  **Private vs. Collaborative Data:** Core student profiles (`/students/{studentId}`) and private study partner preferences (`/students/{studentId}/studyPartnerProfile`) are kept distinct from collaborative data (`/studyPartnerConnections/{connectionId}`) and its subcollections (`/messages`, `/studySessions`). This simplifies security rules, as each collection or subcollection inherently defines its access requirements.\n\n2.  **Personal Session Logs:** `students/{studentId}/studySessions/{sessionId}` is a dedicated subcollection for a student's personal study history, maintaining strict path-based ownership separate from collaborative session documents within `studyPartnerConnections`.\n\n**Querying Against Permissions (QAPs):**\n\nThe structure enables secure list operations:\n\n1.  **Matching Algorithm:** The `GET /api/studyPartner/matches` API endpoint (as described in the user's prompt) is explicitly designed to be handled by a **Cloud Function**. This is crucial for QAPs. The Cloud Function will perform the complex queries and filtering on `StudyPartnerProfile` data *internally* (on the backend with elevated privileges), and then return only the *filtered and authorized* match candidates to the client. This prevents clients from performing broad `list` queries on sensitive `StudyPartnerProfile` data that cannot be filtered by security rules.\n\n2.  **Active Partners & Personal Sessions:** Queries for `/studyPartnerConnections` (e.g., fetching active partners) and `/students/{studentId}/studySessions` (personal study history) are secure. Rules can enforce that `request.auth.uid` must match `studentId` or be one of the `participants` (`studentIdA` or `studentIdB`) for any read operation, satisfying the QAPs for these collections by leveraging direct field checks on the documents themselves."
   }
 }
