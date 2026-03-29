@@ -1,14 +1,25 @@
 rules_version = '2';
+
+/**
+ * SyllabiQ Security Rules
+ * 
+ * Core Philosophy:
+ * - Path-based ownership for private data.
+ * - Participant-based access for shared data (Connections, Messages, Sessions).
+ * - Avoid recursive get() calls to prevent evaluation failures and hit resource limits.
+ */
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // HELPER FUNCTIONS
+    // --- HELPER FUNCTIONS ---
+
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     function isParticipant(data) {
@@ -21,18 +32,29 @@ service cloud.firestore {
       );
     }
 
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Main user profile for identity.
+     */
     match /users/{uid} {
       allow get: if isOwner(uid);
+      allow list: if false; // Security: Prevent discovery
       allow create: if isOwner(uid);
       allow update: if isOwner(uid);
-      allow list: if false;
+      allow delete: if false;
     }
 
+    /**
+     * @description Core student profile for identity and matching discovery.
+     */
     match /students/{studentId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create, update: if isOwner(studentId);
-      
+      allow get: if isSignedIn(); // Allow get for matching display
+      allow list: if isSignedIn(); // Allow list for matching discovery
+      allow create: if isOwner(studentId);
+      allow update: if isOwner(studentId);
+      allow delete: if false;
+
       match /studyPartnerProfile/{profileId} {
         allow read: if isSignedIn();
         allow write: if isOwner(studentId);
@@ -43,31 +65,50 @@ service cloud.firestore {
       }
     }
 
+    /**
+     * @description Connections between two study partners.
+     */
     match /studyPartnerConnections/{connectionId} {
-      allow get, list: if isSignedIn() && (resource == null || isParticipant(resource.data));
+      allow get, list: if isSignedIn() && (
+        resource == null || isParticipant(resource.data)
+      );
       allow create: if isSignedIn() && isParticipant(request.resource.data);
       allow update: if isSignedIn() && isParticipant(resource.data);
-      
+      allow delete: if false;
+
       match /messages/{messageId} {
-        allow read: if isSignedIn();
+        allow read: if isSignedIn() && isParticipant(get(/databases/$(database)/documents/studyPartnerConnections/$(connectionId)).data);
         allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
       }
       
       match /studySessions/{sessionId} {
-        allow read, write: if isSignedIn();
+        allow read, write: if isSignedIn() && isParticipant(get(/databases/$(database)/documents/studyPartnerConnections/$(connectionId)).data);
       }
     }
 
+    /**
+     * @description Ticket-based system for courses and live classes.
+     */
     match /tickets/{ticketId} {
-      allow get: if isSignedIn() && (resource.data.studentId == request.auth.uid || resource.data.teacherId == request.auth.uid);
-      allow list: if isSignedIn();
+      allow get: if isSignedIn() && (
+        resource.data.studentId == request.auth.uid || 
+        resource.data.teacherId == request.auth.uid
+      );
+      allow list: if isSignedIn(); // Filtered by query in app
       allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
-      allow update: if isSignedIn();
+      allow update: if isSignedIn() && (
+        resource.data.studentId == request.auth.uid || 
+        resource.data.teacherId == request.auth.uid ||
+        request.resource.data.status == 'ACTIVE' // Allow state transitions
+      );
     }
 
+    /**
+     * @description Course and content definitions.
+     */
     match /courses/{courseId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSignedIn(); // Restrict to teachers/admins in production
     }
 
     match /topics/{topicId} {
@@ -75,13 +116,20 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
-    match /promoCodes/{code} {
-      allow get: if isSignedIn();
-      allow update: if isSignedIn();
-    }
-
+    /**
+     * @description Whiteboard strokes for sessions.
+     */
     match /whiteboards/{meetingId}/strokes/{strokeId} {
       allow read, write: if isSignedIn(); 
+    }
+    
+    /**
+     * @description Promo codes.
+     */
+    match /promoCodes/{code} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow update: if isSignedIn(); // Allow users to add themselves to usedBy
     }
   }
 }
