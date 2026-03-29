@@ -3,7 +3,7 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { BookMarked, Home, Compass, CalendarClock, PlusCircle, User, Video, GraduationCap, Briefcase, ChevronDown, BookOpen, CalendarCheck, ShoppingBag } from "lucide-react";
+import { BookMarked, Home, Compass, CalendarClock, PlusCircle, User, Video, GraduationCap, Briefcase, ChevronDown, BookOpen, CalendarCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
@@ -16,7 +16,6 @@ const studentNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/subjects", icon: Compass, label: "All Subjects" },
   { href: "/dashboard/courses", icon: GraduationCap, label: "Courses" },
-  { href: "/dashboard/marketplace", icon: ShoppingBag, label: "Marketplace" },
   { href: "/dashboard/library", icon: BookOpen, label: "My Library" },
   { href: "/dashboard/timetable", icon: CalendarCheck, label: "Schedule" },
   { href: "/dashboard/tutors", icon: Briefcase, label: "Find a Tutor" },
@@ -29,7 +28,6 @@ const teacherNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/create", icon: PlusCircle, label: "Create" },
   { href: "/dashboard/subjects", icon: Compass, label: "Subjects" },
-  { href: "/dashboard/marketplace", icon: ShoppingBag, label: "Marketplace" },
   { type: 'collapsible', 
     label: "Browse", 
     icon: Compass, 

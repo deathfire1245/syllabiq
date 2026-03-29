@@ -40,8 +40,8 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/',
-        destination: '/dashboard/marketplace',
-        permanent: false, // set to true if you want browser caching
+        destination: '/dashboard',
+        permanent: false,
       },
     ];
   },

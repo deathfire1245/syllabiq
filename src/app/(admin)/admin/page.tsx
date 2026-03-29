@@ -8,9 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
 import { collection } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ShoppingBag, ArrowRight } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 
 export default function AdminDashboardPage() {
   const { firestore } = useFirebase();
@@ -74,26 +71,7 @@ export default function AdminDashboardPage() {
         )}
       </div>
 
-      <ScrollReveal delay={0.25}>
-        <Card className="bg-primary/5 border-primary/20">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5 text-primary" />
-                Product Marketplace
-              </CardTitle>
-              <CardDescription>Manage the platform's product catalog and inventory.</CardDescription>
-            </div>
-            <Button asChild>
-              <Link href="/admin/products">
-                Manage Products <ArrowRight className="ml-2 w-4 h-4" />
-              </Link>
-            </Button>
-          </CardHeader>
-        </Card>
-      </ScrollReveal>
-
-       <ScrollReveal delay={0.3}>
+       <ScrollReveal delay={0.1}>
           <Card>
             <CardHeader>
               <CardTitle>All Tickets</CardTitle>
