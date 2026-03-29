@@ -5,7 +5,7 @@ import * as React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollReveal } from "@/components/ScrollReveal";
-import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from "@/firebase";
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { doc, setDoc, query, collection, where, serverTimestamp, updateDoc, onSnapshot, limit } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -39,35 +39,52 @@ function ProfileTab({ profile, onUpdate }: { profile: StudyPartnerProfile | null
   const handleSave = async () => {
     if (!user || !firestore) return;
     setIsSaving(true);
+    
+    const profileRef = doc(firestore, `students/${user.uid}/studyPartnerProfile`, 'main');
+    const studentRef = doc(firestore, 'students', user.uid);
+    
+    const profileData = {
+      ...formData,
+      updatedAt: serverTimestamp(),
+      createdAt: profile?.createdAt || serverTimestamp(),
+      lastActiveAt: serverTimestamp(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    };
+
+    const denormalizedData = {
+      id: user.uid,
+      name: user.displayName || "Student",
+      partnerProfile: {
+        targetExam: formData.targetExam,
+        subjects: formData.subjects,
+        status: formData.status,
+        bio: formData.bio,
+        lastActiveAt: serverTimestamp()
+      }
+    };
+
     try {
       // 1. Save detailed profile to subcollection
-      const profileRef = doc(firestore, `students/${user.uid}/studyPartnerProfile`, 'main');
-      const profileData = {
-        ...formData,
-        updatedAt: serverTimestamp(),
-        createdAt: profile?.createdAt || serverTimestamp(),
-        lastActiveAt: serverTimestamp(),
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-      };
       await setDoc(profileRef, profileData, { merge: true });
       
-      // 2. Denormalize basic discovery fields to the student root doc for efficient matching queries
-      const studentRef = doc(firestore, 'students', user.uid);
-      await updateDoc(studentRef, {
-        partnerProfile: {
-          targetExam: formData.targetExam,
-          subjects: formData.subjects,
-          status: formData.status,
-          bio: formData.bio,
-          lastActiveAt: serverTimestamp()
-        }
-      });
+      // 2. Denormalize to student root doc using setDoc with merge: true 
+      // This is safer than updateDoc for older accounts where the student doc might not exist.
+      await setDoc(studentRef, denormalizedData, { merge: true });
       
       toast({ title: "Profile Saved", description: "Your study partner preferences have been updated." });
       onUpdate();
-    } catch (e) {
+    } catch (e: any) {
       console.error("Save profile error:", e);
-      toast({ variant: "destructive", title: "Error", description: "Could not save profile." });
+      if (e.code === 'permission-denied') {
+        const permissionError = new FirestorePermissionError({
+          path: studentRef.path,
+          operation: 'write',
+          requestResourceData: denormalizedData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "Could not save profile. Please try again." });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -190,6 +207,7 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
       const connRef = doc(firestore, 'studyPartnerConnections', connectionId);
       
       const payload: any = {
+        id: connectionId,
         studentIdA: user.uid,
         studentIdB: targetStudent.id,
         participants: { [user.uid]: true, [targetStudent.id]: true },
@@ -205,9 +223,18 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
 
       await setDoc(connRef, payload);
       toast({ title: "Request Sent", description: `Connection request sent to ${targetStudent.name}.` });
-    } catch (e) {
+    } catch (e: any) {
       console.error("Connect error:", e);
-      toast({ variant: "destructive", title: "Error", description: "Could not send request." });
+      if (e.code === 'permission-denied') {
+          // This path needs to match the rules exactly
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: `studyPartnerConnections/${[user.uid, targetStudent.id].sort().join('_')}`,
+              operation: 'create',
+              requestResourceData: { participants: { [user.uid]: true, [targetStudent.id]: true } }
+          }));
+      } else {
+          toast({ variant: "destructive", title: "Error", description: "Could not send request." });
+      }
     } finally {
       setConnectingId(null);
     }
