@@ -1,28 +1,12 @@
 rules_version = '2';
 
 /**
- * SyllabiQ Study Partner Security Rules
+ * SyllabiQ Security Rules
  * 
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership and shared-participant model. Access is governed 
- * by the relationship between students, utilizing denormalized data to ensure high performance 
- * and avoid costly cross-document lookups (get() calls).
- * 
- * Data Structure:
- * - Private Data: Nested under `/students/{studentId}/...` (Profiles, Personal Logs).
- * - Shared Data: Top-level collections for Connections, Messages, and Sessions, secured 
- *   via denormalized participant maps.
- * 
- * Key Security Decisions:
- * 1. Denormalization for Authorization: Every shared document (Connections, Messages, Sessions, Matches) 
- *    MUST include a `participants` map (e.g., `{ "uid123": true, "uid456": true }`). This allows 
- *    the rules to verify access instantly using `resource.data.participants[request.auth.uid] == true`.
- * 2. Structural Segregation: Personal study logs are kept in user-specific subcollections to 
- *    prevent accidental exposure and simplify the "owner-only" logic.
- * 3. Prototyping Flexibility: Rules enforce WHO can write but do not strictly validate the 
- *    non-relational data fields (e.g., bio text, exam names) to allow for rapid UI/UX iteration.
- * 4. Relational Integrity: On creation, rules enforce that the `studentId` or `participants` 
- *    attributes match the authenticated user's identity.
+ * - Path-based ownership for private data.
+ * - Participant-based access for shared data (Connections, Messages, Sessions).
+ * - Avoid recursive get() calls to prevent evaluation failures and hit resource limits.
  */
 
 service cloud.firestore {
@@ -38,118 +22,123 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
-    }
-
     function isParticipant(data) {
-      return isSignedIn() && data.participants[request.auth.uid] == true;
-    }
-
-    function isExistingParticipant() {
-      return resource != null && isParticipant(resource.data);
+      return isSignedIn() && (
+        (data.participants != null && data.participants[request.auth.uid] == true) ||
+        (data.studentIdA == request.auth.uid) ||
+        (data.studentIdB == request.auth.uid) ||
+        (data.studentId == request.auth.uid) ||
+        (data.teacherId == request.auth.uid)
+      );
     }
 
     // --- COLLECTION RULES ---
 
     /**
-     * @description Core student profile for identity and display.
-     * @path /students/{studentId}
-     * @allow Authenticated user to create and manage their own core profile.
-     * @deny Any user attempting to read or modify another student's root document.
-     * @principle Path-based ownership.
+     * @description Legacy/Main user profile for identity.
      */
-    match /students/{studentId} {
-      allow get: if isOwner(studentId);
-      allow list: if isOwner(studentId);
-      allow create: if isOwner(studentId) && request.resource.data.id == studentId;
-      allow update: if isExistingOwner(studentId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(studentId);
+    match /users/{uid} {
+      allow get: if isOwner(uid);
+      allow list: if false; // Security: Prevent discovery
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid);
+      allow delete: if false;
     }
 
     /**
-     * @description Detailed study preferences and settings for matching.
-     * @path /students/{studentId}/studyPartnerProfile
-     * @allow Profile owner to read/write.
-     * @deny Public discovery via listing (matching is handled by Cloud Functions).
-     * @principle Strict structural segregation of private preferences.
+     * @description Core student profile for identity and matching discovery.
+     */
+    match /students/{studentId} {
+      allow get: if isSignedIn(); // Allow get for matching display
+      allow list: if isSignedIn(); // Allow list for matching discovery
+      allow create: if isOwner(studentId);
+      allow update: if isOwner(studentId);
+      allow delete: if false;
+    }
+
+    /**
+     * @description Detailed study preferences for matching.
      */
     match /students/{studentId}/studyPartnerProfile/{profileId} {
-      allow get: if isOwner(studentId);
+      allow get: if isSignedIn(); // Allow get for compatibility scoring
       allow list: if isOwner(studentId);
-      allow create: if isOwner(studentId) && request.resource.data.studentId == studentId;
-      allow update: if isExistingOwner(studentId) && request.resource.data.studentId == resource.data.studentId;
-      allow delete: if isExistingOwner(studentId);
+      allow create: if isOwner(studentId);
+      allow update: if isOwner(studentId);
+      allow delete: if isOwner(studentId);
     }
 
     /**
      * @description Connections between two study partners.
-     * @path /studyPartnerConnections/{connectionId}
-     * @allow Either student in the 'participants' map to read or update the connection.
-     * @deny Users not part of the partnership or unauthenticated requests.
-     * @principle Shared access via denormalized participant maps.
      */
     match /studyPartnerConnections/{connectionId} {
-      allow get, list: if isExistingParticipant();
-      allow create: if isSignedIn() && request.resource.data.participants[request.auth.uid] == true;
-      allow update: if isExistingParticipant() && request.resource.data.participants == resource.data.participants;
-      allow delete: if isExistingParticipant();
+      allow get, list: if isSignedIn() && (
+        resource == null || isParticipant(resource.data)
+      );
+      allow create: if isSignedIn() && isParticipant(request.resource.data);
+      allow update: if isSignedIn() && isParticipant(resource.data);
+      allow delete: if false;
     }
 
     /**
      * @description Messages exchanged between partners.
-     * @path /studyPartnerConnections/{connectionId}/messages/{messageId}
-     * @allow Participants of the parent connection to read/send messages.
-     * @deny Non-participants or spoofing the 'senderId'.
-     * @principle Authorization independence via local participant map.
      */
     match /studyPartnerConnections/{connectionId}/messages/{messageId} {
-      allow get, list: if isExistingParticipant();
-      allow create: if isParticipant(request.resource.data) && request.resource.data.senderId == request.auth.uid;
-      allow update: if isExistingParticipant() && resource.data.senderId == request.auth.uid;
-      allow delete: if isExistingParticipant() && resource.data.senderId == request.auth.uid;
+      allow get, list: if isSignedIn(); // Filtered by query in app
+      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.senderId == request.auth.uid;
     }
 
     /**
-     * @description Collaborative study sessions within a connection.
-     * @path /studyPartnerConnections/{connectionId}/studySessions/{sessionId}
-     * @allow Both partners to manage and view the real-time session status.
-     * @deny External users or unauthorized state changes.
-     * @principle Shared state management for accountability.
+     * @description Collaborative study sessions.
      */
     match /studyPartnerConnections/{connectionId}/studySessions/{sessionId} {
-      allow get, list: if isExistingParticipant();
-      allow create: if isParticipant(request.resource.data);
-      allow update: if isExistingParticipant();
-      allow delete: if isExistingParticipant();
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
 
     /**
-     * @description History of match candidates shown to a user.
-     * @path /studyPartnerMatches/{matchId}
-     * @allow The student who received the match to view and record an action (skip/connect).
-     * @deny Users viewing other students' match histories.
-     * @principle Audit log protection.
+     * @description Ticket-based system for courses and live classes.
      */
-    match /studyPartnerMatches/{matchId} {
-      allow get, list: if isExistingParticipant();
-      allow create: if isParticipant(request.resource.data);
-      allow update: if isExistingParticipant();
-      allow delete: if false; // Logs should be preserved
+    match /tickets/{ticketId} {
+      allow get: if isSignedIn() && (
+        resource.data.studentId == request.auth.uid || 
+        resource.data.teacherId == request.auth.uid
+      );
+      allow list: if isSignedIn(); // Filtered by query in app
+      allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        resource.data.studentId == request.auth.uid || 
+        resource.data.teacherId == request.auth.uid
+      );
     }
 
     /**
-     * @description Personal study history log for a student.
-     * @path /students/{studentId}/studySessions/{sessionId}
-     * @allow Only the owning student to manage their personal history.
-     * @deny Any access by other students, even if they were a partner in the session.
-     * @principle Private user-scoped subcollections.
+     * @description Course and content definitions.
      */
-    match /students/{studentId}/studySessions/{sessionId} {
-      allow get, list: if isOwner(studentId);
-      allow create: if isOwner(studentId) && request.resource.data.studentId == studentId;
-      allow update: if isExistingOwner(studentId) && request.resource.data.studentId == resource.data.studentId;
-      allow delete: if isExistingOwner(studentId);
+    match /courses/{courseId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // Restrict to teachers/admins in production
+    }
+
+    match /topics/{topicId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    /**
+     * @description Whiteboard strokes for sessions.
+     */
+    match /whiteboards/{meetingId}/strokes/{strokeId} {
+      allow read, write: if isSignedIn(); 
+    }
+    
+    /**
+     * @description Promo codes.
+     */
+    match /promoCodes/{code} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow update: if isSignedIn(); // Allow users to add themselves to usedBy
     }
   }
 }

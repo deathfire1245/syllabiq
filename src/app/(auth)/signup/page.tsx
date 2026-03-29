@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -15,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebase } from "@/firebase";
 import { createUserWithEmailAndPassword, User, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { doc, setDoc, serverTimestamp, getDoc, collection, query, where, getDocs, limit, addDoc, updateDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { getFirebaseErrorMessage } from "@/lib/firebase-errors";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -62,6 +61,7 @@ export default function SignupPage() {
     if (!firestore) throw new Error("Firestore not available");
     
     const userDocRef = doc(firestore, "users", user.uid);
+    const studentDocRef = doc(firestore, "students", user.uid);
 
     const userDoc = await getDoc(userDocRef);
     if(userDoc.exists()) {
@@ -77,6 +77,7 @@ export default function SignupPage() {
     
     const newUserPayload: any = {
       uid: user.uid,
+      id: user.uid, // Consistent with Student entity
       name: name,
       email: user.email,
       role: role,
@@ -86,7 +87,11 @@ export default function SignupPage() {
       profilePicture: user.photoURL || `https://picsum.photos/seed/${user.uid}/100`,
     };
     
+    // Create in both collections for maximum compatibility with existing features and new ones
     await setDoc(userDocRef, newUserPayload);
+    if (role === 'student') {
+        await setDoc(studentDocRef, newUserPayload);
+    }
     
     localStorage.setItem("userRole", role);
     localStorage.setItem("onboardingStatus", "pending");
