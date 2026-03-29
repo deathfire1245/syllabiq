@@ -97,4 +97,69 @@ export type Ticket = {
   createdAt: any;
 }
 
-    
+// --- Study Partner Types ---
+
+export type StudyPartnerProfile = {
+  targetExam: string;
+  subjects: string[];
+  studyHoursPerDay: string;
+  preferredStudyTime: {
+    startHour: number;
+    startMinute: number;
+    endHour: number;
+    endMinute: number;
+  };
+  timezone: string;
+  bio: string;
+  status: 'available' | 'on_break' | 'paused';
+  createdAt: any;
+  updatedAt: any;
+  lastActiveAt: any;
+};
+
+export type StudyPartnerConnection = {
+  id: string;
+  studentIdA: string;
+  studentIdB: string;
+  participants: { [uid: string]: boolean };
+  status: 'pending' | 'active' | 'blocked' | 'ended';
+  matchScore: number;
+  initiatedBy: string;
+  createdAt: any;
+  acceptedAt?: any;
+  commonSubjects: string[];
+  commonStudyTimeStart: number;
+  commonStudyTimeEnd: number;
+  messagesCount: number;
+  lastMessageAt?: any;
+  // Denormalized for display
+  partnerName?: string;
+  partnerTargetExam?: string;
+  partnerBio?: string;
+};
+
+export type StudyPartnerMessage = {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  text: string;
+  type: 'text' | 'system' | 'session_update';
+  sentAt: any;
+  readAt?: any;
+  sessionId?: string;
+  flaggedForReview: boolean;
+};
+
+export type StudyPartnerSession = {
+  id: string;
+  initiatedBy: string;
+  partnerId?: string;
+  partnerJoinedAt?: any;
+  subject: string;
+  plannedDuration: number; // seconds
+  actualDuration?: number;
+  startedAt: any;
+  endedAt?: any;
+  status: 'active' | 'paused' | 'completed' | 'abandoned';
+  bothPartnersParticipated: boolean;
+};

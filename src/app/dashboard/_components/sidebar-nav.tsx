@@ -1,9 +1,10 @@
+
 "use client";
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { BookMarked, Home, Compass, CalendarClock, PlusCircle, User, Video, GraduationCap, Briefcase, ChevronDown, BookOpen, CalendarCheck } from "lucide-react";
+import { BookMarked, Home, Compass, CalendarClock, PlusCircle, User, Video, GraduationCap, Briefcase, ChevronDown, BookOpen, CalendarCheck, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
@@ -14,6 +15,7 @@ import { Logo } from "@/components/Logo";
 
 const studentNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
+  { href: "/dashboard/study-partner", icon: Users, label: "Study Partner" },
   { href: "/dashboard/subjects", icon: Compass, label: "All Subjects" },
   { href: "/dashboard/courses", icon: GraduationCap, label: "Courses" },
   { href: "/dashboard/library", icon: BookOpen, label: "My Library" },

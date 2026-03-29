@@ -4,14 +4,14 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { BookOpen, Home, Briefcase, PlusCircle, User, Video, GraduationCap } from "lucide-react";
+import { BookOpen, Home, Briefcase, PlusCircle, User, Video, GraduationCap, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const studentNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
+  { href: "/dashboard/study-partner", icon: Users, label: "Partner" },
   { href: "/dashboard/courses", icon: GraduationCap, label: "Courses" },
   { href: "/dashboard/library", icon: BookOpen, label: "Library" },
-  { href: "/dashboard/bookings", icon: Video, label: "Bookings" },
   { href: "/dashboard/profile", icon: User, label: "Profile" },
 ];
 
