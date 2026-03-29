@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from "@/firebase";
-import { doc, setDoc, query, collection, where, serverTimestamp, updateDoc, onSnapshot, getDocs, limit } from "firebase/firestore";
+import { doc, setDoc, query, collection, where, serverTimestamp, updateDoc, onSnapshot, limit } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Search, MessageSquare, Timer, UserCircle, Check, X, ShieldAlert, MoreVertical, Send, Play, Pause, Square } from "lucide-react";
+import { Users, MessageSquare, Timer, UserCircle, Check, X, ShieldAlert, MoreVertical, Send, Play, Square } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { StudyPartnerProfile, StudyPartnerConnection, StudyPartnerMessage, StudyPartnerSession } from "@/lib/types";
@@ -40,18 +40,33 @@ function ProfileTab({ profile, onUpdate }: { profile: StudyPartnerProfile | null
     if (!user || !firestore) return;
     setIsSaving(true);
     try {
+      // 1. Save detailed profile to subcollection
       const profileRef = doc(firestore, `students/${user.uid}/studyPartnerProfile`, 'main');
-      await setDoc(profileRef, {
+      const profileData = {
         ...formData,
         updatedAt: serverTimestamp(),
         createdAt: profile?.createdAt || serverTimestamp(),
         lastActiveAt: serverTimestamp(),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-      }, { merge: true });
+      };
+      await setDoc(profileRef, profileData, { merge: true });
+      
+      // 2. Denormalize basic discovery fields to the student root doc for efficient matching queries
+      const studentRef = doc(firestore, 'students', user.uid);
+      await updateDoc(studentRef, {
+        partnerProfile: {
+          targetExam: formData.targetExam,
+          subjects: formData.subjects,
+          status: formData.status,
+          bio: formData.bio,
+          lastActiveAt: serverTimestamp()
+        }
+      });
       
       toast({ title: "Profile Saved", description: "Your study partner preferences have been updated." });
       onUpdate();
     } catch (e) {
+      console.error("Save profile error:", e);
       toast({ variant: "destructive", title: "Error", description: "Could not save profile." });
     } finally {
       setIsSaving(false);
@@ -127,20 +142,45 @@ function ProfileTab({ profile, onUpdate }: { profile: StudyPartnerProfile | null
 
 // --- Discovery Component ---
 
-function DiscoveryTab({ profile }: { profile: StudyPartnerProfile | null }) {
+function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile | null, connections: StudyPartnerConnection[] }) {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  // In a real app, this would be a filtered query or Cloud Function call
-  // For the MVP, we'll simulate matches based on the target exam
+  // Query for students with the same target exam
   const matchesQuery = useMemoFirebase(() => {
     if (!firestore || !profile) return null;
-    return query(collection(firestore, "students"), limit(10)); // Just a base query for simulation
+    return query(
+      collection(firestore, "students"), 
+      where("partnerProfile.targetExam", "==", profile.targetExam),
+      where("partnerProfile.status", "==", "available"),
+      limit(20)
+    );
   }, [firestore, profile]);
 
   const { data: students, isLoading } = useCollection(matchesQuery);
   const [connectingId, setConnectingId] = React.useState<string | null>(null);
+
+  // Filter out existing connections and current user
+  const potentialMatches = React.useMemo(() => {
+    if (!students || !user) return [];
+    const connectedIds = new Set(connections.flatMap(c => [c.studentIdA, c.studentIdB]));
+    
+    return students
+      .filter(s => s.id !== user.uid && !connectedIds.has(s.id))
+      .map(student => {
+        // Calculate compatibility score based on shared subjects
+        const sharedSubjects = student.partnerProfile?.subjects?.filter((s: string) => profile?.subjects?.includes(s)) || [];
+        const baseScore = 70;
+        const subjectScore = Math.min(30, sharedSubjects.length * 10);
+        return {
+          ...student,
+          matchScore: baseScore + subjectScore,
+          sharedSubjects
+        };
+      })
+      .sort((a, b) => b.matchScore - a.matchScore);
+  }, [students, user, connections, profile]);
 
   const handleConnect = async (targetStudent: any) => {
     if (!user || !firestore) return;
@@ -154,10 +194,10 @@ function DiscoveryTab({ profile }: { profile: StudyPartnerProfile | null }) {
         studentIdB: targetStudent.id,
         participants: { [user.uid]: true, [targetStudent.id]: true },
         status: 'pending',
-        matchScore: 85 + Math.floor(Math.random() * 15),
+        matchScore: targetStudent.matchScore,
         initiatedBy: user.uid,
         createdAt: serverTimestamp(),
-        commonSubjects: profile?.subjects.slice(0, 2) || [],
+        commonSubjects: targetStudent.sharedSubjects || [],
         commonStudyTimeStart: 6,
         commonStudyTimeEnd: 8,
         messagesCount: 0
@@ -166,6 +206,7 @@ function DiscoveryTab({ profile }: { profile: StudyPartnerProfile | null }) {
       await setDoc(connRef, payload);
       toast({ title: "Request Sent", description: `Connection request sent to ${targetStudent.name}.` });
     } catch (e) {
+      console.error("Connect error:", e);
       toast({ variant: "destructive", title: "Error", description: "Could not send request." });
     } finally {
       setConnectingId(null);
@@ -184,43 +225,56 @@ function DiscoveryTab({ profile }: { profile: StudyPartnerProfile | null }) {
 
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {isLoading ? [...Array(3)].map((_, i) => <Skeleton key={i} className="h-64 w-full" />) : (
-        students?.filter(s => s.id !== user?.uid).map(student => (
-          <Card key={student.id} className="overflow-hidden">
-            <CardHeader className="bg-secondary/30 pb-4">
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-3">
-                  <UserCircle className="h-10 w-10 text-primary" />
-                  <div>
-                    <CardTitle className="text-lg">{student.name}</CardTitle>
-                    <Badge variant="outline">{profile.targetExam} Prep</Badge>
+      {isLoading ? [...Array(3)].map((_, i) => <Skeleton key={i} className="h-64 w-full" />) : 
+        potentialMatches.length > 0 ? (
+          potentialMatches.map(student => (
+            <Card key={student.id} className="overflow-hidden border-2 transition-all hover:border-primary/50">
+              <CardHeader className="bg-secondary/30 pb-4">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-3">
+                    <UserCircle className="h-10 w-10 text-primary" />
+                    <div>
+                      <CardTitle className="text-lg">{student.name}</CardTitle>
+                      <Badge variant="outline">{student.partnerProfile?.targetExam} Prep</Badge>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-bold text-primary">{student.matchScore}%</span>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Match</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-2xl font-bold text-primary">87%</span>
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Match</p>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">Common Subjects</p>
+                  <div className="flex flex-wrap gap-1">
+                    {student.sharedSubjects?.length > 0 ? 
+                      student.sharedSubjects.map((s: string) => <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>) :
+                      <span className="text-[10px] text-muted-foreground">None identified yet</span>
+                    }
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase">Common Subjects</p>
-                <div className="flex flex-wrap gap-1">
-                  {profile.subjects.slice(0, 3).map(s => <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>)}
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground line-clamp-2 italic">"Aiming for top 100 rank. Let's study Physics and Chem together!"</p>
-              <Button 
-                className="w-full" 
-                onClick={() => handleConnect(student)} 
-                disabled={connectingId === student.id}
-              >
-                {connectingId === student.id ? "Sending..." : "Connect"}
-              </Button>
-            </CardContent>
-          </Card>
-        ))
-      )}
+                <p className="text-sm text-muted-foreground line-clamp-2 italic">
+                  {student.partnerProfile?.bio || "Let's study together and ace our exams!"}
+                </p>
+                <Button 
+                  className="w-full" 
+                  onClick={() => handleConnect(student)} 
+                  disabled={connectingId === student.id}
+                >
+                  {connectingId === student.id ? "Sending..." : "Connect"}
+                </Button>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <div className="col-span-full py-12 text-center bg-secondary/10 rounded-xl border-2 border-dashed">
+            <Users className="mx-auto h-12 w-12 text-muted-foreground opacity-20 mb-4" />
+            <h3 className="text-lg font-medium">No matches found</h3>
+            <p className="text-muted-foreground max-w-md mx-auto mt-2">We couldn't find any partners matching your exam goal right now. Try updating your profile or check back later!</p>
+          </div>
+        )
+      }
     </div>
   );
 }
@@ -509,7 +563,7 @@ export default function StudyPartnerPage() {
         </TabsList>
 
         <TabsContent value="discovery">
-          <DiscoveryTab profile={profile} />
+          <DiscoveryTab profile={profile} connections={connections || []} />
         </TabsContent>
 
         <TabsContent value="partners">
