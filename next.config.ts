@@ -39,11 +39,6 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: '/',
-        destination: '/dashboard',
-        permanent: false,
-      },
-      {
         source: '/dashboard/marketplace/:path*',
         destination: '/dashboard',
         permanent: false,
