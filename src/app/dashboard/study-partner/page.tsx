@@ -198,6 +198,7 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
   // Filter out existing connections and current user
   const potentialMatches = React.useMemo(() => {
     if (!students || !user) return [];
+    // Ensure we filter based on IDs found in any position of the connection
     const connectedIds = new Set(connections.flatMap(c => [c.studentIdA, c.studentIdB]));
     
     return students
@@ -222,7 +223,8 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
     try {
       // Get current user's name for denormalization
       const userSnap = await getDoc(doc(firestore, 'users', user.uid));
-      const userName = userSnap.exists() ? userSnap.data().name : user.displayName || "Student";
+      const userData = userSnap.exists() ? userSnap.data() : {};
+      const userName = userData.name || user.displayName || "Student";
 
       const connectionId = [user.uid, targetStudent.id].sort().join('_');
       const connRef = doc(firestore, 'studyPartnerConnections', connectionId);
@@ -241,7 +243,7 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
         commonStudyTimeStart: 6,
         commonStudyTimeEnd: 8,
         messagesCount: 0,
-        // Store names for easy retrieval
+        // Store names for easy retrieval and repair
         [`name_${user.uid}`]: userName,
         [`name_${targetStudent.id}`]: targetStudent.name
       };
@@ -332,6 +334,51 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
   );
 }
 
+// --- Active Partner Card (Identity Repairing) ---
+
+function ActivePartnerCard({ connection, onSelect }: { connection: StudyPartnerConnection, onSelect: () => void }) {
+  const { user } = useUser();
+  const partnerId = connection.studentIdA === user?.uid ? connection.studentIdB : connection.studentIdA;
+  const firestore = useFirestore();
+  
+  // Fetch real-time student profile if denormalized data is missing
+  const partnerRef = useMemoFirebase(() => partnerId ? doc(firestore, 'students', partnerId) : null, [firestore, partnerId]);
+  const { data: partnerProfile } = useDoc(partnerRef);
+
+  const name = connection[`name_${partnerId}`] || partnerProfile?.name || "Study Buddy";
+  const avatar = partnerProfile?.profileImageUrl;
+
+  return (
+    <Card className="hover:shadow-md transition-all cursor-pointer" onClick={onSelect}>
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10 border border-primary/20">
+              <AvatarImage src={avatar} />
+              <AvatarFallback>{name.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div>
+              <CardTitle className="text-base">{name}</CardTitle>
+              <Badge variant="secondary" className="text-[10px]">🟢 Active Partner</Badge>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
+          <Timer className="h-3 w-3" />
+          Last session: {connection.lastMessageAt ? format(connection.lastMessageAt.toDate(), "PPP") : "No sessions yet"}
+        </div>
+        <Button className="w-full gap-2">
+          <MessageSquare className="h-4 w-4" />
+          Open Chat
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 // --- Active Partners Tab ---
 
 function PartnersTab({ connections }: { connections: StudyPartnerConnection[] }) {
@@ -343,22 +390,25 @@ function PartnersTab({ connections }: { connections: StudyPartnerConnection[] })
   const activePartners = connections.filter(c => c.status === 'active');
   const pendingRequests = connections.filter(c => c.status === 'pending' && c.initiatedBy !== user?.uid);
 
-  const handleAccept = async (conn: StudyPartnerConnection) => {
-    if (!firestore) return;
+  const handleAccept = async (conn: any) => {
+    if (!firestore || !user) return;
     try {
-      await updateDoc(doc(firestore, 'studyPartnerConnections', conn.id), {
+      // Identity repair during acceptance
+      const userSnap = await getDoc(doc(firestore, 'users', user.uid));
+      const userName = userSnap.exists() ? userSnap.data().name : user.displayName || "Student";
+      
+      const updateData: any = {
         status: 'active',
-        acceptedAt: serverTimestamp()
-      });
+        acceptedAt: serverTimestamp(),
+        participants: { [conn.studentIdA]: true, [conn.studentIdB]: true },
+        [`name_${user.uid}`]: userName
+      };
+
+      await updateDoc(doc(firestore, 'studyPartnerConnections', conn.id), updateData);
       toast({ title: "Partner Added!", description: "You can now start studying together." });
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "Action failed." });
     }
-  };
-
-  const getPartnerName = (conn: any) => {
-    const partnerId = conn.studentIdA === user?.uid ? conn.studentIdB : conn.studentIdA;
-    return conn[`name_${partnerId}`] || conn.initiatedByName || "Study Buddy";
   };
 
   if (selectedConnection) {
@@ -400,32 +450,11 @@ function PartnersTab({ connections }: { connections: StudyPartnerConnection[] })
         {activePartners.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {activePartners.map(p => (
-              <Card key={p.id} className="hover:shadow-md transition-all cursor-pointer" onClick={() => setSelectedConnection(p)}>
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10 border border-primary/20">
-                        <AvatarFallback>{getPartnerName(p).charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <CardTitle className="text-base">{getPartnerName(p)}</CardTitle>
-                        <Badge variant="secondary" className="text-[10px]">🟢 Active Partner</Badge>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
-                    <Timer className="h-3 w-3" />
-                    Last session: {p.lastMessageAt ? format(p.lastMessageAt.toDate(), "PPP") : "No sessions yet"}
-                  </div>
-                  <Button className="w-full gap-2">
-                    <MessageSquare className="h-4 w-4" />
-                    Open Chat
-                  </Button>
-                </CardContent>
-              </Card>
+              <ActivePartnerCard 
+                key={p.id} 
+                connection={p} 
+                onSelect={() => setSelectedConnection(p)} 
+              />
             ))}
           </div>
         ) : (
@@ -522,7 +551,8 @@ function ChatView({ connection, onBack }: { connection: StudyPartnerConnection, 
     }
   };
 
-  const partnerName = (connection as any)[`name_${user?.uid === connection.studentIdA ? connection.studentIdB : connection.studentIdA}`] || connection.initiatedByName || "Partner";
+  const partnerId = user?.uid === connection.studentIdA ? connection.studentIdB : connection.studentIdA;
+  const partnerName = connection[`name_${partnerId}`] || connection.initiatedByName || "Study Partner";
 
   return (
     <div className="flex flex-col h-[70vh] bg-card border rounded-xl overflow-hidden shadow-lg">
@@ -551,7 +581,7 @@ function ChatView({ connection, onBack }: { connection: StudyPartnerConnection, 
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-secondary/5">
-        {messages?.sort((a, b) => a.sentAt?.toMillis() - b.sentAt?.toMillis()).map(m => (
+        {messages?.sort((a, b) => (a.sentAt?.toMillis() || 0) - (b.sentAt?.toMillis() || 0)).map(m => (
           <div key={m.id} className={cn("flex flex-col max-w-[80%]", m.senderId === user?.uid ? "ml-auto items-end" : "mr-auto items-start")}>
             <div className={cn("px-4 py-2 rounded-2xl text-sm", m.senderId === user?.uid ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card border rounded-tl-none")}>
               {m.text}
@@ -600,6 +630,7 @@ export default function StudyPartnerPage() {
 
   const connsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
+    // We fetch connections where the user is a participant to handle filtering and identification
     return query(collection(firestore, "studyPartnerConnections"), where(`participants.${user.uid}`, '==', true));
   }, [firestore, user]);
 
