@@ -259,7 +259,7 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
         [`name_${targetStudent.id}`]: targetStudent.name
       };
 
-      await setDoc(connRef, payload);
+      await setDoc(connRef, payload, { merge: true });
       toast({ title: "Request Sent", description: `Connection request sent to ${targetStudent.name}.` });
     } catch (e: any) {
       console.error("Connect error:", e);
@@ -688,13 +688,29 @@ export default function StudyPartnerPage() {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc<StudyPartnerProfile>(profileRef);
 
-  const connsQuery = useMemoFirebase(() => {
+  // Split connections query into directional ones to satisfy security rules constraints
+  const connsQueryA = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    // We fetch connections where the user is a participant to handle filtering and identification
-    return query(collection(firestore, "studyPartnerConnections"), where(`participants.${user.uid}`, '==', true), where('status', '!=', 'blocked'));
+    return query(collection(firestore, "studyPartnerConnections"), where('studentIdA', '==', user.uid), where('status', '!=', 'blocked'));
   }, [firestore, user]);
 
-  const { data: connections, isLoading: areConnsLoading } = useCollection<StudyPartnerConnection>(connsQuery);
+  const connsQueryB = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, "studyPartnerConnections"), where('studentIdB', '==', user.uid), where('status', '!=', 'blocked'));
+  }, [firestore, user]);
+
+  const { data: connsA, isLoading: loadingA } = useCollection<StudyPartnerConnection>(connsQueryA);
+  const { data: connsB, isLoading: loadingB } = useCollection<StudyPartnerConnection>(connsQueryB);
+
+  // Merge the two directional queries
+  const connections = React.useMemo(() => {
+    if (loadingA || loadingB) return null;
+    const combined = [...(connsA || []), ...(connsB || [])];
+    const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+    return unique;
+  }, [connsA, connsB, loadingA, loadingB]);
+
+  const areConnsLoading = loadingA || loadingB;
 
   if (isUserLoading || isProfileLoading || areConnsLoading) {
     return <div className="space-y-8 p-8"><Skeleton className="h-12 w-1/3" /><Skeleton className="h-64 w-full" /></div>;
