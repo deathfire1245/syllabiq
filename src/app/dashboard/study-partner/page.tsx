@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { doc, setDoc, query, collection, where, serverTimestamp, updateDoc, onSnapshot, limit } from "firebase/firestore";
+import { doc, setDoc, query, collection, where, serverTimestamp, updateDoc, onSnapshot, limit, getDoc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { Users, MessageSquare, Timer, UserCircle, Check, X, ShieldAlert, MoreVer
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { StudyPartnerProfile, StudyPartnerConnection, StudyPartnerMessage, StudyPartnerSession } from "@/lib/types";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // --- Profile Component ---
 
@@ -36,39 +37,57 @@ function ProfileTab({ profile, onUpdate }: { profile: StudyPartnerProfile | null
     status: profile?.status || "available"
   });
 
+  // Sync state when profile is loaded
+  React.useEffect(() => {
+    if (profile) {
+      setFormData({
+        targetExam: profile.targetExam,
+        subjects: profile.subjects,
+        studyHoursPerDay: profile.studyHoursPerDay,
+        bio: profile.bio,
+        status: profile.status
+      });
+    }
+  }, [profile]);
+
   const handleSave = async () => {
     if (!user || !firestore) return;
     setIsSaving(true);
     
     const profileRef = doc(firestore, `students/${user.uid}/studyPartnerProfile`, 'main');
     const studentRef = doc(firestore, 'students', user.uid);
+    const userRef = doc(firestore, 'users', user.uid);
     
-    const profileData = {
-      ...formData,
-      updatedAt: serverTimestamp(),
-      createdAt: profile?.createdAt || serverTimestamp(),
-      lastActiveAt: serverTimestamp(),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-    };
-
-    const denormalizedData = {
-      id: user.uid,
-      name: user.displayName || "Student",
-      partnerProfile: {
-        targetExam: formData.targetExam,
-        subjects: formData.subjects,
-        status: formData.status,
-        bio: formData.bio,
-        lastActiveAt: serverTimestamp()
-      }
-    };
-
     try {
+      // Fetch the latest core profile to get the real name and picture
+      const userSnap = await getDoc(userRef);
+      const coreProfile = userSnap.exists() ? userSnap.data() : {};
+
+      const profileData = {
+        ...formData,
+        updatedAt: serverTimestamp(),
+        createdAt: profile?.createdAt || serverTimestamp(),
+        lastActiveAt: serverTimestamp(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      };
+
+      const denormalizedData = {
+        id: user.uid,
+        name: coreProfile.name || user.displayName || "Student",
+        profileImageUrl: coreProfile.profilePicture || user.photoURL || `https://picsum.photos/seed/${user.uid}/100`,
+        partnerProfile: {
+          targetExam: formData.targetExam,
+          subjects: formData.subjects,
+          status: formData.status,
+          bio: formData.bio,
+          lastActiveAt: serverTimestamp()
+        }
+      };
+
       // 1. Save detailed profile to subcollection
       await setDoc(profileRef, profileData, { merge: true });
       
-      // 2. Denormalize to student root doc using setDoc with merge: true 
-      // This is safer than updateDoc for older accounts where the student doc might not exist.
+      // 2. Denormalize to student root doc
       await setDoc(studentRef, denormalizedData, { merge: true });
       
       toast({ title: "Profile Saved", description: "Your study partner preferences have been updated." });
@@ -76,12 +95,10 @@ function ProfileTab({ profile, onUpdate }: { profile: StudyPartnerProfile | null
     } catch (e: any) {
       console.error("Save profile error:", e);
       if (e.code === 'permission-denied') {
-        const permissionError = new FirestorePermissionError({
-          path: studentRef.path,
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `students/${user.uid}`,
           operation: 'write',
-          requestResourceData: denormalizedData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        }));
       } else {
         toast({ variant: "destructive", title: "Error", description: "Could not save profile. Please try again." });
       }
@@ -186,7 +203,7 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
     return students
       .filter(s => s.id !== user.uid && !connectedIds.has(s.id))
       .map(student => {
-        // Calculate compatibility score based on shared subjects
+        // Calculate compatibility score
         const sharedSubjects = student.partnerProfile?.subjects?.filter((s: string) => profile?.subjects?.includes(s)) || [];
         const baseScore = 70;
         const subjectScore = Math.min(30, sharedSubjects.length * 10);
@@ -203,6 +220,10 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
     if (!user || !firestore) return;
     setConnectingId(targetStudent.id);
     try {
+      // Get current user's name for denormalization
+      const userSnap = await getDoc(doc(firestore, 'users', user.uid));
+      const userName = userSnap.exists() ? userSnap.data().name : user.displayName || "Student";
+
       const connectionId = [user.uid, targetStudent.id].sort().join('_');
       const connRef = doc(firestore, 'studyPartnerConnections', connectionId);
       
@@ -214,11 +235,15 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
         status: 'pending',
         matchScore: targetStudent.matchScore,
         initiatedBy: user.uid,
+        initiatedByName: userName, // Denormalize for the receiver to see
         createdAt: serverTimestamp(),
         commonSubjects: targetStudent.sharedSubjects || [],
         commonStudyTimeStart: 6,
         commonStudyTimeEnd: 8,
-        messagesCount: 0
+        messagesCount: 0,
+        // Store names for easy retrieval
+        [`name_${user.uid}`]: userName,
+        [`name_${targetStudent.id}`]: targetStudent.name
       };
 
       await setDoc(connRef, payload);
@@ -226,11 +251,9 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
     } catch (e: any) {
       console.error("Connect error:", e);
       if (e.code === 'permission-denied') {
-          // This path needs to match the rules exactly
           errorEmitter.emit('permission-error', new FirestorePermissionError({
               path: `studyPartnerConnections/${[user.uid, targetStudent.id].sort().join('_')}`,
               operation: 'create',
-              requestResourceData: { participants: { [user.uid]: true, [targetStudent.id]: true } }
           }));
       } else {
           toast({ variant: "destructive", title: "Error", description: "Could not send request." });
@@ -259,7 +282,10 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
               <CardHeader className="bg-secondary/30 pb-4">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
-                    <UserCircle className="h-10 w-10 text-primary" />
+                    <Avatar className="h-10 w-10 border-2 border-primary/20">
+                      <AvatarImage src={student.profileImageUrl} alt={student.name} />
+                      <AvatarFallback>{student.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
                     <div>
                       <CardTitle className="text-lg">{student.name}</CardTitle>
                       <Badge variant="outline">{student.partnerProfile?.targetExam} Prep</Badge>
@@ -281,8 +307,8 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
                     }
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground line-clamp-2 italic">
-                  {student.partnerProfile?.bio || "Let's study together and ace our exams!"}
+                <p className="text-sm text-muted-foreground line-clamp-2 italic min-h-[40px]">
+                  "{student.partnerProfile?.bio || "Let's study together and ace our exams!"}"
                 </p>
                 <Button 
                   className="w-full" 
@@ -330,6 +356,11 @@ function PartnersTab({ connections }: { connections: StudyPartnerConnection[] })
     }
   };
 
+  const getPartnerName = (conn: any) => {
+    const partnerId = conn.studentIdA === user?.uid ? conn.studentIdB : conn.studentIdA;
+    return conn[`name_${partnerId}`] || conn.initiatedByName || "Study Buddy";
+  };
+
   if (selectedConnection) {
     return <ChatView connection={selectedConnection} onBack={() => setSelectedConnection(null)} />;
   }
@@ -344,16 +375,18 @@ function PartnersTab({ connections }: { connections: StudyPartnerConnection[] })
           </h3>
           <div className="grid gap-4 sm:grid-cols-2">
             {pendingRequests.map(req => (
-              <Card key={req.id} className="flex items-center justify-between p-4">
+              <Card key={req.id} className="flex items-center justify-between p-4 border-l-4 border-l-orange-500">
                 <div className="flex items-center gap-3">
-                  <UserCircle className="h-8 w-8 text-muted-foreground" />
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback>{(req.initiatedByName || "S").charAt(0)}</AvatarFallback>
+                  </Avatar>
                   <div>
-                    <p className="font-bold">New Student Match</p>
+                    <p className="font-bold">{req.initiatedByName || "New Student Match"}</p>
                     <p className="text-xs text-muted-foreground">{req.matchScore}% Compatibility</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={() => handleAccept(req)}><Check className="h-4 w-4" /></Button>
+                  <Button size="sm" onClick={() => handleAccept(req)} className="bg-green-600 hover:bg-green-700"><Check className="h-4 w-4" /></Button>
                   <Button size="sm" variant="ghost" className="text-destructive"><X className="h-4 w-4" /></Button>
                 </div>
               </Card>
@@ -371,10 +404,12 @@ function PartnersTab({ connections }: { connections: StudyPartnerConnection[] })
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-3">
-                      <UserCircle className="h-10 w-10 text-primary" />
+                      <Avatar className="h-10 w-10 border border-primary/20">
+                        <AvatarFallback>{getPartnerName(p).charAt(0)}</AvatarFallback>
+                      </Avatar>
                       <div>
-                        <CardTitle className="text-base">Study Buddy</CardTitle>
-                        <Badge variant="secondary" className="text-[10px]">🟢 Online</Badge>
+                        <CardTitle className="text-base">{getPartnerName(p)}</CardTitle>
+                        <Badge variant="secondary" className="text-[10px]">🟢 Active Partner</Badge>
                       </div>
                     </div>
                     <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
@@ -383,7 +418,7 @@ function PartnersTab({ connections }: { connections: StudyPartnerConnection[] })
                 <CardContent>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
                     <Timer className="h-3 w-3" />
-                    Last session: 2 hours ago
+                    Last session: {p.lastMessageAt ? format(p.lastMessageAt.toDate(), "PPP") : "No sessions yet"}
                   </div>
                   <Button className="w-full gap-2">
                     <MessageSquare className="h-4 w-4" />
@@ -435,7 +470,6 @@ function ChatView({ connection, onBack }: { connection: StudyPartnerConnection, 
 
   const handleSendMessage = async () => {
     if (!user || !firestore || !msgText.trim()) return;
-    // MVP Restriction: Only during session
     if (!activeSession) {
       toast({ title: "Focus Mode", description: "Messaging is only enabled during active study sessions." });
       return;
@@ -488,13 +522,18 @@ function ChatView({ connection, onBack }: { connection: StudyPartnerConnection, 
     }
   };
 
+  const partnerName = (connection as any)[`name_${user?.uid === connection.studentIdA ? connection.studentIdB : connection.studentIdA}`] || connection.initiatedByName || "Partner";
+
   return (
     <div className="flex flex-col h-[70vh] bg-card border rounded-xl overflow-hidden shadow-lg">
       <div className="p-4 border-b flex items-center justify-between bg-secondary/20">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={onBack}><X className="h-4 w-4" /></Button>
+          <Avatar className="h-8 w-8">
+            <AvatarFallback>{partnerName.charAt(0)}</AvatarFallback>
+          </Avatar>
           <div>
-            <p className="font-bold text-sm">Study Partner Chat</p>
+            <p className="font-bold text-sm">{partnerName}</p>
             <p className="text-xs text-muted-foreground">
               {activeSession ? "🟢 In Session" : "⚪ Focus Mode (Messaging Disabled)"}
             </p>
@@ -520,7 +559,7 @@ function ChatView({ connection, onBack }: { connection: StudyPartnerConnection, 
             <span className="text-[10px] text-muted-foreground mt-1 px-1">{m.sentAt ? format(m.sentAt.toDate(), "HH:mm") : "..." }</span>
           </div>
         ))}
-        {!activeSession && (
+        {!activeSession && messages?.length === 0 && (
           <div className="py-8 text-center opacity-50">
             <Timer className="h-8 w-8 mx-auto mb-2" />
             <p className="text-xs">Start a study session to unlock messaging.</p>
