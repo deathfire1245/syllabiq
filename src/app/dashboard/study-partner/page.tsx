@@ -203,6 +203,7 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
 
   const { data: students, isLoading } = useCollection(matchesQuery);
   const [connectingId, setConnectingId] = React.useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = React.useState("");
 
   // ✅ FIXED: Filter by status and availability IN CODE instead of in query
   const potentialMatches = React.useMemo(() => {
@@ -227,8 +228,16 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
           sharedSubjects
         };
       })
+      .filter(student => {
+        if (!searchTerm) return true;
+        const term = searchTerm.toLowerCase();
+        const matchesName = student.name?.toLowerCase().includes(term);
+        const matchesBio = student.partnerProfile?.bio?.toLowerCase().includes(term);
+        const matchesSubjects = student.partnerProfile?.subjects?.some((s: string) => s.toLowerCase().includes(term));
+        return matchesName || matchesBio || matchesSubjects;
+      })
       .sort((a, b) => b.matchScore - a.matchScore);
-  }, [students, user, connections, profile]);
+  }, [students, user, connections, profile, searchTerm]);
 
   const handleConnect = async (targetStudent: any) => {
     if (!user || !firestore) return;
@@ -289,8 +298,16 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
   }
 
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {isLoading ? [...Array(3)].map((_, i) => <Skeleton key={i} className="h-64 w-full" />) : 
+    <div className="space-y-6">
+      <div className="flex justify-between items-center sm:max-w-md">
+        <Input 
+          placeholder="Search partners by keywords or username..." 
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {isLoading ? [...Array(3)].map((_, i) => <Skeleton key={i} className="h-64 w-full" />) : 
         potentialMatches.length > 0 ? (
           potentialMatches.map(student => (
             <Card key={student.id} className="overflow-hidden border-2 transition-all hover:border-primary/50">
@@ -339,10 +356,13 @@ function DiscoveryTab({ profile, connections }: { profile: StudyPartnerProfile |
           <div className="col-span-full py-12 text-center bg-secondary/10 rounded-xl border-2 border-dashed">
             <Users className="mx-auto h-12 w-12 text-muted-foreground opacity-20 mb-4" />
             <h3 className="text-lg font-medium">No matches found</h3>
-            <p className="text-muted-foreground max-w-md mx-auto mt-2">We couldn't find any partners matching your exam goal right now. Try updating your profile or check back later!</p>
+            <p className="text-muted-foreground max-w-md mx-auto mt-2">
+              {searchTerm ? "No partners match your search terms." : "We couldn't find any partners matching your exam goal right now. Try updating your profile or check back later!"}
+            </p>
           </div>
         )
       }
+      </div>
     </div>
   );
 }
@@ -399,9 +419,17 @@ function PartnersTab({ connections }: { connections: StudyPartnerConnection[] })
   const firestore = useFirestore();
   const { toast } = useToast();
   const [selectedConnection, setSelectedConnection] = React.useState<StudyPartnerConnection | null>(null);
+  const [searchQuery, setSearchQuery] = React.useState("");
 
   const activePartners = connections.filter(c => c.status === 'active');
   const pendingRequests = connections.filter(c => c.status === 'pending' && c.initiatedBy !== user?.uid);
+
+  const filteredPartners = activePartners.filter(p => {
+    if (!searchQuery) return true;
+    const partnerId = p.studentIdA === user?.uid ? p.studentIdB : p.studentIdA;
+    const name = p[`name_${partnerId}`] || "Study Partner";
+    return name.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   const handleAccept = async (conn: any) => {
     if (!firestore || !user) return;
@@ -459,10 +487,18 @@ function PartnersTab({ connections }: { connections: StudyPartnerConnection[] })
       )}
 
       <section className="space-y-4">
-        <h3 className="text-lg font-bold">Active Partners</h3>
-        {activePartners.length > 0 ? (
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <h3 className="text-lg font-bold">Active Partners</h3>
+          <Input 
+            placeholder="Search friends..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full sm:max-w-xs"
+          />
+        </div>
+        {filteredPartners.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {activePartners.map(p => (
+            {filteredPartners.map(p => (
               <ActivePartnerCard 
                 key={p.id} 
                 connection={p} 
@@ -473,7 +509,7 @@ function PartnersTab({ connections }: { connections: StudyPartnerConnection[] })
         ) : (
           <div className="py-12 text-center border-2 border-dashed rounded-xl bg-secondary/10">
             <Users className="mx-auto h-12 w-12 text-muted-foreground opacity-20 mb-4" />
-            <p className="text-muted-foreground">No active partners yet. Explore the discovery tab!</p>
+            <p className="text-muted-foreground">{searchQuery ? "No partners match your search." : "No active partners yet. Explore the discovery tab!"}</p>
           </div>
         )}
       </section>
